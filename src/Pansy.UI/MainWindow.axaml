@@ -202,7 +202,7 @@
 					<StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="4">
 						<Button Content="🗑️ Delete" Click="DeleteCrossRef_Click" Margin="2" IsEnabled="{Binding CanDeleteCrossRef}" />
 						<Separator Margin="8,0" />
-						
+
 						<TextBlock Text="Type:" VerticalAlignment="Center" Margin="4,0" />
 						<ComboBox SelectedItem="{Binding XrefFilterType}" Width="120" Margin="2" SelectionChanged="XrefTypeFilter_Changed">
 							<ComboBoxItem Content="All" IsSelected="True" />
@@ -213,10 +213,10 @@
 							<ComboBoxItem Content="Write" />
 							<ComboBoxItem Content="DataRef" />
 						</ComboBox>
-						
+
 						<TextBlock Text="Address:" VerticalAlignment="Center" Margin="8,0,4,0" />
-						<TextBox Width="120" Text="{Binding XrefFilterAddress}" 
-						         Watermark="$8000" 
+						<TextBox Width="120" Text="{Binding XrefFilterAddress}"
+						         Watermark="$8000"
 						         TextChanged="XrefAddressFilter_Changed"
 						         ToolTip.Tip="Filter by From or To address" />
 						<Button Content="✖️ Clear" Click="ClearXrefFilter_Click" Margin="2" />
@@ -235,6 +235,35 @@
 							<DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="150" />
 						</DataGrid.Columns>
 					</DataGrid>
+				</DockPanel>
+			</TabItem>
+
+			<!-- Call Graph Tab -->
+			<TabItem Header="📊 Call Graph">
+				<DockPanel>
+					<!-- Toolbar -->
+					<StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="4">
+						<Button Content="🔄 Refresh" Click="RefreshGraph_Click" Margin="2" IsEnabled="{Binding HasFileLoaded}" />
+						<Separator Margin="8,0" />
+						<TextBlock Text="Zoom:" VerticalAlignment="Center" Margin="4,0" />
+						<Slider x:Name="GraphZoomSlider" Width="150" Minimum="0.25" Maximum="2.0" Value="1.0"
+						        TickFrequency="0.25" IsSnapToTickEnabled="True"
+						        ValueChanged="GraphZoom_Changed" />
+						<TextBlock Text="{Binding ElementName=GraphZoomSlider, Path=Value, StringFormat='{}{0:P0}'}"
+						           VerticalAlignment="Center" Margin="4,0" Width="50" />
+						<Separator Margin="8,0" />
+						<Button Content="📷 Export PNG" Click="ExportGraphPng_Click" Margin="2" IsEnabled="{Binding HasFileLoaded}" />
+						<Button Content="📄 Export DOT" Click="ExportGraphDot_Click" Margin="2" IsEnabled="{Binding HasFileLoaded}" />
+					</StackPanel>
+
+					<!-- Graph Canvas -->
+					<Border BorderBrush="Gray" BorderThickness="1" Margin="8">
+						<ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+							<Canvas x:Name="GraphCanvas" Background="White" Width="2000" Height="1500">
+								<!-- Graph nodes and edges are drawn programmatically -->
+							</Canvas>
+						</ScrollViewer>
+					</Border>
 				</DockPanel>
 			</TabItem>
 		</TabControl>

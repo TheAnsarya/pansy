@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
@@ -207,6 +208,23 @@ public class MainWindowViewModel : INotifyPropertyChanged {
 	public ObservableCollection<MemoryRegionInfo> MemoryRegions { get; } = new();
 	public ObservableCollection<CrossRefInfo> CrossReferences { get; } = new();
 	public ObservableCollection<CrossRefInfo> FilteredCrossReferences { get; } = new();
+
+	/// <summary>
+	/// List of subroutine entry point addresses for call graph rendering
+	/// </summary>
+	public List<uint> Subroutines { get; } = new();
+
+	/// <summary>
+	/// Raw cross-references from the loaded Pansy file (for graph rendering)
+	/// </summary>
+	public IReadOnlyList<CrossReference> RawCrossReferences =>
+		_currentLoader?.CrossReferences ?? Array.Empty<CrossReference>();
+
+	/// <summary>
+	/// Raw symbols dictionary (address → name) from the loaded Pansy file (for graph rendering)
+	/// </summary>
+	public IReadOnlyDictionary<int, string> RawSymbols =>
+		_currentLoader?.Symbols ?? new Dictionary<int, string>();
 
 	public bool HasFileLoaded => !string.IsNullOrEmpty(FileName);
 	public bool CanSave => HasFileLoaded && IsDirty;
@@ -609,6 +627,12 @@ public class MainWindowViewModel : INotifyPropertyChanged {
 				};
 				CrossReferences.Add(crossRefInfo);
 				FilteredCrossReferences.Add(crossRefInfo);
+			}
+
+			// Load subroutine entry points for call graph
+			Subroutines.Clear();
+			foreach (var offset in loader.SubEntryPoints) {
+				Subroutines.Add((uint)offset);
 			}
 
 			// Clear filters

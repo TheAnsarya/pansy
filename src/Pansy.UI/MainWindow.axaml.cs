@@ -1,13 +1,19 @@
 using System;
+using System.IO;
 using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
+using Pansy.UI.Controls;
 using Pansy.UI.ViewModels;
 
 namespace Pansy.UI;
 
 public partial class MainWindow : Window {
+	private CallGraphRenderer? _graphRenderer;
+
 	public MainWindow() {
 		InitializeComponent();
 		DataContext = new MainWindowViewModel();
@@ -193,6 +199,81 @@ public partial class MainWindow : Window {
 	private void ClearXrefFilter_Click(object? sender, RoutedEventArgs e) {
 		if (DataContext is MainWindowViewModel vm) {
 			vm.ClearXrefFilter();
+		}
+	}
+
+	private void RefreshGraph_Click(object? sender, RoutedEventArgs e) {
+		if (DataContext is not MainWindowViewModel vm || !vm.HasFileLoaded)
+			return;
+
+		// Initialize renderer if needed
+		_graphRenderer ??= new CallGraphRenderer(GraphCanvas);
+
+		// Render the graph with raw data from loader
+		_graphRenderer.Render(vm.RawCrossReferences, vm.RawSymbols, vm.Subroutines);
+	}
+
+	private void GraphZoom_Changed(object? sender, Avalonia.Controls.Primitives.RangeBaseValueChangedEventArgs e) {
+		if (_graphRenderer != null) {
+			_graphRenderer.Zoom = e.NewValue;
+		}
+	}
+
+	private async void ExportGraphPng_Click(object? sender, RoutedEventArgs e) {
+		if (DataContext is not MainWindowViewModel vm || !vm.HasFileLoaded)
+			return;
+
+		var topLevel = TopLevel.GetTopLevel(this);
+		if (topLevel == null) return;
+
+		var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions {
+			Title = "Export Graph as PNG",
+			DefaultExtension = "png",
+			FileTypeChoices = new[] {
+				new FilePickerFileType("PNG Image") { Patterns = new[] { "*.png" } }
+			},
+			SuggestedFileName = "call-graph.png"
+		});
+
+		if (file != null) {
+			var path = file.TryGetLocalPath();
+			if (!string.IsNullOrEmpty(path)) {
+				try {
+					// Render canvas to bitmap
+					var pixelSize = new PixelSize((int)GraphCanvas.Width, (int)GraphCanvas.Height);
+					var renderTarget = new RenderTargetBitmap(pixelSize, new Vector(96, 96));
+					renderTarget.Render(GraphCanvas);
+					renderTarget.Save(path);
+				} catch (Exception ex) {
+					// Show error dialog
+					System.Diagnostics.Debug.WriteLine($"Failed to export PNG: {ex.Message}");
+				}
+			}
+		}
+	}
+
+	private async void ExportGraphDot_Click(object? sender, RoutedEventArgs e) {
+		if (DataContext is not MainWindowViewModel vm || !vm.HasFileLoaded)
+			return;
+
+		var topLevel = TopLevel.GetTopLevel(this);
+		if (topLevel == null) return;
+
+		var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions {
+			Title = "Export Graph as DOT",
+			DefaultExtension = "dot",
+			FileTypeChoices = new[] {
+				new FilePickerFileType("GraphViz DOT") { Patterns = new[] { "*.dot" } }
+			},
+			SuggestedFileName = "call-graph.dot"
+		});
+
+		if (file != null) {
+			var path = file.TryGetLocalPath();
+			if (!string.IsNullOrEmpty(path) && _graphRenderer != null && DataContext is MainWindowViewModel vm2) {
+				var dotContent = _graphRenderer.GenerateDotFormat(vm2.RawSymbols);
+				await File.WriteAllTextAsync(path, dotContent);
+			}
 		}
 	}
 
