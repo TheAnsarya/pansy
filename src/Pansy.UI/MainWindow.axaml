@@ -1,0 +1,155 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:Pansy.UI.ViewModels"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
+        x:Class="Pansy.UI.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="{Binding Title}"
+        Width="1200" Height="800">
+
+	<Design.DataContext>
+		<vm:MainWindowViewModel/>
+	</Design.DataContext>
+
+	<Grid RowDefinitions="Auto,*">
+		<!-- Menu Bar -->
+		<Menu Grid.Row="0">
+			<MenuItem Header="_File">
+				<MenuItem Header="_Open..." Click="OpenFile_Click" />
+				<Separator />
+				<MenuItem Header="E_xit" Click="Exit_Click" />
+			</MenuItem>
+			<MenuItem Header="_View">
+				<MenuItem Header="_Symbols" />
+				<MenuItem Header="_Comments" />
+				<MenuItem Header="_Memory Regions" />
+				<MenuItem Header="_Cross-References" />
+			</MenuItem>
+			<MenuItem Header="_Help">
+				<MenuItem Header="_About..." />
+			</MenuItem>
+		</Menu>
+
+		<!-- Main Content -->
+		<TabControl Grid.Row="1" Margin="8">
+			<!-- Overview Tab -->
+			<TabItem Header="📋 Overview">
+				<ScrollViewer>
+					<StackPanel Margin="16" Spacing="16">
+						<TextBlock Text="File Information" FontSize="18" FontWeight="Bold" />
+						
+						<Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" Margin="8,0">
+							<TextBlock Grid.Row="0" Grid.Column="0" Text="File:" FontWeight="SemiBold" />
+							<TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding FileName}" />
+							
+							<TextBlock Grid.Row="1" Grid.Column="0" Text="Platform:" FontWeight="SemiBold" />
+							<TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PlatformName}" />
+							
+							<TextBlock Grid.Row="2" Grid.Column="0" Text="ROM Size:" FontWeight="SemiBold" />
+							<TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding RomSize}" />
+							
+							<TextBlock Grid.Row="3" Grid.Column="0" Text="ROM CRC32:" FontWeight="SemiBold" />
+							<TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding RomCrc}" />
+							
+							<TextBlock Grid.Row="4" Grid.Column="0" Text="File Version:" FontWeight="SemiBold" />
+							<TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding FileVersion}" />
+							
+							<TextBlock Grid.Row="5" Grid.Column="0" Text="Compressed:" FontWeight="SemiBold" />
+							<TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding IsCompressed}" />
+						</Grid>
+						
+						<TextBlock Text="Statistics" FontSize="18" FontWeight="Bold" Margin="0,16,0,0" />
+						
+						<Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="8,0">
+							<TextBlock Grid.Row="0" Grid.Column="0" Text="Symbols:" FontWeight="SemiBold" />
+							<TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SymbolCount}" />
+							
+							<TextBlock Grid.Row="1" Grid.Column="0" Text="Comments:" FontWeight="SemiBold" />
+							<TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CommentCount}" />
+							
+							<TextBlock Grid.Row="2" Grid.Column="0" Text="Code Offsets:" FontWeight="SemiBold" />
+							<TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CodeOffsetCount}" />
+							
+							<TextBlock Grid.Row="3" Grid.Column="0" Text="Data Offsets:" FontWeight="SemiBold" />
+							<TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding DataOffsetCount}" />
+							
+							<TextBlock Grid.Row="4" Grid.Column="0" Text="Jump Targets:" FontWeight="SemiBold" />
+							<TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding JumpTargetCount}" />
+							
+							<TextBlock Grid.Row="5" Grid.Column="0" Text="Subroutines:" FontWeight="SemiBold" />
+							<TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding SubroutineCount}" />
+							
+							<TextBlock Grid.Row="6" Grid.Column="0" Text="Memory Regions:" FontWeight="SemiBold" />
+							<TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding MemoryRegionCount}" />
+							
+							<TextBlock Grid.Row="7" Grid.Column="0" Text="Cross-References:" FontWeight="SemiBold" />
+							<TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding CrossRefCount}" />
+						</Grid>
+					</StackPanel>
+				</ScrollViewer>
+			</TabItem>
+
+			<!-- Symbols Tab -->
+			<TabItem Header="🏷️ Symbols">
+				<DataGrid ItemsSource="{Binding Symbols}" 
+				          IsReadOnly="True"
+				          GridLinesVisibility="All"
+				          AutoGenerateColumns="False"
+				          Margin="8">
+					<DataGrid.Columns>
+						<DataGridTextColumn Header="Address" Binding="{Binding Address}" Width="120" />
+						<DataGridTextColumn Header="Symbol Name" Binding="{Binding Name}" Width="*" />
+					</DataGrid.Columns>
+				</DataGrid>
+			</TabItem>
+
+			<!-- Comments Tab -->
+			<TabItem Header="💬 Comments">
+				<DataGrid ItemsSource="{Binding Comments}" 
+				          IsReadOnly="True"
+				          GridLinesVisibility="All"
+				          AutoGenerateColumns="False"
+				          Margin="8">
+					<DataGrid.Columns>
+						<DataGridTextColumn Header="Address" Binding="{Binding Address}" Width="120" />
+						<DataGridTextColumn Header="Comment" Binding="{Binding Text}" Width="*" />
+					</DataGrid.Columns>
+				</DataGrid>
+			</TabItem>
+
+			<!-- Memory Regions Tab -->
+			<TabItem Header="🗺️ Memory Regions">
+				<DataGrid ItemsSource="{Binding MemoryRegions}" 
+				          IsReadOnly="True"
+				          GridLinesVisibility="All"
+				          AutoGenerateColumns="False"
+				          Margin="8">
+					<DataGrid.Columns>
+						<DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="200" />
+						<DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="120" />
+						<DataGridTextColumn Header="Start" Binding="{Binding Start}" Width="100" />
+						<DataGridTextColumn Header="End" Binding="{Binding End}" Width="100" />
+						<DataGridTextColumn Header="Bank" Binding="{Binding Bank}" Width="80" />
+					</DataGrid.Columns>
+				</DataGrid>
+			</TabItem>
+
+			<!-- Cross-References Tab -->
+			<TabItem Header="🔗 Cross-References">
+				<DataGrid ItemsSource="{Binding CrossReferences}" 
+				          IsReadOnly="True"
+				          GridLinesVisibility="All"
+				          AutoGenerateColumns="False"
+				          Margin="8">
+					<DataGrid.Columns>
+						<DataGridTextColumn Header="From" Binding="{Binding From}" Width="120" />
+						<DataGridTextColumn Header="To" Binding="{Binding To}" Width="120" />
+						<DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="150" />
+					</DataGrid.Columns>
+				</DataGrid>
+			</TabItem>
+		</TabControl>
+	</Grid>
+</Window>
