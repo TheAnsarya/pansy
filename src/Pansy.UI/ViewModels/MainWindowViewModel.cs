@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Pansy.Core;
 
@@ -278,23 +279,74 @@ public class MainWindowViewModel : INotifyPropertyChanged {
 
 	public void ApplySearch(string searchText) {
 		SearchText = searchText;
-		var lowerSearch = searchText.ToLowerInvariant();
 
+		// Parse search mode
+		bool caseSensitive = false;
+		bool useRegex = false;
+		bool useWildcard = false;
+		string pattern = searchText;
+
+		// Check for case-sensitive prefix (~)
+		if (pattern.StartsWith("~")) {
+			caseSensitive = true;
+			pattern = pattern[1..];
+		}
+
+		// Check for regex mode (/pattern/)
+		if (pattern.StartsWith("/") && pattern.EndsWith("/") && pattern.Length > 1) {
+			useRegex = true;
+			pattern = pattern[1..^1];
+		}
+		// Check for wildcard mode (* or ?)
+		else if (pattern.Contains('*') || pattern.Contains('?')) {
+			useWildcard = true;
+		}
+
+		// Apply search filter
 		FilteredSymbols.Clear();
 		foreach (var symbol in Symbols) {
-			if (symbol.Address.ToLowerInvariant().Contains(lowerSearch) ||
-				symbol.Name.ToLowerInvariant().Contains(lowerSearch)) {
+			if (MatchesSearch(symbol.Address, symbol.Name, pattern, caseSensitive, useRegex, useWildcard)) {
 				FilteredSymbols.Add(symbol);
 			}
 		}
 
 		FilteredComments.Clear();
 		foreach (var comment in Comments) {
-			if (comment.Address.ToLowerInvariant().Contains(lowerSearch) ||
-				comment.Text.ToLowerInvariant().Contains(lowerSearch)) {
+			if (MatchesSearch(comment.Address, comment.Text, pattern, caseSensitive, useRegex, useWildcard)) {
 				FilteredComments.Add(comment);
 			}
 		}
+	}
+
+	private bool MatchesSearch(string address, string text, string pattern, bool caseSensitive, bool useRegex, bool useWildcard) {
+		var comparisonType = caseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+
+		if (useRegex) {
+			try {
+				var options = caseSensitive ? RegexOptions.None : RegexOptions.IgnoreCase;
+				var regex = new Regex(pattern, options);
+				return regex.IsMatch(address) || regex.IsMatch(text);
+			} catch {
+				// Invalid regex - fall back to plain text search
+				return address.Contains(pattern, comparisonType) || text.Contains(pattern, comparisonType);
+			}
+		}
+
+		if (useWildcard) {
+			// Convert wildcard to regex: * → .* and ? → .
+			var regexPattern = "^" + Regex.Escape(pattern).Replace("\\*", ".*").Replace("\\?", ".") + "$";
+			try {
+				var options = caseSensitive ? RegexOptions.None : RegexOptions.IgnoreCase;
+				var regex = new Regex(regexPattern, options);
+				return regex.IsMatch(address) || regex.IsMatch(text);
+			} catch {
+				// Fall back to plain text search
+				return address.Contains(pattern, comparisonType) || text.Contains(pattern, comparisonType);
+			}
+		}
+
+		// Plain text search
+		return address.Contains(pattern, comparisonType) || text.Contains(pattern, comparisonType);
 	}
 
 	public void ClearSearch() {

@@ -14,7 +14,7 @@
 	<Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto" Margin="16">
 		<TextBlock Grid.Row="0" Text="Name:" FontWeight="SemiBold" Margin="0,0,0,4" />
 		<TextBox Grid.Row="1" Text="{Binding RegionName}" Watermark="Region name..." Margin="0,0,0,12" />
-		
+
 		<TextBlock Grid.Row="2" Text="Type:" FontWeight="SemiBold" Margin="0,0,0,4" />
 		<ComboBox Grid.Row="3" SelectedItem="{Binding RegionType}" Margin="0,0,0,12">
 			<ComboBoxItem Content="ROM" />
@@ -25,16 +25,16 @@
 			<ComboBoxItem Content="CHR-ROM" />
 			<ComboBoxItem Content="Custom" />
 		</ComboBox>
-		
+
 		<TextBlock Grid.Row="4" Text="Start Address:" FontWeight="SemiBold" Margin="0,0,0,4" />
 		<TextBox Grid.Row="5" Text="{Binding StartAddress}" Watermark="$0000" Margin="0,0,0,12" />
-		
+
 		<TextBlock Grid.Row="6" Text="End Address:" FontWeight="SemiBold" Margin="0,0,0,4" />
 		<TextBox Grid.Row="7" Text="{Binding EndAddress}" Watermark="$FFFF" Margin="0,0,0,12" />
-		
+
 		<TextBlock Grid.Row="8" Text="Bank:" FontWeight="SemiBold" Margin="0,0,0,4" />
 		<TextBox Grid.Row="9" Text="{Binding Bank}" Watermark="$00 or -" Margin="0,0,0,12" />
-		
+
 		<StackPanel Grid.Row="11" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
 			<Button Content="OK" Click="OK_Click" Margin="0,0,8,0" Width="80" IsDefault="True" />
 			<Button Content="Cancel" Click="Cancel_Click" Width="80" IsCancel="True" />

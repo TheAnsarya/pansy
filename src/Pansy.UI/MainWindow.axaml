@@ -110,10 +110,13 @@
 						<Button Content="🗑️ Delete" Click="DeleteSymbol_Click" Margin="2" IsEnabled="{Binding CanDeleteSymbol}" />
 						<Separator Margin="8,0" />
 						<TextBlock Text="🔍 Search:" VerticalAlignment="Center" Margin="4,0" />
-						<TextBox Width="200" Text="{Binding SearchText}" Watermark="Filter symbols..." TextChanged="SearchSymbols_Changed" />
+						<TextBox Width="200" Text="{Binding SearchText}"
+						         Watermark="Filter symbols..."
+						         TextChanged="SearchSymbols_Changed"
+						         ToolTip.Tip="Search modes:&#x0A;• Plain text: hello&#x0A;• Wildcard: *Main*&#x0A;• Regex: /^NMI_.*/&#x0A;• Case-sensitive: ~Handler" />
 						<Button Content="✖️ Clear" Click="ClearSearch_Click" Margin="2" />
 					</StackPanel>
-					
+
 					<!-- DataGrid -->
 					<DataGrid ItemsSource="{Binding FilteredSymbols}"
 					          SelectedItem="{Binding SelectedSymbol}"
@@ -140,10 +143,13 @@
 						<Button Content="🗑️ Delete" Click="DeleteComment_Click" Margin="2" IsEnabled="{Binding CanDeleteComment}" />
 						<Separator Margin="8,0" />
 						<TextBlock Text="🔍 Search:" VerticalAlignment="Center" Margin="4,0" />
-						<TextBox Width="200" Text="{Binding SearchText}" Watermark="Filter comments..." TextChanged="SearchSymbols_Changed" />
+						<TextBox Width="200" Text="{Binding SearchText}"
+						         Watermark="Filter comments..."
+						         TextChanged="SearchSymbols_Changed"
+						         ToolTip.Tip="Search modes:&#x0A;• Plain text: hello&#x0A;• Wildcard: *Main*&#x0A;• Regex: /^NMI_.*/&#x0A;• Case-sensitive: ~Handler" />
 						<Button Content="✖️ Clear" Click="ClearSearch_Click" Margin="2" />
 					</StackPanel>
-					
+
 					<!-- DataGrid -->
 					<DataGrid ItemsSource="{Binding FilteredComments}"
 					          SelectedItem="{Binding SelectedComment}"
@@ -169,7 +175,7 @@
 						<Button Content="✏️ Edit" Click="EditMemoryRegion_Click" Margin="2" IsEnabled="{Binding CanEditMemoryRegion}" />
 						<Button Content="🗑️ Delete" Click="DeleteMemoryRegion_Click" Margin="2" IsEnabled="{Binding CanDeleteMemoryRegion}" />
 					</StackPanel>
-					
+
 					<!-- DataGrid -->
 					<DataGrid ItemsSource="{Binding MemoryRegions}"
 					          SelectedItem="{Binding SelectedMemoryRegion}"
@@ -195,10 +201,10 @@
 					<!-- Toolbar -->
 					<StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="4">
 						<Button Content="🗑️ Delete" Click="DeleteCrossRef_Click" Margin="2" IsEnabled="{Binding CanDeleteCrossRef}" />
-						<TextBlock Text="ℹ️ Cross-references are generated during disassembly and cannot be manually added/edited" 
+						<TextBlock Text="ℹ️ Cross-references are generated during disassembly and cannot be manually added/edited"
 						           VerticalAlignment="Center" Margin="8,0" FontStyle="Italic" />
 					</StackPanel>
-					
+
 					<!-- DataGrid -->
 					<DataGrid ItemsSource="{Binding CrossReferences}"
 					          SelectedItem="{Binding SelectedCrossRef}"

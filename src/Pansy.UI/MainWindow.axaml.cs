@@ -69,7 +69,7 @@ public partial class MainWindow : Window {
 
 		var dialog = new InputDialog("Add Symbol", "Address:", "Name:");
 		var result = await dialog.ShowDialog<(bool, string, string)>(this);
-		
+
 		if (result.Item1) {
 			vm.AddSymbol(result.Item2, result.Item3);
 		}
@@ -78,10 +78,10 @@ public partial class MainWindow : Window {
 	private async void EditSymbol_Click(object? sender, RoutedEventArgs e) {
 		if (DataContext is not MainWindowViewModel vm || vm.SelectedSymbol == null) return;
 
-		var dialog = new InputDialog("Edit Symbol", "Address:", "Name:", 
+		var dialog = new InputDialog("Edit Symbol", "Address:", "Name:",
 			vm.SelectedSymbol.Address, vm.SelectedSymbol.Name);
 		var result = await dialog.ShowDialog<(bool, string, string)>(this);
-		
+
 		if (result.Item1) {
 			vm.EditSymbol(vm.SelectedSymbol, result.Item2, result.Item3);
 		}
@@ -98,7 +98,7 @@ public partial class MainWindow : Window {
 
 		var dialog = new InputDialog("Add Comment", "Address:", "Text:");
 		var result = await dialog.ShowDialog<(bool, string, string)>(this);
-		
+
 		if (result.Item1) {
 			vm.AddComment(result.Item2, result.Item3);
 		}
@@ -107,10 +107,10 @@ public partial class MainWindow : Window {
 	private async void EditComment_Click(object? sender, RoutedEventArgs e) {
 		if (DataContext is not MainWindowViewModel vm || vm.SelectedComment == null) return;
 
-		var dialog = new InputDialog("Edit Comment", "Address:", "Text:", 
+		var dialog = new InputDialog("Edit Comment", "Address:", "Text:",
 			vm.SelectedComment.Address, vm.SelectedComment.Text);
 		var result = await dialog.ShowDialog<(bool, string, string)>(this);
-		
+
 		if (result.Item1) {
 			vm.EditComment(vm.SelectedComment, result.Item2, result.Item3);
 		}
@@ -127,7 +127,7 @@ public partial class MainWindow : Window {
 
 		var dialog = new MemoryRegionDialog();
 		var result = await dialog.ShowDialog<(bool, string, string, string, string, string)>(this);
-		
+
 		if (result.Item1) {
 			vm.AddMemoryRegion(result.Item2, result.Item3, result.Item4, result.Item5, result.Item6);
 		}
@@ -139,7 +139,7 @@ public partial class MainWindow : Window {
 		var region = vm.SelectedMemoryRegion;
 		var dialog = new MemoryRegionDialog(region.Name, region.Type, region.Start, region.End, region.Bank);
 		var result = await dialog.ShowDialog<(bool, string, string, string, string, string)>(this);
-		
+
 		if (result.Item1) {
 			vm.EditMemoryRegion(region, result.Item2, result.Item3, result.Item4, result.Item5, result.Item6);
 		}

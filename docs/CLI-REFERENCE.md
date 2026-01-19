@@ -127,25 +127,40 @@ Total: 7 symbols
 
 ### `find` - Search Symbols and Comments
 
-Searches for symbols and comments matching a pattern.
+Searches for symbols and comments matching a pattern. Supports plain text, regex, and wildcard patterns.
 
 **Usage:**
 ```bash
-dotnet run --project src/Pansy.Cli -- find <file> <pattern> [-i|--ignore-case]
+dotnet run --project src/Pansy.Cli -- find <file> <pattern> [options]
 ```
 
 **Arguments:**
 - `<file>` - Path to the Pansy file
-- `<pattern>` - Search pattern (substring match)
+- `<pattern>` - Search pattern
 
 **Options:**
-- `-i`, `--ignore-case` - Case-insensitive search (default: case-sensitive)
+- `-c`, `--comments` - Search comments only
+- `-s`, `--symbols` - Search symbols only
+- `-i`, `--case-insensitive` - Case-insensitive search
+- `-r`, `--regex` - Treat pattern as a regex
+- `-w`, `--wildcard` - Treat pattern as a wildcard (* and ?)
 
-**Example:**
+**Pattern Modes:**
+- **Plain text** (default): Matches if the pattern appears anywhere in the text
+  - Example: `Main` matches `Main_Loop`, `Update_Main`
+- **Regex** (`-r`): Full regular expression support
+  - Example: `^NMI_.*Handler$` matches exactly `NMI_Handler`
+- **Wildcard** (`-w`): Simple wildcard patterns
+  - `*` matches any characters (zero or more)
+  - `?` matches any single character
+  - Example: `*Loop` matches `Main_Loop`, `Update_Loop`
+
+**Examples:**
 ```bash
+# Plain text search
 $ dotnet run --project src/Pansy.Cli -- find game.pansy "Handler"
 
-🌼 Search results for 'Handler'
+🌼 Search results for 'Handler' (text, case-sensitive)
 
 Symbols:
 ╭─────────┬─────────────╮
@@ -156,11 +171,20 @@ Symbols:
 ╰─────────┴─────────────╯
 
 Found 2 match(es)
+
+# Regex search
+$ dotnet run --project src/Pansy.Cli -- find game.pansy "^NMI_.*" -r
+
+# Wildcard search (case-insensitive)
+$ dotnet run --project src/Pansy.Cli -- find game.pansy "*Main*" -w -i
+
+# Search only symbols
+$ dotnet run --project src/Pansy.Cli -- find game.pansy "Loop" -s
 ```
 
 **Output:**
-- Matching symbols table
-- Matching comments table (if any)
+- Matching symbols table (if searching symbols)
+- Matching comments table (if searching comments)
 - Total match count
 
 ---

@@ -3,6 +3,7 @@
 // 🌼 Pansy - Universal Disassembly Metadata Format
 // ============================================================================
 
+using System.Text.RegularExpressions;
 using Pansy.Core;
 using Spectre.Console;
 
@@ -15,7 +16,7 @@ if (args.Length == 0) {
 	AnsiConsole.MarkupLine("[cyan]Commands:[/]");
 	AnsiConsole.MarkupLine("  info <file>             Display information about a Pansy file");
 	AnsiConsole.MarkupLine("  symbols <file>          List all symbols in a Pansy file");
-	AnsiConsole.MarkupLine("  find <file> <pattern>   Search for symbols/comments matching pattern");
+	AnsiConsole.MarkupLine("  find <file> <pattern>   Search for symbols/comments (supports regex, wildcards)");
 	AnsiConsole.MarkupLine("  xrefs <file> <address>  Show cross-references for an address");
 	AnsiConsole.MarkupLine("  diff <file1> <file2>    Compare two Pansy files");
 	AnsiConsole.WriteLine();
@@ -210,7 +211,12 @@ static int RunSymbols(string[] args) {
 static int RunFind(string[] args) {
 	if (args.Length < 2) {
 		AnsiConsole.MarkupLine("[red]Error:[/] Missing arguments");
-		AnsiConsole.MarkupLine("[cyan]Usage:[/] pansy find <file> <pattern> [-c|--comments] [-s|--symbols] [-i|--case-insensitive]");
+		AnsiConsole.MarkupLine("[cyan]Usage:[/] pansy find <file> <pattern> [-c|--comments] [-s|--symbols] [-i|--case-insensitive] [-r|--regex] [-w|--wildcard]");
+		AnsiConsole.WriteLine();
+		AnsiConsole.MarkupLine("[dim]Pattern modes:[/]");
+		AnsiConsole.MarkupLine("  [dim]Plain text: Main_Loop (default)[/]");
+		AnsiConsole.MarkupLine("  [dim]Regex (-r): ^NMI_.*Handler$[/]");
+		AnsiConsole.MarkupLine("  [dim]Wildcard (-w): *Main* or NMI_???[/]");
 		return 1;
 	}
 
@@ -219,6 +225,8 @@ static int RunFind(string[] args) {
 	var searchComments = args.Any(a => a == "-c" || a == "--comments");
 	var searchSymbols = args.Any(a => a == "-s" || a == "--symbols");
 	var caseInsensitive = args.Any(a => a == "-i" || a == "--case-insensitive");
+	var useRegex = args.Any(a => a == "-r" || a == "--regex");
+	var useWildcard = args.Any(a => a == "-w" || a == "--wildcard");
 
 	// If neither specified, search both
 	if (!searchComments && !searchSymbols) {
@@ -233,24 +241,26 @@ static int RunFind(string[] args) {
 	var data = File.ReadAllBytes(filePath);
 	var pansy = new PansyLoader(data);
 
-	var comparison = caseInsensitive ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+	// Build the matching function
+	Func<string, bool> matches = BuildMatcher(pattern, caseInsensitive, useRegex, useWildcard);
 
-	AnsiConsole.MarkupLine($"[bold magenta]🌼 Search results for '{Markup.Escape(pattern)}'[/]");
+	var modeDesc = useRegex ? "regex" : useWildcard ? "wildcard" : "text";
+	AnsiConsole.MarkupLine($"[bold magenta]🌼 Search results for '{Markup.Escape(pattern)}' ({modeDesc}, case-{(caseInsensitive ? "insensitive" : "sensitive")})[/]");
 	AnsiConsole.WriteLine();
 
 	var foundCount = 0;
 
 	// Search symbols
 	if (searchSymbols && pansy.Symbols.Count > 0) {
-		var matches = pansy.Symbols.Where(x => x.Value.Contains(pattern, comparison)).ToList();
-		if (matches.Count > 0) {
+		var matchedSymbols = pansy.Symbols.Where(x => matches(x.Value)).ToList();
+		if (matchedSymbols.Count > 0) {
 			AnsiConsole.MarkupLine("[bold cyan]Symbols:[/]");
 			var table = new Table()
 				.Border(TableBorder.Rounded)
 				.AddColumn("Address")
 				.AddColumn("Name");
 
-			foreach (var (addr, name) in matches.OrderBy(x => x.Key)) {
+			foreach (var (addr, name) in matchedSymbols.OrderBy(x => x.Key)) {
 				table.AddRow($"${addr:X4}", Markup.Escape(name));
 				foundCount++;
 			}
@@ -262,15 +272,15 @@ static int RunFind(string[] args) {
 
 	// Search comments
 	if (searchComments && pansy.Comments.Count > 0) {
-		var matches = pansy.Comments.Where(x => x.Value.Contains(pattern, comparison)).ToList();
-		if (matches.Count > 0) {
+		var matchedComments = pansy.Comments.Where(x => matches(x.Value)).ToList();
+		if (matchedComments.Count > 0) {
 			AnsiConsole.MarkupLine("[bold cyan]Comments:[/]");
 			var table = new Table()
 				.Border(TableBorder.Rounded)
 				.AddColumn("Address")
 				.AddColumn("Comment");
 
-			foreach (var (addr, comment) in matches.OrderBy(x => x.Key)) {
+			foreach (var (addr, comment) in matchedComments.OrderBy(x => x.Key)) {
 				table.AddRow($"${addr:X4}", Markup.Escape(comment));
 				foundCount++;
 			}
@@ -287,6 +297,36 @@ static int RunFind(string[] args) {
 	}
 
 	return 0;
+}
+
+static Func<string, bool> BuildMatcher(string pattern, bool caseInsensitive, bool useRegex, bool useWildcard) {
+	var comparison = caseInsensitive ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+	var options = caseInsensitive ? RegexOptions.IgnoreCase : RegexOptions.None;
+
+	if (useRegex) {
+		try {
+			var regex = new Regex(pattern, options);
+			return text => regex.IsMatch(text);
+		} catch (ArgumentException) {
+			AnsiConsole.MarkupLine($"[yellow]Warning:[/] Invalid regex pattern, falling back to plain text");
+			return text => text.Contains(pattern, comparison);
+		}
+	}
+
+	if (useWildcard) {
+		// Convert wildcard to regex: * → .* and ? → .
+		var regexPattern = "^" + Regex.Escape(pattern).Replace("\\*", ".*").Replace("\\?", ".") + "$";
+		try {
+			var regex = new Regex(regexPattern, options);
+			return text => regex.IsMatch(text);
+		} catch (ArgumentException) {
+			AnsiConsole.MarkupLine($"[yellow]Warning:[/] Invalid wildcard pattern, falling back to plain text");
+			return text => text.Contains(pattern, comparison);
+		}
+	}
+
+	// Plain text search
+	return text => text.Contains(pattern, comparison);
 }
 
 static int RunXrefs(string[] args) {
