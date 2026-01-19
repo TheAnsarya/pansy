@@ -8,12 +8,12 @@
 **Status:** Beta - Format stable, core functionality complete
 
 ### Recent Updates
+- ✅ **UI Editing Complete** - Full CRUD operations for symbols, comments, and memory regions
 - ✅ **Format Compatibility Fixed** - PansyWriter and PansyLoader now fully compatible with roundtrip support
 - ✅ **17 Tests Passing** - Comprehensive test coverage including roundtrip verification
-- ✅ **CLI Commands Working** - info, symbols, find, xrefs all functional
-- ✅ **Documentation** - Complete file format specification with platform-specific details
-- 🚧 **UI Development** - Avalonia-based viewer/editor in progress
-- 📝 **GitHub Issues** - 13 open enhancement tasks tracked on project board
+- ✅ **CLI Commands Working** - info, symbols, find, xrefs, diff all functional
+- ✅ **Documentation Complete** - File format spec, CLI reference, examples guide
+- 📝 **GitHub Issues** - 10 enhancement tasks tracked on project board
 
 ## 🎯 Purpose
 
@@ -41,12 +41,14 @@ Pansy provides a universal, efficient format to store all this metadata independ
 - Comprehensive xUnit test coverage
 
 ### 🖥️ Cross-Platform UI
-- Built with Avalonia UI
-- View and edit symbols, comments, cross-refs
-- Memory map visualization
-- Symbol browser with search
-- Cross-reference navigation
-- Diff viewer for comparing analysis versions
+- Built with Avalonia UI (Windows, Linux, macOS)
+- **Add/Edit/Delete** symbols, comments, and memory regions
+- **Save/Save As** with dirty state tracking
+- **Real-time Search** - Filter symbols and comments
+- Memory map visualization with type information
+- Cross-reference browser with navigation
+- Double-click to edit, toolbar buttons for all operations
+- Input dialogs for all editing tasks
 
 ### 🛠️ CLI Tools
 - Inspect Pansy files from command line
@@ -87,8 +89,19 @@ dotnet run --project src/Pansy.Cli -- find game.pansy "Handler"
 # Show cross-references for an address (decimal)
 dotnet run --project src/Pansy.Cli -- xrefs game.pansy 32784
 
-# Diff two files (coming soon)
-# dotnet run --project src/Pansy.Cli -- diff original.pansy modified.pansy
+# Diff two files
+dotnet run --project src/Pansy.Cli -- diff original.pansy modified.pansy
+```
+
+**UI:**
+```bash
+# Launch the UI application
+dotnet run --project src/Pansy.UI
+
+# Open a Pansy file: File → Open (Ctrl+O)
+# Edit symbols: Click Symbols tab → Add/Edit/Delete buttons
+# Search: Use search box to filter symbols/comments
+# Save changes: File → Save (Ctrl+S) or Save As (Ctrl+Shift+S)
 ```
 
 **Library:**
@@ -135,16 +148,10 @@ Console.WriteLine($"References to $8100: {refsTo.Count}");
 
 ## 📖 Documentation
 
-- [File Format Specification](docs/FILE-FORMAT.md) - Complete format documentation
-- Platform-specific details for NES, SNES, GB, GBA, Genesis
-- Integration guides for Poppy and Peony
-- API examples and best practices
-
-### Coming Soon
-- Library API Documentation
-- CLI Command Reference (see `--help` for now)
-- UI User Guide (UI in development)
-- Format Converter Documentation
+- [File Format Specification](docs/FILE-FORMAT.md) - Complete format documentation with platform-specific details
+- [CLI Reference](docs/CLI-REFERENCE.md) - Comprehensive command-line tool guide
+- [Examples](docs/EXAMPLES.md) - Workflow guides and use cases
+- API examples and integration guides
 
 ## 🔗 Integration
 
