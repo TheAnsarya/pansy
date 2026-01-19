@@ -2,6 +2,19 @@
 
 **🌼 Pansy** is a standardized binary format for storing and sharing disassembly analysis data across retro gaming platforms and tools.
 
+## 📢 Status
+
+**Version:** 1.0  
+**Status:** Beta - Format stable, core functionality complete
+
+### Recent Updates
+- ✅ **Format Compatibility Fixed** - PansyWriter and PansyLoader now fully compatible with roundtrip support
+- ✅ **17 Tests Passing** - Comprehensive test coverage including roundtrip verification
+- ✅ **CLI Commands Working** - info, symbols, find, xrefs all functional
+- ✅ **Documentation** - Complete file format specification with platform-specific details
+- 🚧 **UI Development** - Avalonia-based viewer/editor in progress
+- 📝 **GitHub Issues** - 13 open enhancement tasks tracked on project board
+
 ## 🎯 Purpose
 
 Disassembly is more than just converting bytes to instructions. It involves:
@@ -63,50 +76,75 @@ dotnet test Pansy.sln
 **CLI:**
 ```bash
 # View Pansy file info
-pansy info game.pansy
+dotnet run --project src/Pansy.Cli -- info game.pansy
 
 # List all symbols
-pansy symbols game.pansy
+dotnet run --project src/Pansy.Cli -- symbols game.pansy
 
-# Search for symbols
-pansy find game.pansy "subroutine"
+# Search for symbols or comments
+dotnet run --project src/Pansy.Cli -- find game.pansy "Handler"
 
-# Show cross-references for an address
-pansy xrefs game.pansy $8000
+# Show cross-references for an address (decimal)
+dotnet run --project src/Pansy.Cli -- xrefs game.pansy 32784
 
-# Diff two files
-pansy diff original.pansy modified.pansy
-
-# Convert to Mesen format
-pansy convert game.pansy --to mesen --output symbols.mlb
+# Diff two files (coming soon)
+# dotnet run --project src/Pansy.Cli -- diff original.pansy modified.pansy
 ```
 
 **Library:**
 ```csharp
 using Pansy.Core;
 
+// Create a new Pansy file
+var writer = new PansyWriter {
+	Platform = PansyLoader.PLATFORM_NES,
+	RomSize = 0x20000,
+	RomCrc32 = 0x12345678,
+	ProjectName = "My ROM Hack",
+	Author = "Your Name",
+	ProjectVersion = "1.0.0"
+};
+
+// Add metadata
+writer.AddSymbol(0x8000, "Reset");
+writer.AddSymbol(0x8100, "Main_Loop");
+writer.AddComment(0x8000, "Reset vector entry point");
+writer.MarkAsCode(0x8000);
+writer.MarkAsJumpTarget(0x8100);
+writer.AddCrossReference(new CrossReference(0x8050, 0x8100, CrossRefType.Jmp));
+
+// Generate file
+var data = writer.Generate();
+File.WriteAllBytes("game.pansy", data);
+
 // Load a Pansy file
-var data = File.ReadAllBytes("game.pansy");
 var pansy = new PansyLoader(data);
 
 // Access symbols
 foreach (var (address, name) in pansy.Symbols) {
-	Console.WriteLine($"${address:x4}: {name}");
+	Console.WriteLine($"${address:X4}: {name}");
 }
 
-// Get cross-references
-var refs = pansy.CrossReferences
-	.Where(x => x.To == 0x8000)
+// Get cross-references to a specific address
+var refsTo = pansy.CrossReferences
+	.Where(x => x.To == 0x8100)
 	.ToList();
+
+Console.WriteLine($"References to $8100: {refsTo.Count}");
 ```
 
 ## 📖 Documentation
 
-- [File Format Specification](docs/format-specification.md)
-- [Library API Documentation](docs/api-reference.md)
-- [CLI Command Reference](docs/cli-reference.md)
-- [UI User Guide](docs/ui-guide.md)
-- [Integration Guide](docs/integration.md)
+- [File Format Specification](docs/FILE-FORMAT.md) - Complete format documentation
+- Platform-specific details for NES, SNES, GB, GBA, Genesis
+- Integration guides for Poppy and Peony
+- API examples and best practices
+
+### Coming Soon
+- Library API Documentation
+- CLI Command Reference (see `--help` for now)
+- UI User Guide (UI in development)
+- Format Converter Documentation
 
 ## 🔗 Integration
 
@@ -151,7 +189,7 @@ Contributions welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guideli
 
 ## 📜 License
 
-MIT License - see [LICENSE](LICENSE) for details.
+This is free and unencumbered software released into the public domain. See [LICENSE](LICENSE) for details.
 
 ## 🙏 Acknowledgments
 
