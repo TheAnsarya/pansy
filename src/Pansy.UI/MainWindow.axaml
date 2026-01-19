@@ -17,9 +17,18 @@
 		<!-- Menu Bar -->
 		<Menu Grid.Row="0">
 			<MenuItem Header="_File">
-				<MenuItem Header="_Open..." Click="OpenFile_Click" />
+				<MenuItem Header="_Open..." Click="OpenFile_Click" HotKey="Ctrl+O" />
+				<MenuItem Header="_Save" Click="SaveFile_Click" HotKey="Ctrl+S" IsEnabled="{Binding CanSave}" />
+				<MenuItem Header="Save _As..." Click="SaveFileAs_Click" HotKey="Ctrl+Shift+S" IsEnabled="{Binding HasFileLoaded}" />
 				<Separator />
-				<MenuItem Header="E_xit" Click="Exit_Click" />
+				<MenuItem Header="E_xit" Click="Exit_Click" HotKey="Alt+F4" />
+			</MenuItem>
+			<MenuItem Header="_Edit">
+				<MenuItem Header="Add _Symbol" Click="AddSymbol_Click" HotKey="Ctrl+Shift+S" IsEnabled="{Binding HasFileLoaded}" />
+				<MenuItem Header="Add _Comment" Click="AddComment_Click" HotKey="Ctrl+Shift+C" IsEnabled="{Binding HasFileLoaded}" />
+				<MenuItem Header="Add _Memory Region" Click="AddMemoryRegion_Click" HotKey="Ctrl+Shift+M" IsEnabled="{Binding HasFileLoaded}" />
+				<Separator />
+				<MenuItem Header="_Find..." Click="ShowSearch_Click" HotKey="Ctrl+F" IsEnabled="{Binding HasFileLoaded}" />
 			</MenuItem>
 			<MenuItem Header="_View">
 				<MenuItem Header="_Symbols" />
@@ -93,62 +102,117 @@
 
 			<!-- Symbols Tab -->
 			<TabItem Header="🏷️ Symbols">
-				<DataGrid ItemsSource="{Binding Symbols}"
-				          IsReadOnly="True"
-				          GridLinesVisibility="All"
-				          AutoGenerateColumns="False"
-				          Margin="8">
-					<DataGrid.Columns>
-						<DataGridTextColumn Header="Address" Binding="{Binding Address}" Width="120" />
-						<DataGridTextColumn Header="Symbol Name" Binding="{Binding Name}" Width="*" />
-					</DataGrid.Columns>
-				</DataGrid>
+				<DockPanel>
+					<!-- Toolbar -->
+					<StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="4">
+						<Button Content="➕ Add" Click="AddSymbol_Click" Margin="2" IsEnabled="{Binding HasFileLoaded}" />
+						<Button Content="✏️ Edit" Click="EditSymbol_Click" Margin="2" IsEnabled="{Binding CanEditSymbol}" />
+						<Button Content="🗑️ Delete" Click="DeleteSymbol_Click" Margin="2" IsEnabled="{Binding CanDeleteSymbol}" />
+						<Separator Margin="8,0" />
+						<TextBlock Text="🔍 Search:" VerticalAlignment="Center" Margin="4,0" />
+						<TextBox Width="200" Text="{Binding SearchText}" Watermark="Filter symbols..." TextChanged="SearchSymbols_Changed" />
+						<Button Content="✖️ Clear" Click="ClearSearch_Click" Margin="2" />
+					</StackPanel>
+					
+					<!-- DataGrid -->
+					<DataGrid ItemsSource="{Binding FilteredSymbols}"
+					          SelectedItem="{Binding SelectedSymbol}"
+					          IsReadOnly="False"
+					          GridLinesVisibility="All"
+					          AutoGenerateColumns="False"
+					          Margin="8"
+					          DoubleTapped="EditSymbol_Click">
+						<DataGrid.Columns>
+							<DataGridTextColumn Header="Address" Binding="{Binding Address}" Width="120" />
+							<DataGridTextColumn Header="Symbol Name" Binding="{Binding Name}" Width="*" />
+						</DataGrid.Columns>
+					</DataGrid>
+				</DockPanel>
 			</TabItem>
 
 			<!-- Comments Tab -->
 			<TabItem Header="💬 Comments">
-				<DataGrid ItemsSource="{Binding Comments}"
-				          IsReadOnly="True"
-				          GridLinesVisibility="All"
-				          AutoGenerateColumns="False"
-				          Margin="8">
-					<DataGrid.Columns>
-						<DataGridTextColumn Header="Address" Binding="{Binding Address}" Width="120" />
-						<DataGridTextColumn Header="Comment" Binding="{Binding Text}" Width="*" />
-					</DataGrid.Columns>
-				</DataGrid>
+				<DockPanel>
+					<!-- Toolbar -->
+					<StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="4">
+						<Button Content="➕ Add" Click="AddComment_Click" Margin="2" IsEnabled="{Binding HasFileLoaded}" />
+						<Button Content="✏️ Edit" Click="EditComment_Click" Margin="2" IsEnabled="{Binding CanEditComment}" />
+						<Button Content="🗑️ Delete" Click="DeleteComment_Click" Margin="2" IsEnabled="{Binding CanDeleteComment}" />
+						<Separator Margin="8,0" />
+						<TextBlock Text="🔍 Search:" VerticalAlignment="Center" Margin="4,0" />
+						<TextBox Width="200" Text="{Binding SearchText}" Watermark="Filter comments..." TextChanged="SearchSymbols_Changed" />
+						<Button Content="✖️ Clear" Click="ClearSearch_Click" Margin="2" />
+					</StackPanel>
+					
+					<!-- DataGrid -->
+					<DataGrid ItemsSource="{Binding FilteredComments}"
+					          SelectedItem="{Binding SelectedComment}"
+					          IsReadOnly="False"
+					          GridLinesVisibility="All"
+					          AutoGenerateColumns="False"
+					          Margin="8"
+					          DoubleTapped="EditComment_Click">
+						<DataGrid.Columns>
+							<DataGridTextColumn Header="Address" Binding="{Binding Address}" Width="120" />
+							<DataGridTextColumn Header="Comment" Binding="{Binding Text}" Width="*" />
+						</DataGrid.Columns>
+					</DataGrid>
+				</DockPanel>
 			</TabItem>
 
 			<!-- Memory Regions Tab -->
 			<TabItem Header="🗺️ Memory Regions">
-				<DataGrid ItemsSource="{Binding MemoryRegions}"
-				          IsReadOnly="True"
-				          GridLinesVisibility="All"
-				          AutoGenerateColumns="False"
-				          Margin="8">
-					<DataGrid.Columns>
-						<DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="200" />
-						<DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="120" />
-						<DataGridTextColumn Header="Start" Binding="{Binding Start}" Width="100" />
-						<DataGridTextColumn Header="End" Binding="{Binding End}" Width="100" />
-						<DataGridTextColumn Header="Bank" Binding="{Binding Bank}" Width="80" />
-					</DataGrid.Columns>
-				</DataGrid>
+				<DockPanel>
+					<!-- Toolbar -->
+					<StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="4">
+						<Button Content="➕ Add" Click="AddMemoryRegion_Click" Margin="2" IsEnabled="{Binding HasFileLoaded}" />
+						<Button Content="✏️ Edit" Click="EditMemoryRegion_Click" Margin="2" IsEnabled="{Binding CanEditMemoryRegion}" />
+						<Button Content="🗑️ Delete" Click="DeleteMemoryRegion_Click" Margin="2" IsEnabled="{Binding CanDeleteMemoryRegion}" />
+					</StackPanel>
+					
+					<!-- DataGrid -->
+					<DataGrid ItemsSource="{Binding MemoryRegions}"
+					          SelectedItem="{Binding SelectedMemoryRegion}"
+					          IsReadOnly="False"
+					          GridLinesVisibility="All"
+					          AutoGenerateColumns="False"
+					          Margin="8"
+					          DoubleTapped="EditMemoryRegion_Click">
+						<DataGrid.Columns>
+							<DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="200" />
+							<DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="120" />
+							<DataGridTextColumn Header="Start" Binding="{Binding Start}" Width="100" />
+							<DataGridTextColumn Header="End" Binding="{Binding End}" Width="100" />
+							<DataGridTextColumn Header="Bank" Binding="{Binding Bank}" Width="80" />
+						</DataGrid.Columns>
+					</DataGrid>
+				</DockPanel>
 			</TabItem>
 
 			<!-- Cross-References Tab -->
 			<TabItem Header="🔗 Cross-References">
-				<DataGrid ItemsSource="{Binding CrossReferences}"
-				          IsReadOnly="True"
-				          GridLinesVisibility="All"
-				          AutoGenerateColumns="False"
-				          Margin="8">
-					<DataGrid.Columns>
-						<DataGridTextColumn Header="From" Binding="{Binding From}" Width="120" />
-						<DataGridTextColumn Header="To" Binding="{Binding To}" Width="120" />
-						<DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="150" />
-					</DataGrid.Columns>
-				</DataGrid>
+				<DockPanel>
+					<!-- Toolbar -->
+					<StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="4">
+						<Button Content="🗑️ Delete" Click="DeleteCrossRef_Click" Margin="2" IsEnabled="{Binding CanDeleteCrossRef}" />
+						<TextBlock Text="ℹ️ Cross-references are generated during disassembly and cannot be manually added/edited" 
+						           VerticalAlignment="Center" Margin="8,0" FontStyle="Italic" />
+					</StackPanel>
+					
+					<!-- DataGrid -->
+					<DataGrid ItemsSource="{Binding CrossReferences}"
+					          SelectedItem="{Binding SelectedCrossRef}"
+					          IsReadOnly="True"
+					          GridLinesVisibility="All"
+					          AutoGenerateColumns="False"
+					          Margin="8">
+						<DataGrid.Columns>
+							<DataGridTextColumn Header="From" Binding="{Binding From}" Width="120" />
+							<DataGridTextColumn Header="To" Binding="{Binding To}" Width="120" />
+							<DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="150" />
+						</DataGrid.Columns>
+					</DataGrid>
+				</DockPanel>
 			</TabItem>
 		</TabControl>
 	</Grid>
