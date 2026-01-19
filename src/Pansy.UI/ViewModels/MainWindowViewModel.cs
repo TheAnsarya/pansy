@@ -12,14 +12,14 @@ namespace Pansy.UI.ViewModels;
 /// </summary>
 public class MainWindowViewModel {
 	public string Title => "🌼 Pansy - Disassembly Metadata Viewer";
-	
+
 	public string? FileName { get; set; }
 	public string? PlatformName { get; set; }
 	public string? RomSize { get; set; }
 	public string? RomCrc { get; set; }
 	public string? FileVersion { get; set; }
 	public string? IsCompressed { get; set; }
-	
+
 	public string? SymbolCount { get; set; }
 	public string? CommentCount { get; set; }
 	public string? CodeOffsetCount { get; set; }
@@ -28,26 +28,26 @@ public class MainWindowViewModel {
 	public string? SubroutineCount { get; set; }
 	public string? MemoryRegionCount { get; set; }
 	public string? CrossRefCount { get; set; }
-	
+
 	public ObservableCollection<SymbolInfo> Symbols { get; } = new();
 	public ObservableCollection<CommentInfo> Comments { get; } = new();
 	public ObservableCollection<MemoryRegionInfo> MemoryRegions { get; } = new();
 	public ObservableCollection<CrossRefInfo> CrossReferences { get; } = new();
-	
+
 	public bool HasFileLoaded => !string.IsNullOrEmpty(FileName);
-	
+
 	/// <summary>
 	/// Load and display a Pansy file.
 	/// </summary>
 	public async Task LoadFileAsync(string filePath) {
 		await Task.Run(() => LoadFile(filePath));
 	}
-	
+
 	private void LoadFile(string filePath) {
 		try {
 			var data = File.ReadAllBytes(filePath);
 			var loader = new PansyLoader(data);
-			
+
 			// Load file info
 			FileName = Path.GetFileName(filePath);
 			PlatformName = GetPlatformName(loader.Platform);
@@ -55,7 +55,7 @@ public class MainWindowViewModel {
 			RomCrc = $"0x{loader.RomCrc32:X8}";
 			FileVersion = $"{loader.Version >> 8}.{loader.Version & 0xFF}";
 			IsCompressed = loader.Flags.HasFlag(PansyFlags.Compressed) ? "Yes" : "No";
-			
+
 			// Load statistics
 			SymbolCount = loader.Symbols.Count.ToString("N0");
 			CommentCount = loader.Comments.Count.ToString("N0");
@@ -65,7 +65,7 @@ public class MainWindowViewModel {
 			SubroutineCount = loader.SubEntryPoints.Count.ToString("N0");
 			MemoryRegionCount = loader.MemoryRegions.Count.ToString("N0");
 			CrossRefCount = loader.CrossReferences.Count.ToString("N0");
-			
+
 			// Load symbols (sorted by address)
 			Symbols.Clear();
 			foreach (var symbol in loader.Symbols.OrderBy(s => s.Key)) {
@@ -74,7 +74,7 @@ public class MainWindowViewModel {
 					Name = symbol.Value
 				});
 			}
-			
+
 			// Load comments (sorted by address)
 			Comments.Clear();
 			foreach (var comment in loader.Comments.OrderBy(c => c.Key)) {
@@ -83,7 +83,7 @@ public class MainWindowViewModel {
 					Text = comment.Value
 				});
 			}
-			
+
 			// Load memory regions
 			MemoryRegions.Clear();
 			foreach (var region in loader.MemoryRegions) {
@@ -95,7 +95,7 @@ public class MainWindowViewModel {
 					Bank = region.Bank > 0 ? $"${region.Bank:X2}" : "-"
 				});
 			}
-			
+
 			// Load cross-references (sorted by from address)
 			CrossReferences.Clear();
 			foreach (var xref in loader.CrossReferences.OrderBy(x => x.From)) {
@@ -110,7 +110,7 @@ public class MainWindowViewModel {
 			Console.Error.WriteLine($"Error loading file: {ex.Message}");
 		}
 	}
-	
+
 	private static string GetPlatformName(byte platform) {
 		return platform switch {
 			0x01 => "NES (6502)",
@@ -123,7 +123,7 @@ public class MainWindowViewModel {
 			_ => $"Unknown (0x{platform:X2})"
 		};
 	}
-	
+
 	private static string GetRegionTypeName(byte type) {
 		return type switch {
 			0x01 => "ROM",

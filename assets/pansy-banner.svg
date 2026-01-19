@@ -9,10 +9,10 @@
 			<stop offset="100%" style="stop-color:#654321;stop-opacity:1" />
 		</radialGradient>
 	</defs>
-	
+
 	<!-- Background -->
 	<rect width="600" height="120" fill="#1e1e2e"/>
-	
+
 	<!-- Flower icon -->
 	<ellipse cx="60" cy="35" rx="15" ry="20" fill="url(#petal-banner)" transform="rotate(0 60 60)"/>
 	<ellipse cx="60" cy="35" rx="15" ry="20" fill="url(#petal-banner)" transform="rotate(72 60 60)"/>
@@ -20,7 +20,7 @@
 	<ellipse cx="60" cy="35" rx="15" ry="20" fill="url(#petal-banner)" transform="rotate(216 60 60)"/>
 	<ellipse cx="60" cy="35" rx="15" ry="20" fill="url(#petal-banner)" transform="rotate(288 60 60)"/>
 	<circle cx="60" cy="60" r="12" fill="url(#center-banner)"/>
-	
+
 	<!-- Text -->
 	<text x="110" y="70" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="#FFD700">Pansy</text>
 	<text x="110" y="95" font-family="Arial, sans-serif" font-size="16" fill="#a0a0a0">Universal Disassembly Metadata Format</text>

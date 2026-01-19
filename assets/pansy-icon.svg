@@ -9,14 +9,14 @@
 			<stop offset="100%" style="stop-color:#654321;stop-opacity:1" />
 		</radialGradient>
 	</defs>
-	
+
 	<!-- Flower petals (5 petals in a circle) -->
 	<ellipse cx="50" cy="25" rx="15" ry="20" fill="url(#petal)" transform="rotate(0 50 50)"/>
 	<ellipse cx="50" cy="25" rx="15" ry="20" fill="url(#petal)" transform="rotate(72 50 50)"/>
 	<ellipse cx="50" cy="25" rx="15" ry="20" fill="url(#petal)" transform="rotate(144 50 50)"/>
 	<ellipse cx="50" cy="25" rx="15" ry="20" fill="url(#petal)" transform="rotate(216 50 50)"/>
 	<ellipse cx="50" cy="25" rx="15" ry="20" fill="url(#petal)" transform="rotate(288 50 50)"/>
-	
+
 	<!-- Center -->
 	<circle cx="50" cy="50" r="12" fill="url(#center)"/>
 </svg>
