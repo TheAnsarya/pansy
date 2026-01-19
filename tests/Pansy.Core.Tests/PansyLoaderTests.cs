@@ -8,14 +8,14 @@ public class PansyLoaderTests {
 	[Fact]
 	public void Load_InvalidMagic_ThrowsException() {
 		var data = new byte[] { 0x00, 0x00, 0x00, 0x00 };
-		
+
 		Assert.Throws<System.IO.InvalidDataException>(() => new PansyLoader(data));
 	}
 
 	[Fact]
 	public void Load_TooShort_ThrowsException() {
 		var data = new byte[] { (byte)'P', (byte)'A', (byte)'N', (byte)'S', (byte)'Y' };
-		
+
 		Assert.Throws<System.IO.InvalidDataException>(() => new PansyLoader(data));
 	}
 

@@ -116,149 +116,189 @@ public sealed class PansyWriter {
 
 	/// <summary>Generates the Pansy file as a byte array.</summary>
 	public byte[] Generate() {
+		// Build sections first to get their data and sizes
+		var sectionData = new List<(uint Type, byte[] Data)>();
+
+		// Code/Data map section (combines all code/data/jump/sub flags)
+		var codeDataMap = BuildCodeDataMap();
+		if (codeDataMap.Length > 0) {
+			sectionData.Add((0x0001u, codeDataMap));
+		}
+
+		// Symbols section
+		if (_symbols.Count > 0) {
+			sectionData.Add((0x0002u, BuildSymbolsSection()));
+		}
+
+		// Comments section
+		if (_comments.Count > 0) {
+			sectionData.Add((0x0003u, BuildCommentsSection()));
+		}
+
+		// Memory regions section
+		if (_memoryRegions.Count > 0) {
+			sectionData.Add((0x0004u, BuildMemoryRegionsSection()));
+		}
+
+		// Cross-references section
+		if (_crossRefs.Count > 0) {
+			sectionData.Add((0x0006u, BuildCrossReferencesSection()));
+		}
+
+		// Metadata section
+		if (!string.IsNullOrEmpty(_projectName) || !string.IsNullOrEmpty(_author) || !string.IsNullOrEmpty(_projectVersion)) {
+			sectionData.Add((0x0008u, BuildMetadataSection()));
+		}
+
+		// Now build the file with section table
 		using var ms = new MemoryStream();
 		using var writer = new BinaryWriter(ms);
 
-		// Header
-		writer.Write(Magic);
-		writer.Write(FormatVersion);
+		// Header (32 bytes)
+		writer.Write(Magic); // 8 bytes
+		writer.Write(FormatVersion); // 2 bytes (offset 8)
 
 		// Flags
 		var flags = PansyFlags.None;
 		if (_enableCompression) {
 			flags |= PansyFlags.Compressed;
 		}
-		writer.Write((ushort)flags);
+		writer.Write((ushort)flags); // 2 bytes (offset 10)
 
-		// Platform and ROM info
-		writer.Write(_platform);
-		writer.Write((byte)0); // Reserved
-		writer.Write(_romSize);
-		writer.Write(_romCrc32);
+		// Platform and padding
+		writer.Write(_platform); // 1 byte (offset 12)
+		writer.Write((byte)0); // 1 byte reserved (offset 13)
+		writer.Write((ushort)0); // 2 bytes padding (offset 14)
 
-		// Section count (will be updated)
-		var sectionCountPos = ms.Position;
-		writer.Write((ushort)0);
+		// ROM info
+		writer.Write(_romSize); // 4 bytes (offset 16)
+		writer.Write(_romCrc32); // 4 bytes (offset 20)
 
-		// Write sections
-		var sectionCount = 0;
+		// Section count
+		writer.Write((uint)sectionData.Count); // 4 bytes (offset 24)
 
-		// Metadata section
-		if (!string.IsNullOrEmpty(_projectName) || !string.IsNullOrEmpty(_author) || !string.IsNullOrEmpty(_projectVersion)) {
-			WriteSectionHeader(writer, SectionType.Metadata);
-			WriteString(writer, _projectName);
-			WriteString(writer, _author);
-			WriteString(writer, _projectVersion);
-			sectionCount++;
+		// Reserved
+		writer.Write((uint)0); // 4 bytes (offset 28)
+
+		// Section table starts at offset 32
+		// Each entry: Type (4), Offset (4), CompSize (4), UncompSize (4) = 16 bytes
+		var dataOffset = (uint)(32 + sectionData.Count * 16);
+
+		// Write section table
+		foreach (var (type, data) in sectionData) {
+			writer.Write(type); // Type
+			writer.Write(dataOffset); // Offset
+			writer.Write((uint)data.Length); // CompSize (uncompressed for now)
+			writer.Write((uint)data.Length); // UncompSize
+			dataOffset += (uint)data.Length;
 		}
 
-		// Symbols section
-		if (_symbols.Count > 0) {
-			WriteSectionHeader(writer, SectionType.Symbols);
-			writer.Write(_symbols.Count);
-			foreach (var (addr, name) in _symbols.OrderBy(x => x.Key)) {
-				writer.Write(addr);
-				WriteString(writer, name);
-			}
-			sectionCount++;
+		// Write section data
+		foreach (var (_, data) in sectionData) {
+			writer.Write(data);
 		}
 
-		// Comments section
-		if (_comments.Count > 0) {
-			WriteSectionHeader(writer, SectionType.Comments);
-			writer.Write(_comments.Count);
-			foreach (var (addr, comment) in _comments.OrderBy(x => x.Key)) {
-				writer.Write(addr);
-				WriteString(writer, comment);
-			}
-			sectionCount++;
-		}
-
-		// Code offsets section
-		if (_codeOffsets.Count > 0) {
-			WriteSectionHeader(writer, SectionType.CodeOffsets);
-			writer.Write(_codeOffsets.Count);
-			foreach (var addr in _codeOffsets.OrderBy(x => x)) {
-				writer.Write(addr);
-			}
-			sectionCount++;
-		}
-
-		// Data offsets section
-		if (_dataOffsets.Count > 0) {
-			WriteSectionHeader(writer, SectionType.DataOffsets);
-			writer.Write(_dataOffsets.Count);
-			foreach (var addr in _dataOffsets.OrderBy(x => x)) {
-				writer.Write(addr);
-			}
-			sectionCount++;
-		}
-
-		// Jump targets section
-		if (_jumpTargets.Count > 0) {
-			WriteSectionHeader(writer, SectionType.JumpTargets);
-			writer.Write(_jumpTargets.Count);
-			foreach (var addr in _jumpTargets.OrderBy(x => x)) {
-				writer.Write(addr);
-			}
-			sectionCount++;
-		}
-
-		// Subroutines section
-		if (_subEntryPoints.Count > 0) {
-			WriteSectionHeader(writer, SectionType.SubEntryPoints);
-			writer.Write(_subEntryPoints.Count);
-			foreach (var addr in _subEntryPoints.OrderBy(x => x)) {
-				writer.Write(addr);
-			}
-			sectionCount++;
-		}
-
-		// Memory regions section
-		if (_memoryRegions.Count > 0) {
-			WriteSectionHeader(writer, SectionType.MemoryRegions);
-			writer.Write(_memoryRegions.Count);
-			foreach (var region in _memoryRegions) {
-				writer.Write(region.Start);
-				writer.Write(region.End);
-				writer.Write(region.Bank);
-				writer.Write((byte)region.Type);
-				WriteString(writer, region.Name);
-			}
-			sectionCount++;
-		}
-
-		// Cross-references section
-		if (_crossRefs.Count > 0) {
-			WriteSectionHeader(writer, SectionType.CrossReferences);
-			writer.Write(_crossRefs.Count);
-			foreach (var xref in _crossRefs) {
-				writer.Write((byte)xref.Type);
-				writer.Write(xref.From);
-				writer.Write(xref.To);
-			}
-			sectionCount++;
-		}
-
-		// Update section count
-		var endPos = ms.Position;
-		ms.Position = sectionCountPos;
-		writer.Write((ushort)sectionCount);
-		ms.Position = endPos;
-
-		var data = ms.ToArray();
-
-		// Apply compression if enabled
-		if (_enableCompression) {
-			return CompressData(data);
-		}
-
-		return data;
+		return ms.ToArray();
 	}
 
-	private static void WriteSectionHeader(BinaryWriter writer, SectionType type) {
-		writer.Write((ushort)type);
-		// Section size will be implicit from content
+	private byte[] BuildCodeDataMap() {
+		if (_codeOffsets.Count == 0 && _dataOffsets.Count == 0 &&
+			_jumpTargets.Count == 0 && _subEntryPoints.Count == 0) {
+			return [];
+		}
+
+		// Determine the size needed
+		var maxOffset = 0u;
+		if (_codeOffsets.Count > 0) maxOffset = Math.Max(maxOffset, _codeOffsets.Max());
+		if (_dataOffsets.Count > 0) maxOffset = Math.Max(maxOffset, _dataOffsets.Max());
+		if (_jumpTargets.Count > 0) maxOffset = Math.Max(maxOffset, _jumpTargets.Max());
+		if (_subEntryPoints.Count > 0) maxOffset = Math.Max(maxOffset, _subEntryPoints.Max());
+
+		var map = new byte[maxOffset + 1];
+
+		// Set flags for each offset
+		foreach (var offset in _codeOffsets) {
+			map[offset] |= 0x01; // FLAG_CODE
+		}
+		foreach (var offset in _dataOffsets) {
+			map[offset] |= 0x02; // FLAG_DATA
+		}
+		foreach (var offset in _jumpTargets) {
+			map[offset] |= 0x04; // FLAG_JUMP_TARGET
+		}
+		foreach (var offset in _subEntryPoints) {
+			map[offset] |= 0x08; // FLAG_SUB_ENTRY
+		}
+
+		return map;
+	}
+
+	private byte[] BuildMetadataSection() {
+		using var ms = new MemoryStream();
+		using var writer = new BinaryWriter(ms);
+		WriteString(writer, _projectName);
+		WriteString(writer, _author);
+		WriteString(writer, _projectVersion);
+		return ms.ToArray();
+	}
+
+	private byte[] BuildSymbolsSection() {
+		using var ms = new MemoryStream();
+		using var writer = new BinaryWriter(ms);
+		// No count - loader reads until EOF
+		foreach (var (addr, name) in _symbols.OrderBy(x => x.Key)) {
+			writer.Write(addr); // Address (uint32)
+			writer.Write((byte)1); // Type: Label
+			writer.Write((byte)0); // Flags
+			var nameBytes = Encoding.UTF8.GetBytes(name);
+			writer.Write((ushort)nameBytes.Length); // NameLength
+			writer.Write(nameBytes); // Name
+			writer.Write((ushort)0); // ValueLength (no value for labels)
+		}
+		return ms.ToArray();
+	}
+
+	private byte[] BuildCommentsSection() {
+		using var ms = new MemoryStream();
+		using var writer = new BinaryWriter(ms);
+		// No count - loader reads until EOF
+		foreach (var (addr, comment) in _comments.OrderBy(x => x.Key)) {
+			writer.Write(addr); // Address (uint32)
+			writer.Write((byte)1); // Type: inline comment
+			var commentBytes = Encoding.UTF8.GetBytes(comment);
+			writer.Write((ushort)commentBytes.Length); // Length
+			writer.Write(commentBytes); // Text
+		}
+		return ms.ToArray();
+	}
+
+	private byte[] BuildMemoryRegionsSection() {
+		using var ms = new MemoryStream();
+		using var writer = new BinaryWriter(ms);
+		// No count - loader reads until EOF
+		foreach (var region in _memoryRegions) {
+			writer.Write(region.Start); // Start address (uint32)
+			writer.Write(region.End); // End address (uint32)
+			writer.Write((byte)region.Type); // Type (byte)
+			writer.Write(region.Bank); // Bank (byte)
+			writer.Write((ushort)0); // Flags (reserved)
+			var nameBytes = Encoding.UTF8.GetBytes(region.Name);
+			writer.Write((ushort)nameBytes.Length); // NameLength
+			writer.Write(nameBytes); // Name
+		}
+		return ms.ToArray();
+	}
+
+	private byte[] BuildCrossReferencesSection() {
+		using var ms = new MemoryStream();
+		using var writer = new BinaryWriter(ms);
+		// No count - loader reads until EOF
+		foreach (var xref in _crossRefs) {
+			writer.Write(xref.From); // From address (uint32)
+			writer.Write(xref.To); // To address (uint32)
+			writer.Write((byte)xref.Type); // Type (CrossRefType)
+		}
+		return ms.ToArray();
 	}
 
 	private static void WriteString(BinaryWriter writer, string value) {
@@ -267,29 +307,9 @@ public sealed class PansyWriter {
 		writer.Write(bytes);
 	}
 
-	private static byte[] CompressData(byte[] data) {
-		using var output = new MemoryStream();
-		using (var deflate = new DeflateStream(output, CompressionLevel.Optimal)) {
-			deflate.Write(data, 0, data.Length);
-		}
-		return output.ToArray();
-	}
-
 	[Flags]
 	private enum PansyFlags : ushort {
 		None = 0,
 		Compressed = 1 << 0
-	}
-
-	private enum SectionType : ushort {
-		Metadata = 0x0001,
-		Symbols = 0x0002,
-		Comments = 0x0003,
-		CodeOffsets = 0x0004,
-		DataOffsets = 0x0005,
-		JumpTargets = 0x0006,
-		SubEntryPoints = 0x0007,
-		MemoryRegions = 0x0008,
-		CrossReferences = 0x0009
 	}
 }

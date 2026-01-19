@@ -6,6 +6,26 @@
 namespace Pansy.Core;
 
 /// <summary>
+/// Symbol entry types.
+/// </summary>
+public enum SymbolType : byte {
+	/// <summary>Code or data label.</summary>
+	Label = 1,
+	/// <summary>Named constant.</summary>
+	Constant = 2,
+	/// <summary>Enumeration member.</summary>
+	Enum = 3,
+	/// <summary>Structure definition.</summary>
+	Struct = 4,
+	/// <summary>Macro definition.</summary>
+	Macro = 5,
+	/// <summary>Local label.</summary>
+	Local = 6,
+	/// <summary>Anonymous label.</summary>
+	Anonymous = 7,
+}
+
+/// <summary>
 /// Cross-reference types.
 /// </summary>
 public enum CrossRefType : byte {
@@ -45,4 +65,10 @@ public enum PansyFlags : ushort {
 	None = 0,
 	/// <summary>File content is compressed with DEFLATE.</summary>
 	Compressed = 1 << 0,
+	/// <summary>File contains source map section.</summary>
+	HasSourceMap = 1 << 1,
+	/// <summary>File contains cross-references section.</summary>
+	HasCrossRefs = 1 << 2,
+	/// <summary>File has detailed CDL data.</summary>
+	DetailedCdl = 1 << 3,
 }
