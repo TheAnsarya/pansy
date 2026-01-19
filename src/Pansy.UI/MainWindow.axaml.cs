@@ -178,6 +178,24 @@ public partial class MainWindow : Window {
 		// Implementation depends on current tab - simplified for now
 	}
 
+	private void XrefTypeFilter_Changed(object? sender, SelectionChangedEventArgs e) {
+		if (DataContext is MainWindowViewModel vm && sender is ComboBox comboBox && comboBox.SelectedItem is ComboBoxItem item) {
+			vm.XrefFilterType = item.Content?.ToString();
+		}
+	}
+
+	private void XrefAddressFilter_Changed(object? sender, TextChangedEventArgs e) {
+		if (DataContext is MainWindowViewModel vm && sender is TextBox textBox) {
+			vm.XrefFilterAddress = textBox.Text;
+		}
+	}
+
+	private void ClearXrefFilter_Click(object? sender, RoutedEventArgs e) {
+		if (DataContext is MainWindowViewModel vm) {
+			vm.ClearXrefFilter();
+		}
+	}
+
 	private void Exit_Click(object? sender, RoutedEventArgs e) {
 		Close();
 	}

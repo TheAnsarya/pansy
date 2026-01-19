@@ -19,6 +19,8 @@ public class MainWindowViewModel : INotifyPropertyChanged {
 	private PansyLoader? _currentLoader;
 	private bool _isDirty;
 	private string? _searchText;
+	private string? _xrefFilterType;
+	private string? _xrefFilterAddress;
 	private SymbolInfo? _selectedSymbol;
 	private CommentInfo? _selectedComment;
 	private MemoryRegionInfo? _selectedMemoryRegion;
@@ -180,12 +182,31 @@ public class MainWindowViewModel : INotifyPropertyChanged {
 		set { _crossRefCount = value; OnPropertyChanged(); }
 	}
 
+	public string? XrefFilterType {
+		get => _xrefFilterType;
+		set {
+			_xrefFilterType = value;
+			OnPropertyChanged();
+			ApplyXrefFilter();
+		}
+	}
+
+	public string? XrefFilterAddress {
+		get => _xrefFilterAddress;
+		set {
+			_xrefFilterAddress = value;
+			OnPropertyChanged();
+			ApplyXrefFilter();
+		}
+	}
+
 	public ObservableCollection<SymbolInfo> Symbols { get; } = new();
 	public ObservableCollection<SymbolInfo> FilteredSymbols { get; } = new();
 	public ObservableCollection<CommentInfo> Comments { get; } = new();
 	public ObservableCollection<CommentInfo> FilteredComments { get; } = new();
 	public ObservableCollection<MemoryRegionInfo> MemoryRegions { get; } = new();
 	public ObservableCollection<CrossRefInfo> CrossReferences { get; } = new();
+	public ObservableCollection<CrossRefInfo> FilteredCrossReferences { get; } = new();
 
 	public bool HasFileLoaded => !string.IsNullOrEmpty(FileName);
 	public bool CanSave => HasFileLoaded && IsDirty;
@@ -357,6 +378,38 @@ public class MainWindowViewModel : INotifyPropertyChanged {
 			FilteredSymbols.Add(symbol);
 		foreach (var comment in Comments)
 			FilteredComments.Add(comment);
+	}
+
+	public void ApplyXrefFilter() {
+		FilteredCrossReferences.Clear();
+
+		foreach (var xref in CrossReferences) {
+			// Check type filter
+			if (!string.IsNullOrWhiteSpace(XrefFilterType) && XrefFilterType != "All") {
+				if (!xref.Type.Equals(XrefFilterType, StringComparison.OrdinalIgnoreCase)) {
+					continue;
+				}
+			}
+
+			// Check address filter (matches From or To)
+			if (!string.IsNullOrWhiteSpace(XrefFilterAddress)) {
+				var filter = XrefFilterAddress.ToLowerInvariant();
+				if (!xref.From.ToLowerInvariant().Contains(filter) &&
+				    !xref.To.ToLowerInvariant().Contains(filter)) {
+					continue;
+				}
+			}
+
+			FilteredCrossReferences.Add(xref);
+		}
+	}
+
+	public void ClearXrefFilter() {
+		XrefFilterType = null;
+		XrefFilterAddress = null;
+		FilteredCrossReferences.Clear();
+		foreach (var xref in CrossReferences)
+			FilteredCrossReferences.Add(xref);
 	}
 
 	/// <summary>
@@ -547,13 +600,20 @@ public class MainWindowViewModel : INotifyPropertyChanged {
 
 			// Load cross-references (sorted by from address)
 			CrossReferences.Clear();
+			FilteredCrossReferences.Clear();
 			foreach (var xref in loader.CrossReferences.OrderBy(x => x.From)) {
-				CrossReferences.Add(new CrossRefInfo {
+				var crossRefInfo = new CrossRefInfo {
 					From = $"${xref.From:X4}",
 					To = $"${xref.To:X4}",
 					Type = xref.Type.ToString()
-				});
+				};
+				CrossReferences.Add(crossRefInfo);
+				FilteredCrossReferences.Add(crossRefInfo);
 			}
+
+			// Clear filters
+			_xrefFilterType = null;
+			_xrefFilterAddress = null;
 
 			IsDirty = false;
 		} catch (Exception ex) {

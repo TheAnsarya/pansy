@@ -330,18 +330,61 @@ static Func<string, bool> BuildMatcher(string pattern, bool caseInsensitive, boo
 }
 
 static int RunXrefs(string[] args) {
+	// Check for analysis commands first
+	if (args.Length >= 2 && args[1].StartsWith("--")) {
+		var filePath = args[0];
+		var command = args[1];
+
+		if (!File.Exists(filePath)) {
+			AnsiConsole.MarkupLine($"[red]Error:[/] File not found: {Markup.Escape(filePath)}");
+			return 1;
+		}
+
+		var data = File.ReadAllBytes(filePath);
+		var pansy = new PansyLoader(data);
+
+		switch (command) {
+			case "--stats":
+				return ShowXrefStats(pansy);
+			case "--most-called":
+				var count = args.Length > 2 && int.TryParse(args[2], out var n) ? n : 10;
+				return ShowMostCalled(pansy, count);
+			case "--unreferenced":
+			case "--dead-code":
+				return ShowUnreferencedCode(pansy);
+			case "--type":
+				if (args.Length < 3) {
+					AnsiConsole.MarkupLine("[red]Error:[/] Missing type argument");
+					return 1;
+				}
+				return ShowByType(pansy, args[2]);
+			default:
+				AnsiConsole.MarkupLine($"[red]Error:[/] Unknown command: {command}");
+				return 1;
+		}
+	}
+
 	if (args.Length < 2) {
 		AnsiConsole.MarkupLine("[red]Error:[/] Missing arguments");
-		AnsiConsole.MarkupLine("[cyan]Usage:[/] pansy xrefs <file> <address>");
-		AnsiConsole.MarkupLine("[grey]Address format: decimal (12345) or hex with $ prefix ($3039)[/]");
+		AnsiConsole.MarkupLine("[cyan]Usage:[/] pansy xrefs <file> <address|command>");
+		AnsiConsole.WriteLine();
+		AnsiConsole.MarkupLine("[cyan]Address lookup:[/]");
+		AnsiConsole.MarkupLine("  pansy xrefs <file> $8000          Show refs to/from $8000");
+		AnsiConsole.MarkupLine("  pansy xrefs <file> 32768          Same in decimal");
+		AnsiConsole.WriteLine();
+		AnsiConsole.MarkupLine("[cyan]Analysis commands:[/]");
+		AnsiConsole.MarkupLine("  pansy xrefs <file> --stats        Cross-reference statistics");
+		AnsiConsole.MarkupLine("  pansy xrefs <file> --most-called [n]  Top n most referenced addresses");
+		AnsiConsole.MarkupLine("  pansy xrefs <file> --unreferenced Find unreferenced subroutines");
+		AnsiConsole.MarkupLine("  pansy xrefs <file> --type <type>  Filter by type (Jsr, Jmp, Branch, Read, Write)");
 		return 1;
 	}
 
-	var filePath = args[0];
+	var filePathLookup = args[0];
 	var addressStr = args[1];
 
-	if (!File.Exists(filePath)) {
-		AnsiConsole.MarkupLine($"[red]Error:[/] File not found: {Markup.Escape(filePath)}");
+	if (!File.Exists(filePathLookup)) {
+		AnsiConsole.MarkupLine($"[red]Error:[/] File not found: {Markup.Escape(filePathLookup)}");
 		return 1;
 	}
 
@@ -359,8 +402,8 @@ static int RunXrefs(string[] args) {
 		}
 	}
 
-	var data = File.ReadAllBytes(filePath);
-	var pansy = new PansyLoader(data);
+	var fileData = File.ReadAllBytes(filePathLookup);
+	var pansy = new PansyLoader(fileData);
 
 	AnsiConsole.MarkupLine($"[bold magenta]🌼 Cross-references for ${targetAddress:X4}[/]");
 
@@ -422,6 +465,160 @@ static int RunXrefs(string[] args) {
 	} else {
 		AnsiConsole.MarkupLine($"[green]Total: {referencesTo.Count} incoming, {referencesFrom.Count} outgoing[/]");
 	}
+
+	return 0;
+}
+
+static int ShowXrefStats(PansyLoader pansy) {
+	AnsiConsole.MarkupLine("[bold magenta]🌼 Cross-Reference Statistics[/]");
+	AnsiConsole.WriteLine();
+
+	var totalXrefs = pansy.CrossReferences.Count;
+
+	// Group by type
+	var byType = pansy.CrossReferences
+		.GroupBy(x => x.Type)
+		.OrderByDescending(g => g.Count())
+		.ToList();
+
+	var table = new Table()
+		.Border(TableBorder.Rounded)
+		.AddColumn("Reference Type")
+		.AddColumn(new TableColumn("Count").Centered())
+		.AddColumn(new TableColumn("Percentage").Centered());
+
+	foreach (var group in byType) {
+		var percentage = totalXrefs > 0 ? (double)group.Count() / totalXrefs * 100 : 0;
+		table.AddRow(group.Key.ToString(), group.Count().ToString("N0"), $"{percentage:F1}%");
+	}
+
+	table.AddRow("[bold]Total[/]", $"[bold]{totalXrefs:N0}[/]", "[bold]100%[/]");
+
+	AnsiConsole.Write(table);
+	AnsiConsole.WriteLine();
+
+	// Additional stats
+	var uniqueTargets = pansy.CrossReferences.Select(x => x.To).Distinct().Count();
+	var uniqueSources = pansy.CrossReferences.Select(x => x.From).Distinct().Count();
+
+	AnsiConsole.MarkupLine($"[cyan]Unique target addresses:[/] {uniqueTargets:N0}");
+	AnsiConsole.MarkupLine($"[cyan]Unique source addresses:[/] {uniqueSources:N0}");
+
+	return 0;
+}
+
+static int ShowMostCalled(PansyLoader pansy, int count) {
+	AnsiConsole.MarkupLine($"[bold magenta]🌼 Top {count} Most Referenced Addresses[/]");
+	AnsiConsole.WriteLine();
+
+	var mostReferenced = pansy.CrossReferences
+		.GroupBy(x => x.To)
+		.OrderByDescending(g => g.Count())
+		.Take(count)
+		.ToList();
+
+	if (mostReferenced.Count == 0) {
+		AnsiConsole.MarkupLine("[yellow]No cross-references found[/]");
+		return 0;
+	}
+
+	var table = new Table()
+		.Border(TableBorder.Rounded)
+		.AddColumn("Rank")
+		.AddColumn("Address")
+		.AddColumn("Symbol")
+		.AddColumn(new TableColumn("Ref Count").Centered())
+		.AddColumn("Types");
+
+	var rank = 1;
+	foreach (var group in mostReferenced) {
+		var address = (int)group.First().To;
+		var symbol = pansy.Symbols.TryGetValue(address, out var name) ? name : "-";
+		var types = string.Join(", ", group.Select(x => x.Type).Distinct());
+
+		table.AddRow(rank.ToString(), $"${address:X4}", Markup.Escape(symbol), group.Count().ToString(), types);
+		rank++;
+	}
+
+	AnsiConsole.Write(table);
+
+	return 0;
+}
+
+static int ShowUnreferencedCode(PansyLoader pansy) {
+	AnsiConsole.MarkupLine("[bold magenta]🌼 Unreferenced Subroutines (Dead Code Detection)[/]");
+	AnsiConsole.WriteLine();
+
+	// Get all subroutine entry points
+	var subroutines = pansy.SubEntryPoints.ToHashSet();
+
+	// Get all addresses that are targets of cross-references
+	var referencedAddresses = pansy.CrossReferences
+		.Select(x => (int)x.To)
+		.ToHashSet();
+
+	// Find subroutines that are never referenced
+	var unreferenced = subroutines.Where(addr => !referencedAddresses.Contains(addr)).OrderBy(x => x).ToList();
+
+	if (unreferenced.Count == 0) {
+		AnsiConsole.MarkupLine("[green]All subroutines are referenced![/]");
+		return 0;
+	}
+
+	AnsiConsole.MarkupLine($"[yellow]Found {unreferenced.Count} unreferenced subroutine(s):[/]");
+	AnsiConsole.WriteLine();
+
+	var table = new Table()
+		.Border(TableBorder.Rounded)
+		.AddColumn("Address")
+		.AddColumn("Symbol");
+
+	foreach (var address in unreferenced) {
+		var symbol = pansy.Symbols.TryGetValue(address, out var name) ? name : "-";
+		table.AddRow($"${address:X4}", Markup.Escape(symbol));
+	}
+
+	AnsiConsole.Write(table);
+
+	return 0;
+}
+
+static int ShowByType(PansyLoader pansy, string typeName) {
+	// Parse the type
+	if (!Enum.TryParse<CrossRefType>(typeName, true, out var xrefType)) {
+		AnsiConsole.MarkupLine($"[red]Error:[/] Invalid cross-reference type: {Markup.Escape(typeName)}");
+		AnsiConsole.MarkupLine("[cyan]Valid types:[/] Jsr, Jmp, Branch, Read, Write, DataRef, IndexedRead, IndexedWrite");
+		return 1;
+	}
+
+	var filtered = pansy.CrossReferences
+		.Where(x => x.Type == xrefType)
+		.OrderBy(x => x.From)
+		.ToList();
+
+	AnsiConsole.MarkupLine($"[bold magenta]🌼 Cross-references of type '{xrefType}'[/]");
+	AnsiConsole.WriteLine();
+
+	if (filtered.Count == 0) {
+		AnsiConsole.MarkupLine($"[yellow]No {xrefType} references found[/]");
+		return 0;
+	}
+
+	var table = new Table()
+		.Border(TableBorder.Rounded)
+		.AddColumn("From")
+		.AddColumn("To")
+		.AddColumn("From Symbol")
+		.AddColumn("To Symbol");
+
+	foreach (var xref in filtered) {
+		var fromSymbol = pansy.Symbols.TryGetValue((int)xref.From, out var fromName) ? fromName : "-";
+		var toSymbol = pansy.Symbols.TryGetValue((int)xref.To, out var toName) ? toName : "-";
+		table.AddRow($"${xref.From:X4}", $"${xref.To:X4}", Markup.Escape(fromSymbol), Markup.Escape(toSymbol));
+	}
+
+	AnsiConsole.Write(table);
+	AnsiConsole.MarkupLine($"[green]Total: {filtered.Count} reference(s)[/]");
 
 	return 0;
 }

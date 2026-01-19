@@ -191,18 +191,92 @@ $ dotnet run --project src/Pansy.Cli -- find game.pansy "Loop" -s
 
 ### `xrefs` - Show Cross-References
 
-Displays cross-references for a specific address, showing both incoming (references TO) and outgoing (references FROM) the address.
+Displays cross-references for a specific address or performs cross-reference analysis across the entire file.
 
 **Usage:**
 ```bash
+# Show references for a specific address
 dotnet run --project src/Pansy.Cli -- xrefs <file> <address>
+
+# Analysis commands
+dotnet run --project src/Pansy.Cli -- xrefs <file> --stats
+dotnet run --project src/Pansy.Cli -- xrefs <file> --most-called [n]
+dotnet run --project src/Pansy.Cli -- xrefs <file> --unreferenced
+dotnet run --project src/Pansy.Cli -- xrefs <file> --type <type>
 ```
 
 **Arguments:**
 - `<file>` - Path to the Pansy file
-- `<address>` - Address to查询 (decimal format, e.g., 32784 for $8010)
+- `<address>` - Address to query (decimal format, e.g., 32784 for $8010)
 
-**Example:**
+**Options:**
+- `--stats` - Show cross-reference statistics summary
+- `--most-called [n]` - Show top N most referenced addresses (default: 10)
+- `--unreferenced` - Show subroutines with no incoming references
+- `--type <type>` - Filter by reference type (Jsr, Jmp, Branch, Read, Write, DataRef)
+
+**Analysis Examples:**
+```bash
+# Show overall cross-reference statistics
+$ dotnet run --project src/Pansy.Cli -- xrefs game.pansy --stats
+
+🌼 Cross-Reference Statistics
+
+Total cross-references: 47
+
+By Type:
+  • Jsr: 23 (48.9%)
+  • Jmp: 12 (25.5%)
+  • Branch: 8 (17.0%)
+  • Read: 3 (6.4%)
+  • Write: 1 (2.1%)
+
+# Show top 5 most called addresses
+$ dotnet run --project src/Pansy.Cli -- xrefs game.pansy --most-called 5
+
+🌼 Top 5 Most Referenced Addresses
+
+╭─────────┬──────────────────┬───────╮
+│ Address │ Symbol           │ Refs  │
+├─────────┼──────────────────┼───────┤
+│ $8100   │ Read_Controller  │ 12    │
+│ $8050   │ Update_Graphics  │ 8     │
+│ $8150   │ Play_Sound       │ 5     │
+│ $8010   │ Main_Loop        │ 3     │
+│ $8200   │ Wait_VBlank      │ 2     │
+╰─────────┴──────────────────┴───────╯
+
+# Show unreferenced subroutines (dead code detection)
+$ dotnet run --project src/Pansy.Cli -- xrefs game.pansy --unreferenced
+
+🌼 Unreferenced Subroutines
+
+╭─────────┬──────────────╮
+│ Address │ Symbol       │
+├─────────┼──────────────┤
+│ $8300   │ Debug_Print  │
+│ $8400   │ Old_Handler  │
+╰─────────┴──────────────╯
+
+Found 2 unreferenced subroutines (potential dead code)
+
+# Filter by reference type
+$ dotnet run --project src/Pansy.Cli -- xrefs game.pansy --type Jsr
+
+🌼 Cross-References of Type: Jsr
+
+╭──────┬────────┬──────────────────╮
+│ From │ To     │ Target Symbol    │
+├──────┼────────┼──────────────────┤
+│ $8015│ $8100  │ Read_Controller  │
+│ $8020│ $8050  │ Update_Graphics  │
+│ $8025│ $8150  │ Play_Sound       │
+╰──────┴────────┴──────────────────╯
+
+Found 23 Jsr references
+```
+
+**Address Query Example:**
 ```bash
 $ dotnet run --project src/Pansy.Cli -- xrefs game.pansy 32784
 

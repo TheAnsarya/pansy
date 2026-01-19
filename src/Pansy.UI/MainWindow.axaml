@@ -201,12 +201,29 @@
 					<!-- Toolbar -->
 					<StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="4">
 						<Button Content="🗑️ Delete" Click="DeleteCrossRef_Click" Margin="2" IsEnabled="{Binding CanDeleteCrossRef}" />
-						<TextBlock Text="ℹ️ Cross-references are generated during disassembly and cannot be manually added/edited"
-						           VerticalAlignment="Center" Margin="8,0" FontStyle="Italic" />
+						<Separator Margin="8,0" />
+						
+						<TextBlock Text="Type:" VerticalAlignment="Center" Margin="4,0" />
+						<ComboBox SelectedItem="{Binding XrefFilterType}" Width="120" Margin="2" SelectionChanged="XrefTypeFilter_Changed">
+							<ComboBoxItem Content="All" IsSelected="True" />
+							<ComboBoxItem Content="Jsr" />
+							<ComboBoxItem Content="Jmp" />
+							<ComboBoxItem Content="Branch" />
+							<ComboBoxItem Content="Read" />
+							<ComboBoxItem Content="Write" />
+							<ComboBoxItem Content="DataRef" />
+						</ComboBox>
+						
+						<TextBlock Text="Address:" VerticalAlignment="Center" Margin="8,0,4,0" />
+						<TextBox Width="120" Text="{Binding XrefFilterAddress}" 
+						         Watermark="$8000" 
+						         TextChanged="XrefAddressFilter_Changed"
+						         ToolTip.Tip="Filter by From or To address" />
+						<Button Content="✖️ Clear" Click="ClearXrefFilter_Click" Margin="2" />
 					</StackPanel>
 
 					<!-- DataGrid -->
-					<DataGrid ItemsSource="{Binding CrossReferences}"
+					<DataGrid ItemsSource="{Binding FilteredCrossReferences}"
 					          SelectedItem="{Binding SelectedCrossRef}"
 					          IsReadOnly="True"
 					          GridLinesVisibility="All"
