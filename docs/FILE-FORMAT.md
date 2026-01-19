@@ -1,4 +1,6 @@
-# Pansy File Format Specification
+# 🌼 Pansy File Format Specification
+
+> **Pansy** - Program ANalysis SYstem format for comprehensive assembly metadata exchange
 
 **Version:** 1.0  
 **Status:** Draft  
@@ -7,7 +9,7 @@
 
 ## Overview
 
-Pansy is a binary metadata format for storing disassembly analysis data, designed for retro game development and ROM hacking. It provides a standardized way to share labels, comments, code/data classifications, and cross-reference information across different tools.
+🌼 Pansy is a binary metadata format for storing disassembly analysis data, designed for retro game development and ROM hacking. It provides a standardized way to share labels, comments, code/data classifications, and cross-reference information across different tools.
 
 ## Design Goals
 

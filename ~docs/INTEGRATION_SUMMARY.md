@@ -1,7 +1,9 @@
-# Integration Summary - Pansy Extraction Complete
+# 🌼 Pansy Integration Summary - Extraction Complete
+
+> **Pansy** - Program ANalysis SYstem format for comprehensive assembly metadata exchange
 
 ## Overview
-Successfully extracted Pansy as a standalone repository and integrated it with Peony disassembler.
+Successfully extracted 🌼 Pansy as a standalone repository and integrated it with Peony disassembler.
 
 ## What Was Done
 

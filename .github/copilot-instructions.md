@@ -1,4 +1,6 @@
-# � Pansy - AI Copilot Directives
+# 🌼 Pansy - AI Copilot Directives
+
+> **Pansy** - Program ANalysis SYstem format for comprehensive assembly metadata exchange
 
 ## Project Overview
 

@@ -1,4 +1,6 @@
-# � Pansy - Universal Disassembly Metadata Format
+# 🌼 Pansy - Universal Disassembly Metadata Format
+
+> **Pansy** - Program ANalysis SYstem format for comprehensive assembly metadata exchange
 
 **🌼 Pansy** is a standardized binary format for storing and sharing disassembly analysis data across retro gaming platforms and tools.
 

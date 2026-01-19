@@ -1,6 +1,8 @@
-# Pansy CLI Command Reference
+# 🌼 Pansy CLI Command Reference
 
-The Pansy command-line interface provides tools for inspecting, searching, and analyzing Pansy metadata files.
+> **Pansy** - Program ANalysis SYstem format for comprehensive assembly metadata exchange
+
+The 🌼 Pansy command-line interface provides tools for inspecting, searching, and analyzing Pansy metadata files.
 
 ## Installation
 

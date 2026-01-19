@@ -1,6 +1,8 @@
-# Pansy Example Workflows
+# 🌼 Pansy Example Workflows
 
-This guide demonstrates common workflows and use cases for Pansy in ROM hacking and retro game development.
+> **Pansy** - Program ANalysis SYstem format for comprehensive assembly metadata exchange
+
+This guide demonstrates common workflows and use cases for 🌼 Pansy in ROM hacking and retro game development.
 
 ## Table of Contents
 
