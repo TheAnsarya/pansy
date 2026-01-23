@@ -340,24 +340,24 @@ static int RunXrefs(string[] args) {
 			return 1;
 		}
 
-		var data = File.ReadAllBytes(filePath);
-		var pansy = new PansyLoader(data);
+		var fileData1 = File.ReadAllBytes(filePath);
+		var pansyData = new PansyLoader(fileData1);
 
 		switch (command) {
 			case "--stats":
-				return ShowXrefStats(pansy);
+				return ShowXrefStats(pansyData);
 			case "--most-called":
 				var count = args.Length > 2 && int.TryParse(args[2], out var n) ? n : 10;
-				return ShowMostCalled(pansy, count);
+				return ShowMostCalled(pansyData, count);
 			case "--unreferenced":
 			case "--dead-code":
-				return ShowUnreferencedCode(pansy);
+				return ShowUnreferencedCode(pansyData);
 			case "--type":
 				if (args.Length < 3) {
 					AnsiConsole.MarkupLine("[red]Error:[/] Missing type argument");
 					return 1;
 				}
-				return ShowByType(pansy, args[2]);
+				return ShowByType(pansyData, args[2]);
 			default:
 				AnsiConsole.MarkupLine($"[red]Error:[/] Unknown command: {command}");
 				return 1;
