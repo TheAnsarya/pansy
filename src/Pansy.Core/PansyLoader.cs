@@ -134,6 +134,13 @@ public class PansyLoader {
 	/// <summary>Gets the ROM CRC32.</summary>
 	public uint RomCrc32 => _romCrc32;
 
+	/// <summary>
+	/// Indicates whether this Pansy file contains code/data map information.
+	/// If false, IsCode() and IsData() will always return false, which should be
+	/// interpreted as "no information available" rather than "not code/data".
+	/// </summary>
+	public bool HasCodeDataMap => _codeOffsets.Count > 0 || _dataOffsets.Count > 0;
+
 	/// <summary>Gets all ROM offsets marked as code.</summary>
 	public IReadOnlySet<int> CodeOffsets => _codeOffsets;
 
