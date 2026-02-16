@@ -47,6 +47,30 @@ public enum CrossRefType : byte {
 public record SectionInfo(uint Type, uint Offset, uint CompressedSize, uint UncompressedSize);
 
 /// <summary>
+/// Memory region types.
+/// </summary>
+public enum MemoryRegionType : byte {
+	/// <summary>Unknown or unspecified region type.</summary>
+	Unknown = 0,
+	/// <summary>Read-only memory (ROM).</summary>
+	ROM = 1,
+	/// <summary>Random access memory (RAM).</summary>
+	RAM = 2,
+	/// <summary>Video RAM.</summary>
+	VRAM = 3,
+	/// <summary>I/O registers.</summary>
+	IO = 4,
+	/// <summary>Save RAM (battery-backed).</summary>
+	SRAM = 5,
+	/// <summary>Work RAM.</summary>
+	WRAM = 6,
+	/// <summary>Open bus / unmapped.</summary>
+	OpenBus = 7,
+	/// <summary>Mirror of another region.</summary>
+	Mirror = 8,
+}
+
+/// <summary>
 /// Memory region definition.
 /// </summary>
 public record MemoryRegion(uint Start, uint End, byte Type, byte Bank, string Name);
