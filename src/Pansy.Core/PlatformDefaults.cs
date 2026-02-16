@@ -107,11 +107,11 @@ public static class PlatformDefaults {
 		{ 0xfc90, "SUZYBUSEN" },
 		{ 0xfc91, "SPRGO" },
 		{ 0xfc92, "SPRSYS" },
-		
+
 		// Suzy Input
 		{ 0xfcb0, "JOYSTICK" },
 		{ 0xfcb1, "SWITCHES" },
-		
+
 		// Suzy Math
 		{ 0xfc52, "MATHD" },
 		{ 0xfc53, "MATHC" },
@@ -119,7 +119,7 @@ public static class PlatformDefaults {
 		{ 0xfc55, "MATHA" },
 		{ 0xfc6e, "MATHK" },
 		{ 0xfc6c, "MATHM" },
-		
+
 		// Mikey Timers
 		{ 0xfd00, "TIM0BKUP" },
 		{ 0xfd01, "TIM0CTLA" },
@@ -129,22 +129,22 @@ public static class PlatformDefaults {
 		{ 0xfd09, "TIM2CTLA" },
 		{ 0xfd0a, "TIM2CNT" },
 		{ 0xfd0b, "TIM2CTLB" },
-		
+
 		// Mikey Interrupts
 		{ 0xfd80, "INTRST" },
 		{ 0xfd81, "INTSET" },
-		
+
 		// Mikey I/O
 		{ 0xfd8a, "IODIR" },
 		{ 0xfd8b, "IODAT" },
 		{ 0xfd8c, "SERCTL" },
 		{ 0xfd8d, "SERDAT" },
-		
+
 		// Mikey Display
 		{ 0xfd92, "DISPCTL" },
 		{ 0xfd94, "DISPADRL" },
 		{ 0xfd95, "DISPADRH" },
-		
+
 		// Vectors
 		{ 0xfffa, "NMI_VECTOR" },
 		{ 0xfffc, "RESET_VECTOR" },
