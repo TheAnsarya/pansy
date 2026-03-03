@@ -384,7 +384,7 @@ public class IntegrationTests {
 			var loader = new PansyLoader(data);
 
 			Assert.Equal(platform, loader.Platform);
-			Assert.Equal(1, loader.Symbols.Count);
+			Assert.Single(loader.Symbols);
 			Assert.Equal(SymbolType.Function, loader.GetSymbolType(0x8000));
 			Assert.Contains(PansyLoader.GetPlatformName(platform), loader.GetSymbol(0x8000)!);
 		}

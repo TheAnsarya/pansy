@@ -10,12 +10,14 @@
 **Status:** Beta - Format stable, core functionality complete
 
 ### Recent Updates
+- ✅ **Performance Optimized** - FrozenDictionary/FrozenSet for zero-allocation lookups
+- ✅ **Typed Metadata** - SymbolEntry/CommentEntry records with type preservation
+- ✅ **Extended Flags** - DRAWN, READ, INDIRECT code/data map flags
+- ✅ **78 Tests Passing** - Comprehensive test coverage including roundtrip, typed data, integration
+- ✅ **BenchmarkDotNet Suite** - 16 writer + 16 loader benchmarks for performance tracking
 - ✅ **UI Editing Complete** - Full CRUD operations for symbols, comments, and memory regions
-- ✅ **Format Compatibility Fixed** - PansyWriter and PansyLoader now fully compatible with roundtrip support
-- ✅ **17 Tests Passing** - Comprehensive test coverage including roundtrip verification
 - ✅ **CLI Commands Working** - info, symbols, find, xrefs, diff all functional
 - ✅ **Documentation Complete** - File format spec, CLI reference, examples guide
-- 📝 **GitHub Issues** - 10 enhancement tasks tracked on project board
 
 ## 🎯 Purpose
 
@@ -137,7 +139,7 @@ var pansy = new PansyLoader(data);
 
 // Access symbols
 foreach (var (address, name) in pansy.Symbols) {
-	Console.WriteLine($"${address:X4}: {name}");
+	Console.WriteLine($"${address:x4}: {name}");
 }
 
 // Get cross-references to a specific address
@@ -161,6 +163,7 @@ Pansy integrates with:
 - **[Peony](https://github.com/TheAnsarya/peony)** - Disassembler (generates Pansy files)
 - **[Poppy](https://github.com/TheAnsarya/poppy)** - Assembler (uses Pansy for symbols)
 - **[GameInfo](https://github.com/TheAnsarya/GameInfo)** - ROM hacking toolkit
+- **[Nexen](https://github.com/TheAnsarya/Nexen)** - Multi-system emulator (exports Pansy metadata)
 - **Mesen 2** - NES/SNES emulator (import/export)
 - **FCEUX** - NES emulator (import/export)
 - **No$GBA** - GBA emulator (import/export)
@@ -174,22 +177,25 @@ Pansy integrates with:
 | Game Boy | 0x03 | ✅ Full |
 | Game Boy Advance | 0x04 | ✅ Full |
 | Sega Genesis | 0x05 | ✅ Full |
-| Atari 2600 | 0x06 | ✅ Full |
-| Custom | 0xFF | ✅ Full |
+| Sega Master System | 0x06 | ✅ Full |
+| PC Engine | 0x07 | ✅ Full |
+| Atari 2600 | 0x08 | ✅ Full |
+| Atari Lynx | 0x09 | ✅ Full |
+| WonderSwan | 0x0a | ✅ Full |
+| Custom | 0xff | ✅ Full |
 
 ## 🏗️ Architecture
 
 ```
 Pansy/
 ├── src/
-│   ├── Pansy.Core/          # Core library (format I/O)
-│   ├── Pansy.UI/            # Avalonia desktop app
-│   └── Pansy.Cli/           # Command-line tools
+│   ├── Pansy.Core/              # Core library (format I/O)
+│   ├── Pansy.UI/                # Avalonia desktop app
+│   └── Pansy.Cli/               # Command-line tools
 ├── tests/
-│   ├── Pansy.Core.Tests/    # Core library tests
-│   ├── Pansy.UI.Tests/      # UI tests
-│   └── Pansy.Cli.Tests/     # CLI tests
-└── docs/                    # Documentation
+│   ├── Pansy.Core.Tests/        # xUnit tests (78 tests)
+│   └── Pansy.Core.Benchmarks/   # BenchmarkDotNet suite
+└── docs/                        # Documentation
 ```
 
 ## 🤝 Contributing

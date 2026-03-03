@@ -249,7 +249,7 @@ public class CodeDataMapTests {
 		var loader = new PansyLoader(data);
 
 		Assert.True(loader.IsDrawn(0x100));
-		Assert.Equal(1, loader.DrawnOffsets.Count);
+		Assert.Single(loader.DrawnOffsets);
 	}
 
 	#endregion
