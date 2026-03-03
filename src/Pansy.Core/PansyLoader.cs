@@ -145,6 +145,9 @@ public class PansyLoader {
 	/// <summary>Gets the file flags.</summary>
 	public PansyFlags Flags => _flags;
 
+	/// <summary>Gets whether the file uses compression.</summary>
+	public bool IsCompressed => _flags.HasFlag(PansyFlags.Compressed);
+
 	/// <summary>Gets the platform ID.</summary>
 	public byte Platform => _platform;
 

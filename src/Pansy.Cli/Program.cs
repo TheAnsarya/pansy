@@ -16,6 +16,7 @@ if (args.Length == 0) {
 	AnsiConsole.MarkupLine("[cyan]Commands:[/]");
 	AnsiConsole.MarkupLine("  info <file>             Display information about a Pansy file");
 	AnsiConsole.MarkupLine("  symbols <file>          List all symbols in a Pansy file");
+	AnsiConsole.MarkupLine("  stats <file>            Show detailed statistics and analysis");
 	AnsiConsole.MarkupLine("  find <file> <pattern>   Search for symbols/comments (supports regex, wildcards)");
 	AnsiConsole.MarkupLine("  xrefs <file> <address>  Show cross-references for an address");
 	AnsiConsole.MarkupLine("  diff <file1> <file2>    Compare two Pansy files");
@@ -31,6 +32,8 @@ try {
 			return RunInfo(args.Skip(1).ToArray());
 		case "symbols":
 			return RunSymbols(args.Skip(1).ToArray());
+		case "stats":
+			return RunStats(args.Skip(1).ToArray());
 		case "find":
 			return RunFind(args.Skip(1).ToArray());
 		case "xrefs":
@@ -192,6 +195,232 @@ static int RunSymbols(string[] args) {
 	}
 
 	AnsiConsole.Write(table);
+	return 0;
+}
+
+static int RunStats(string[] args) {
+	if (args.Length == 0) {
+		AnsiConsole.MarkupLine("[red]Error:[/] Missing file argument");
+		AnsiConsole.MarkupLine("[cyan]Usage:[/] pansy stats <file>");
+		return 1;
+	}
+
+	var filePath = args[0];
+
+	if (!File.Exists(filePath)) {
+		AnsiConsole.MarkupLine($"[red]Error:[/] File not found: {Markup.Escape(filePath)}");
+		return 1;
+	}
+
+	var fileBytes = File.ReadAllBytes(filePath);
+	var pansy = new PansyLoader(fileBytes);
+
+	AnsiConsole.MarkupLine($"[bold magenta]\ud83c\udf3c Statistics for {Markup.Escape(Path.GetFileName(filePath))}[/]");
+	AnsiConsole.WriteLine();
+
+	// File info
+	var infoTable = new Table()
+		.Border(TableBorder.Rounded)
+		.Title("[bold cyan]File Info[/]")
+		.AddColumn("Property")
+		.AddColumn("Value");
+
+	infoTable.AddRow("File Size", $"{fileBytes.Length:N0} bytes ({fileBytes.Length / 1024.0:F1} KB)");
+	infoTable.AddRow("Platform", PansyLoader.GetPlatformName(pansy.Platform));
+	infoTable.AddRow("ROM Size", $"{pansy.RomSize:N0} bytes ({pansy.RomSize / 1024}K)");
+	infoTable.AddRow("ROM CRC32", $"{pansy.RomCrc32:x8}");
+	infoTable.AddRow("Compressed", pansy.IsCompressed ? "[green]Yes[/]" : "No");
+
+	AnsiConsole.Write(infoTable);
+	AnsiConsole.WriteLine();
+
+	// Content summary
+	var summaryTable = new Table()
+		.Border(TableBorder.Rounded)
+		.Title("[bold cyan]Content Summary[/]")
+		.AddColumn("Section")
+		.AddColumn(new TableColumn("Count").RightAligned());
+
+	summaryTable.AddRow("Symbols", $"{pansy.Symbols.Count:N0}");
+	summaryTable.AddRow("Comments", $"{pansy.Comments.Count:N0}");
+	summaryTable.AddRow("Memory Regions", $"{pansy.MemoryRegions.Count:N0}");
+	summaryTable.AddRow("Cross-References", $"{pansy.CrossReferences.Count:N0}");
+
+	AnsiConsole.Write(summaryTable);
+	AnsiConsole.WriteLine();
+
+	// Code/Data map statistics
+	if (pansy.HasCodeDataMap) {
+		var codeCount = pansy.CodeOffsets.Count;
+		var dataCount = pansy.DataOffsets.Count;
+		var opcodeCount = pansy.OpcodeOffsets.Count;
+		var jumpCount = pansy.JumpTargets.Count;
+		var subCount = pansy.SubEntryPoints.Count;
+		var drawnCount = pansy.DrawnOffsets.Count;
+		var readCount = pansy.ReadOffsets.Count;
+		var indirectCount = pansy.IndirectOffsets.Count;
+		var total = codeCount + dataCount;
+
+		var mapTable = new Table()
+			.Border(TableBorder.Rounded)
+			.Title("[bold cyan]Code/Data Map[/]")
+			.AddColumn("Flag")
+			.AddColumn(new TableColumn("Count").RightAligned())
+			.AddColumn(new TableColumn("Percentage").RightAligned());
+
+		mapTable.AddRow("Code offsets", $"{codeCount:N0}", total > 0 ? $"{codeCount * 100.0 / total:F1}%" : "-");
+		mapTable.AddRow("Data offsets", $"{dataCount:N0}", total > 0 ? $"{dataCount * 100.0 / total:F1}%" : "-");
+		mapTable.AddRow("[grey]Opcodes[/]", $"[grey]{opcodeCount:N0}[/]", "");
+		mapTable.AddRow("[grey]Jump targets[/]", $"[grey]{jumpCount:N0}[/]", "");
+		mapTable.AddRow("[grey]Subroutine entries[/]", $"[grey]{subCount:N0}[/]", "");
+		mapTable.AddRow("[grey]Drawn[/]", $"[grey]{drawnCount:N0}[/]", "");
+		mapTable.AddRow("[grey]Read[/]", $"[grey]{readCount:N0}[/]", "");
+		mapTable.AddRow("[grey]Indirect[/]", $"[grey]{indirectCount:N0}[/]", "");
+
+		AnsiConsole.Write(mapTable);
+		AnsiConsole.WriteLine();
+
+		// Code/Data ratio bar chart
+		if (total > 0) {
+			var chart = new BarChart()
+				.Label("[bold cyan]Code vs Data[/]")
+				.CenterLabel();
+
+			chart.AddItem("Code", codeCount, Color.Green);
+			chart.AddItem("Data", dataCount, Color.Blue);
+
+			AnsiConsole.Write(chart);
+			AnsiConsole.WriteLine();
+		}
+	}
+
+	// Symbol type breakdown
+	if (pansy.SymbolEntries.Count > 0) {
+		var typeGroups = pansy.SymbolEntries.Values
+			.GroupBy(e => e.Type)
+			.OrderByDescending(g => g.Count())
+			.ToList();
+
+		var symTable = new Table()
+			.Border(TableBorder.Rounded)
+			.Title("[bold cyan]Symbol Type Breakdown[/]")
+			.AddColumn("Type")
+			.AddColumn(new TableColumn("Count").RightAligned())
+			.AddColumn(new TableColumn("Percentage").RightAligned());
+
+		var totalSymbols = pansy.SymbolEntries.Count;
+		foreach (var group in typeGroups) {
+			var count = group.Count();
+			symTable.AddRow(
+				group.Key.ToString(),
+				$"{count:N0}",
+				$"{count * 100.0 / totalSymbols:F1}%"
+			);
+		}
+
+		AnsiConsole.Write(symTable);
+		AnsiConsole.WriteLine();
+	}
+
+	// Comment type breakdown
+	if (pansy.CommentEntries.Count > 0) {
+		var cmtGroups = pansy.CommentEntries.Values
+			.GroupBy(e => e.Type)
+			.OrderByDescending(g => g.Count())
+			.ToList();
+
+		var cmtTable = new Table()
+			.Border(TableBorder.Rounded)
+			.Title("[bold cyan]Comment Type Breakdown[/]")
+			.AddColumn("Type")
+			.AddColumn(new TableColumn("Count").RightAligned())
+			.AddColumn(new TableColumn("Percentage").RightAligned());
+
+		var totalComments = pansy.CommentEntries.Count;
+		foreach (var group in cmtGroups) {
+			var count = group.Count();
+			cmtTable.AddRow(
+				group.Key.ToString(),
+				$"{count:N0}",
+				$"{count * 100.0 / totalComments:F1}%"
+			);
+		}
+
+		AnsiConsole.Write(cmtTable);
+		AnsiConsole.WriteLine();
+	}
+
+	// Cross-reference type breakdown
+	if (pansy.CrossReferences.Count > 0) {
+		var xrefGroups = pansy.CrossReferences
+			.GroupBy(x => x.Type)
+			.OrderByDescending(g => g.Count())
+			.ToList();
+
+		var xrefTable = new Table()
+			.Border(TableBorder.Rounded)
+			.Title("[bold cyan]Cross-Reference Type Breakdown[/]")
+			.AddColumn("Type")
+			.AddColumn(new TableColumn("Count").RightAligned())
+			.AddColumn(new TableColumn("Percentage").RightAligned());
+
+		var totalXrefs = pansy.CrossReferences.Count;
+		foreach (var group in xrefGroups) {
+			var count = group.Count();
+			xrefTable.AddRow(
+				group.Key.ToString(),
+				$"{count:N0}",
+				$"{count * 100.0 / totalXrefs:F1}%"
+			);
+		}
+
+		AnsiConsole.Write(xrefTable);
+		AnsiConsole.WriteLine();
+
+		// Most-referenced addresses
+		var topTargets = pansy.CrossReferences
+			.GroupBy(x => x.To)
+			.OrderByDescending(g => g.Count())
+			.Take(10)
+			.ToList();
+
+		if (topTargets.Count > 0) {
+			var topTable = new Table()
+				.Border(TableBorder.Rounded)
+				.Title("[bold cyan]Top Referenced Addresses[/]")
+				.AddColumn("Address")
+				.AddColumn("Symbol")
+				.AddColumn(new TableColumn("References").RightAligned());
+
+			foreach (var group in topTargets) {
+				var addr = (int)group.Key;
+				var symbol = pansy.GetSymbol(addr) ?? "[grey]-[/]";
+				topTable.AddRow($"${addr:x6}", Markup.Escape(symbol), $"{group.Count()}");
+			}
+
+			AnsiConsole.Write(topTable);
+			AnsiConsole.WriteLine();
+		}
+	}
+
+	// Metadata
+	if (!string.IsNullOrEmpty(pansy.ProjectName) || !string.IsNullOrEmpty(pansy.Author)) {
+		var metaTable = new Table()
+			.Border(TableBorder.Rounded)
+			.Title("[bold cyan]Project Metadata[/]")
+			.AddColumn("Field")
+			.AddColumn("Value");
+
+		if (!string.IsNullOrEmpty(pansy.ProjectName))
+			metaTable.AddRow("Project", Markup.Escape(pansy.ProjectName));
+		if (!string.IsNullOrEmpty(pansy.Author))
+			metaTable.AddRow("Author", Markup.Escape(pansy.Author));
+		if (!string.IsNullOrEmpty(pansy.ProjectVersion))
+			metaTable.AddRow("Version", Markup.Escape(pansy.ProjectVersion));
+
+		AnsiConsole.Write(metaTable);
+	}
+
 	return 0;
 }
 
