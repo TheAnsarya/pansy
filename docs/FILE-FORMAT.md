@@ -158,6 +158,8 @@ Symbol Entry:
 | 5 | MACRO | Macro definition |
 | 6 | LOCAL | Local label (within scope) |
 | 7 | ANONYMOUS | Anonymous label (+/-) |
+| 8 | INTERRUPT_VECTOR | Interrupt/exception vector (NMI, IRQ, RESET, etc.) |
+| 9 | FUNCTION | Subroutine/function entry point |
 
 ### COMMENTS (0x0003)
 
@@ -341,6 +343,7 @@ Each section is compressed independently — a section whose compressed size equ
 | 1.0 | 2026-01-19 | Initial specification |
 | 1.0.1 | 2026-01-24 | Added platform-specific details |
 | 1.0.2 | 2026-07-09 | Synced spec with implementation: fixed header layout (flags is uint16, section count in header at 0x18), corrected platform IDs to match PansyLoader constants, changed compression from zstd to DEFLATE, marked DATA_TYPES and SOURCE_MAP as reserved/unimplemented, removed footer (integrity checks at application level) |
+| 1.0.3 | 2026-07-12 | Added INTERRUPT_VECTOR (8) and FUNCTION (9) symbol types; typed SymbolEntry/CommentEntry records preserve full type info through roundtrip; DRAWN/READ/INDIRECT flags now fully implemented in writer and loader |
 
 ## Comparison with Existing Formats
 

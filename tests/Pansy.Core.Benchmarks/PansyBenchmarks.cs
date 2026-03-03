@@ -103,6 +103,73 @@ public class WriterBenchmarks {
 		}
 		return writer.Generate();
 	}
+
+	[Benchmark]
+	public byte[] WriteTypedSymbols() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x80000
+		};
+		for (uint i = 0; i < (uint)SymbolCount; i++) {
+			var type = (SymbolType)((i % 9) + 1);
+			writer.AddSymbol(0x8000 + i, $"TypedSym_{i:X4}", type);
+		}
+		return writer.Generate();
+	}
+
+	[Benchmark]
+	public byte[] WriteTypedComments() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x80000
+		};
+		for (uint i = 0; i < (uint)SymbolCount; i++) {
+			var ct = (byte)((i % 3) + 1);
+			writer.AddComment(0x8000 + i, $"Typed comment {i}", ct);
+		}
+		return writer.Generate();
+	}
+
+	[Benchmark]
+	public byte[] WriteExtendedFlags() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x80000
+		};
+		for (uint i = 0; i < (uint)SymbolCount; i++) {
+			writer.MarkAsData(i);
+			if (i % 3 == 0) writer.MarkAsDrawn(i);
+			if (i % 5 == 0) writer.MarkAsRead(i);
+			if (i % 7 == 0) writer.MarkAsIndirect(i);
+		}
+		return writer.Generate();
+	}
+
+	[Benchmark]
+	public byte[] WriteFullFileExtended() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_SNES,
+			RomSize = 0x80000,
+			RomCrc32 = 0x12345678,
+			ProjectName = "Extended Benchmark",
+			Author = "Benchmark",
+			ProjectVersion = "2.0.0",
+			EnableCompression = true
+		};
+		for (uint i = 0; i < (uint)SymbolCount; i++) {
+			var symType = (SymbolType)((i % 9) + 1);
+			writer.AddSymbol(0x8000 + i, $"Sym_{i:X4}", symType);
+			var cmtType = (byte)((i % 3) + 1);
+			writer.AddComment(0x8000 + i, $"Comment {i}", cmtType);
+			writer.MarkAsCode(i);
+			if (i % 5 == 0) writer.MarkAsOpcode(i);
+			if (i % 3 == 0) writer.MarkAsDrawn(i);
+			if (i % 7 == 0) writer.MarkAsIndirect(i);
+			writer.AddCrossReference(new CrossReference(0x8000 + i, 0x9000 + i, CrossRefType.Jsr));
+		}
+		writer.AddMemoryRegion(new MemoryRegion(0x8000, 0xffff, 1, 0, "ROM"));
+		return writer.Generate();
+	}
 }
 
 /// <summary>
@@ -134,12 +201,16 @@ public class LoaderBenchmarks {
 			Author = "Test"
 		};
 		for (uint i = 0; i < (uint)count; i++) {
-			writer.AddSymbol(0x8000 + i, $"Sym_{i:X4}");
-			writer.AddComment(0x8000 + i, $"Comment {i}");
+			var symType = (SymbolType)((i % 9) + 1);
+			writer.AddSymbol(0x8000 + i, $"Sym_{i:X4}", symType);
+			var cmtType = (byte)((i % 3) + 1);
+			writer.AddComment(0x8000 + i, $"Comment {i}", cmtType);
 			writer.MarkAsCode(i);
 			if (i % 5 == 0) writer.MarkAsOpcode(i);
 			if (i % 10 == 0) writer.MarkAsJumpTarget(i);
 			if (i % 50 == 0) writer.MarkAsSubroutine(i);
+			if (i % 3 == 0) writer.MarkAsDrawn(i);
+			if (i % 7 == 0) writer.MarkAsIndirect(i);
 			writer.AddCrossReference(new CrossReference(0x8000 + i, 0x9000 + i, CrossRefType.Jsr));
 		}
 		writer.AddMemoryRegion(new MemoryRegion(0x8000, 0xffff, 1, 0, "ROM"));
@@ -177,4 +248,39 @@ public class LoaderBenchmarks {
 		}
 		return count > 0;
 	}
+
+	[Benchmark]
+	public int LookupSymbolTypes() {
+		var loader = new PansyLoader(_mediumFile!);
+		var count = 0;
+		for (int i = 0; i < 1000; i++) {
+			if (loader.GetSymbolType(0x8000 + i) != null) count++;
+		}
+		return count;
+	}
+
+	[Benchmark]
+	public int LookupCommentTypes() {
+		var loader = new PansyLoader(_mediumFile!);
+		var count = 0;
+		for (int i = 0; i < 1000; i++) {
+			if (loader.GetCommentType(0x8000 + i) != null) count++;
+		}
+		return count;
+	}
+
+	[Benchmark]
+	public int LookupExtendedFlags() {
+		var loader = new PansyLoader(_largeFile!);
+		var count = 0;
+		for (int i = 0; i < 10000; i++) {
+			if (loader.IsDrawn(i)) count++;
+			if (loader.IsRead(i)) count++;
+			if (loader.IsIndirect(i)) count++;
+		}
+		return count;
+	}
+
+	[Benchmark]
+	public PansyLoader LoadLargeExtendedCompressed() => new(_compressedFile!);
 }
