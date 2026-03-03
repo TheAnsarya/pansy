@@ -393,7 +393,7 @@ public class PansyLoader {
 		while (ms.Position < ms.Length) {
 			try {
 				var addr24 = reader.ReadUInt32();
-				var address = (int)(addr24 & 0xffffff);
+				var address = (int)addr24;
 				var type = (SymbolType)reader.ReadByte();
 				var flags = reader.ReadByte();
 				var nameLength = reader.ReadUInt16();

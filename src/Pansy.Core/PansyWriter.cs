@@ -12,12 +12,13 @@ namespace Pansy.Core;
 /// Pansy files contain code/data maps, symbols, comments, cross-references, and more.
 /// </summary>
 public sealed class PansyWriter {
-	private readonly Dictionary<uint, string> _symbols = [];
-	private readonly Dictionary<uint, string> _comments = [];
+	private readonly Dictionary<uint, (string Name, SymbolType Type)> _symbols = [];
+	private readonly Dictionary<uint, (string Text, byte CommentType)> _comments = [];
 	private readonly HashSet<uint> _codeOffsets = [];
 	private readonly HashSet<uint> _dataOffsets = [];
 	private readonly HashSet<uint> _jumpTargets = [];
 	private readonly HashSet<uint> _subEntryPoints = [];
+	private readonly HashSet<uint> _opcodeOffsets = [];
 	private readonly List<MemoryRegion> _memoryRegions = [];
 	private readonly List<CrossReference> _crossRefs = [];
 	private byte _platform = PansyLoader.PLATFORM_CUSTOM;
@@ -76,12 +77,25 @@ public sealed class PansyWriter {
 
 	/// <summary>Adds a symbol at the specified address.</summary>
 	public void AddSymbol(uint address, string name) {
-		_symbols[address] = name;
+		_symbols[address] = (name, SymbolType.Label);
+	}
+
+	/// <summary>Adds a typed symbol at the specified address.</summary>
+	public void AddSymbol(uint address, string name, SymbolType type) {
+		_symbols[address] = (name, type);
 	}
 
 	/// <summary>Adds a comment at the specified address.</summary>
 	public void AddComment(uint address, string comment) {
-		_comments[address] = comment;
+		_comments[address] = (comment, 1); // 1 = inline comment
+	}
+
+	/// <summary>Adds a typed comment at the specified address.</summary>
+	/// <param name="address">The address for the comment.</param>
+	/// <param name="comment">The comment text.</param>
+	/// <param name="commentType">Comment type: 1=inline, 2=block, 3=todo.</param>
+	public void AddComment(uint address, string comment, byte commentType) {
+		_comments[address] = (comment, commentType);
 	}
 
 	/// <summary>Marks an address as code.</summary>
@@ -102,6 +116,11 @@ public sealed class PansyWriter {
 	/// <summary>Marks an address as a subroutine entry point.</summary>
 	public void MarkAsSubroutine(uint address) {
 		_subEntryPoints.Add(address);
+	}
+
+	/// <summary>Marks an address as an opcode (vs operand byte).</summary>
+	public void MarkAsOpcode(uint address) {
+		_opcodeOffsets.Add(address);
 	}
 
 	/// <summary>Adds a memory region.</summary>
@@ -182,20 +201,41 @@ public sealed class PansyWriter {
 
 		// Section table starts at offset 32
 		// Each entry: Type (4), Offset (4), CompSize (4), UncompSize (4) = 16 bytes
-		var dataOffset = (uint)(32 + sectionData.Count * 16);
+
+		// Build compressed section data if compression is enabled
+		var processedSections = new List<(uint Type, byte[] WrittenData, uint UncompSize)>();
+		foreach (var (type, data) in sectionData) {
+			if (_enableCompression && data.Length > 0) {
+				using var compMs = new MemoryStream();
+				using (var deflate = new DeflateStream(compMs, CompressionLevel.Optimal, leaveOpen: true)) {
+					deflate.Write(data, 0, data.Length);
+				}
+				var compressedData = compMs.ToArray();
+				// Only use compressed version if it's actually smaller
+				if (compressedData.Length < data.Length) {
+					processedSections.Add((type, compressedData, (uint)data.Length));
+				} else {
+					processedSections.Add((type, data, (uint)data.Length));
+				}
+			} else {
+				processedSections.Add((type, data, (uint)data.Length));
+			}
+		}
+
+		var dataOffset = (uint)(32 + processedSections.Count * 16);
 
 		// Write section table
-		foreach (var (type, data) in sectionData) {
+		foreach (var (type, writtenData, uncompSize) in processedSections) {
 			writer.Write(type); // Type
 			writer.Write(dataOffset); // Offset
-			writer.Write((uint)data.Length); // CompSize (uncompressed for now)
-			writer.Write((uint)data.Length); // UncompSize
-			dataOffset += (uint)data.Length;
+			writer.Write((uint)writtenData.Length); // CompSize
+			writer.Write(uncompSize); // UncompSize
+			dataOffset += (uint)writtenData.Length;
 		}
 
 		// Write section data
-		foreach (var (_, data) in sectionData) {
-			writer.Write(data);
+		foreach (var (_, writtenData, _) in processedSections) {
+			writer.Write(writtenData);
 		}
 
 		return ms.ToArray();
@@ -203,7 +243,8 @@ public sealed class PansyWriter {
 
 	private byte[] BuildCodeDataMap() {
 		if (_codeOffsets.Count == 0 && _dataOffsets.Count == 0 &&
-			_jumpTargets.Count == 0 && _subEntryPoints.Count == 0) {
+			_jumpTargets.Count == 0 && _subEntryPoints.Count == 0 &&
+			_opcodeOffsets.Count == 0) {
 			return [];
 		}
 
@@ -213,6 +254,7 @@ public sealed class PansyWriter {
 		if (_dataOffsets.Count > 0) maxOffset = Math.Max(maxOffset, _dataOffsets.Max());
 		if (_jumpTargets.Count > 0) maxOffset = Math.Max(maxOffset, _jumpTargets.Max());
 		if (_subEntryPoints.Count > 0) maxOffset = Math.Max(maxOffset, _subEntryPoints.Max());
+		if (_opcodeOffsets.Count > 0) maxOffset = Math.Max(maxOffset, _opcodeOffsets.Max());
 
 		var map = new byte[maxOffset + 1];
 
@@ -228,6 +270,9 @@ public sealed class PansyWriter {
 		}
 		foreach (var offset in _subEntryPoints) {
 			map[offset] |= 0x08; // FLAG_SUB_ENTRY
+		}
+		foreach (var offset in _opcodeOffsets) {
+			map[offset] |= 0x10; // FLAG_OPCODE
 		}
 
 		return map;
@@ -246,9 +291,9 @@ public sealed class PansyWriter {
 		using var ms = new MemoryStream();
 		using var writer = new BinaryWriter(ms);
 		// No count - loader reads until EOF
-		foreach (var (addr, name) in _symbols.OrderBy(x => x.Key)) {
+		foreach (var (addr, (name, type)) in _symbols.OrderBy(x => x.Key)) {
 			writer.Write(addr); // Address (uint32)
-			writer.Write((byte)1); // Type: Label
+			writer.Write((byte)type); // Type: from SymbolType enum
 			writer.Write((byte)0); // Flags
 			var nameBytes = Encoding.UTF8.GetBytes(name);
 			writer.Write((ushort)nameBytes.Length); // NameLength
@@ -262,9 +307,9 @@ public sealed class PansyWriter {
 		using var ms = new MemoryStream();
 		using var writer = new BinaryWriter(ms);
 		// No count - loader reads until EOF
-		foreach (var (addr, comment) in _comments.OrderBy(x => x.Key)) {
+		foreach (var (addr, (comment, commentType)) in _comments.OrderBy(x => x.Key)) {
 			writer.Write(addr); // Address (uint32)
-			writer.Write((byte)1); // Type: inline comment
+			writer.Write(commentType); // Type: from comment type parameter
 			var commentBytes = Encoding.UTF8.GetBytes(comment);
 			writer.Write((ushort)commentBytes.Length); // Length
 			writer.Write(commentBytes); // Text
@@ -305,11 +350,5 @@ public sealed class PansyWriter {
 		var bytes = Encoding.UTF8.GetBytes(value);
 		writer.Write((ushort)bytes.Length);
 		writer.Write(bytes);
-	}
-
-	[Flags]
-	private enum PansyFlags : ushort {
-		None = 0,
-		Compressed = 1 << 0
 	}
 }
