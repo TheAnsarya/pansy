@@ -23,6 +23,10 @@ public enum SymbolType : byte {
 	Local = 6,
 	/// <summary>Anonymous label.</summary>
 	Anonymous = 7,
+	/// <summary>Interrupt vector (NMI, IRQ, RESET, etc.).</summary>
+	InterruptVector = 8,
+	/// <summary>Function entry point with known signature.</summary>
+	Function = 9,
 }
 
 /// <summary>
@@ -40,6 +44,28 @@ public enum CrossRefType : byte {
 	/// <summary>Write access.</summary>
 	Write = 5,
 }
+
+/// <summary>
+/// Comment types.
+/// </summary>
+public enum CommentType : byte {
+	/// <summary>Inline comment (on same line as code).</summary>
+	Inline = 1,
+	/// <summary>Block comment (above the line).</summary>
+	Block = 2,
+	/// <summary>TODO/note comment.</summary>
+	Todo = 3,
+}
+
+/// <summary>
+/// A symbol entry with name and type.
+/// </summary>
+public record SymbolEntry(string Name, SymbolType Type);
+
+/// <summary>
+/// A comment entry with text and type.
+/// </summary>
+public record CommentEntry(string Text, CommentType Type);
 
 /// <summary>
 /// Information about a section in the Pansy file.

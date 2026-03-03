@@ -24,8 +24,11 @@ public class PansyLoader {
 	private readonly HashSet<int> _jumpTargets = [];
 	private readonly HashSet<int> _subEntryPoints = [];
 	private readonly HashSet<int> _opcodeOffsets = [];
-	private readonly Dictionary<int, string> _symbols = [];
-	private readonly Dictionary<int, string> _comments = [];
+	private readonly HashSet<int> _drawnOffsets = [];
+	private readonly HashSet<int> _readOffsets = [];
+	private readonly HashSet<int> _indirectOffsets = [];
+	private readonly Dictionary<int, SymbolEntry> _symbolEntries = [];
+	private readonly Dictionary<int, CommentEntry> _commentEntries = [];
 	private readonly List<MemoryRegion> _memoryRegions = [];
 	private readonly List<CrossReference> _crossRefs = [];
 	private string _projectName = "";
@@ -156,11 +159,28 @@ public class PansyLoader {
 	/// <summary>Gets all ROM offsets that are opcodes (vs operands).</summary>
 	public IReadOnlySet<int> OpcodeOffsets => _opcodeOffsets;
 
-	/// <summary>Gets symbols by address.</summary>
-	public IReadOnlyDictionary<int, string> Symbols => _symbols;
+	/// <summary>Gets all ROM offsets that were drawn/rendered (graphics).</summary>
+	public IReadOnlySet<int> DrawnOffsets => _drawnOffsets;
 
-	/// <summary>Gets comments by address.</summary>
-	public IReadOnlyDictionary<int, string> Comments => _comments;
+	/// <summary>Gets all ROM offsets that were read as data.</summary>
+	public IReadOnlySet<int> ReadOffsets => _readOffsets;
+
+	/// <summary>Gets all ROM offsets accessed via indirect addressing.</summary>
+	public IReadOnlySet<int> IndirectOffsets => _indirectOffsets;
+
+	/// <summary>Gets symbols by address (name only, for backward compatibility).</summary>
+	public IReadOnlyDictionary<int, string> Symbols =>
+		_symbolEntries.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Name);
+
+	/// <summary>Gets typed symbol entries by address.</summary>
+	public IReadOnlyDictionary<int, SymbolEntry> SymbolEntries => _symbolEntries;
+
+	/// <summary>Gets comments by address (text only, for backward compatibility).</summary>
+	public IReadOnlyDictionary<int, string> Comments =>
+		_commentEntries.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Text);
+
+	/// <summary>Gets typed comment entries by address.</summary>
+	public IReadOnlyDictionary<int, CommentEntry> CommentEntries => _commentEntries;
 
 	/// <summary>Gets memory regions.</summary>
 	public IReadOnlyList<MemoryRegion> MemoryRegions => _memoryRegions;
@@ -253,14 +273,55 @@ public class PansyLoader {
 	public bool IsOpcode(int offset) => _opcodeOffsets.Contains(offset);
 
 	/// <summary>
-	/// Gets the symbol at an address, or null if none.
+	/// Gets the symbol name at an address, or null if none.
 	/// </summary>
-	public string? GetSymbol(int address) => _symbols.GetValueOrDefault(address);
+	public string? GetSymbol(int address) =>
+		_symbolEntries.TryGetValue(address, out var entry) ? entry.Name : null;
 
 	/// <summary>
-	/// Gets the comment at an address, or null if none.
+	/// Gets the typed symbol entry at an address, or null if none.
 	/// </summary>
-	public string? GetComment(int address) => _comments.GetValueOrDefault(address);
+	public SymbolEntry? GetSymbolEntry(int address) =>
+		_symbolEntries.GetValueOrDefault(address);
+
+	/// <summary>
+	/// Gets the symbol type at an address, or null if no symbol exists.
+	/// </summary>
+	public SymbolType? GetSymbolType(int address) =>
+		_symbolEntries.TryGetValue(address, out var entry) ? entry.Type : null;
+
+	/// <summary>
+	/// Gets the comment text at an address, or null if none.
+	/// </summary>
+	public string? GetComment(int address) =>
+		_commentEntries.TryGetValue(address, out var entry) ? entry.Text : null;
+
+	/// <summary>
+	/// Gets the typed comment entry at an address, or null if none.
+	/// </summary>
+	public CommentEntry? GetCommentEntry(int address) =>
+		_commentEntries.GetValueOrDefault(address);
+
+	/// <summary>
+	/// Gets the comment type at an address, or null if no comment exists.
+	/// </summary>
+	public CommentType? GetCommentType(int address) =>
+		_commentEntries.TryGetValue(address, out var entry) ? entry.Type : null;
+
+	/// <summary>
+	/// Checks if a ROM offset was drawn/rendered as graphics.
+	/// </summary>
+	public bool IsDrawn(int offset) => _drawnOffsets.Contains(offset);
+
+	/// <summary>
+	/// Checks if a ROM offset was read as data by the CPU.
+	/// </summary>
+	public bool IsRead(int offset) => _readOffsets.Contains(offset);
+
+	/// <summary>
+	/// Checks if a ROM offset was accessed via indirect addressing.
+	/// </summary>
+	public bool IsIndirect(int offset) => _indirectOffsets.Contains(offset);
 
 	/// <summary>
 	/// Gets coverage statistics.
@@ -383,6 +444,15 @@ public class PansyLoader {
 
 			if ((flags & FLAG_OPCODE) != 0)
 				_opcodeOffsets.Add(i);
+
+			if ((flags & FLAG_DRAWN) != 0)
+				_drawnOffsets.Add(i);
+
+			if ((flags & FLAG_READ) != 0)
+				_readOffsets.Add(i);
+
+			if ((flags & FLAG_INDIRECT) != 0)
+				_indirectOffsets.Add(i);
 		}
 	}
 
@@ -403,7 +473,7 @@ public class PansyLoader {
 					reader.ReadBytes(valueLength); // Skip value for now
 				}
 
-				_symbols[address] = name;
+				_symbolEntries[address] = new SymbolEntry(name, type);
 			} catch (EndOfStreamException) {
 				break;
 			}
@@ -421,7 +491,7 @@ public class PansyLoader {
 				var length = reader.ReadUInt16();
 				var text = Encoding.UTF8.GetString(reader.ReadBytes(length));
 
-				_comments[address] = text;
+				_commentEntries[address] = new CommentEntry(text, (CommentType)type);
 			} catch (EndOfStreamException) {
 				break;
 			}

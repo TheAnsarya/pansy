@@ -19,6 +19,9 @@ public sealed class PansyWriter {
 	private readonly HashSet<uint> _jumpTargets = [];
 	private readonly HashSet<uint> _subEntryPoints = [];
 	private readonly HashSet<uint> _opcodeOffsets = [];
+	private readonly HashSet<uint> _drawnOffsets = [];
+	private readonly HashSet<uint> _readOffsets = [];
+	private readonly HashSet<uint> _indirectOffsets = [];
 	private readonly List<MemoryRegion> _memoryRegions = [];
 	private readonly List<CrossReference> _crossRefs = [];
 	private byte _platform = PansyLoader.PLATFORM_CUSTOM;
@@ -121,6 +124,21 @@ public sealed class PansyWriter {
 	/// <summary>Marks an address as an opcode (vs operand byte).</summary>
 	public void MarkAsOpcode(uint address) {
 		_opcodeOffsets.Add(address);
+	}
+
+	/// <summary>Marks an address as drawn/rendered (graphics data accessed by PPU).</summary>
+	public void MarkAsDrawn(uint address) {
+		_drawnOffsets.Add(address);
+	}
+
+	/// <summary>Marks an address as read (data read by CPU).</summary>
+	public void MarkAsRead(uint address) {
+		_readOffsets.Add(address);
+	}
+
+	/// <summary>Marks an address as accessed via indirect addressing.</summary>
+	public void MarkAsIndirect(uint address) {
+		_indirectOffsets.Add(address);
 	}
 
 	/// <summary>Adds a memory region.</summary>
@@ -244,7 +262,8 @@ public sealed class PansyWriter {
 	private byte[] BuildCodeDataMap() {
 		if (_codeOffsets.Count == 0 && _dataOffsets.Count == 0 &&
 			_jumpTargets.Count == 0 && _subEntryPoints.Count == 0 &&
-			_opcodeOffsets.Count == 0) {
+			_opcodeOffsets.Count == 0 && _drawnOffsets.Count == 0 &&
+			_readOffsets.Count == 0 && _indirectOffsets.Count == 0) {
 			return [];
 		}
 
@@ -255,6 +274,9 @@ public sealed class PansyWriter {
 		if (_jumpTargets.Count > 0) maxOffset = Math.Max(maxOffset, _jumpTargets.Max());
 		if (_subEntryPoints.Count > 0) maxOffset = Math.Max(maxOffset, _subEntryPoints.Max());
 		if (_opcodeOffsets.Count > 0) maxOffset = Math.Max(maxOffset, _opcodeOffsets.Max());
+		if (_drawnOffsets.Count > 0) maxOffset = Math.Max(maxOffset, _drawnOffsets.Max());
+		if (_readOffsets.Count > 0) maxOffset = Math.Max(maxOffset, _readOffsets.Max());
+		if (_indirectOffsets.Count > 0) maxOffset = Math.Max(maxOffset, _indirectOffsets.Max());
 
 		var map = new byte[maxOffset + 1];
 
@@ -273,6 +295,15 @@ public sealed class PansyWriter {
 		}
 		foreach (var offset in _opcodeOffsets) {
 			map[offset] |= 0x10; // FLAG_OPCODE
+		}
+		foreach (var offset in _drawnOffsets) {
+			map[offset] |= 0x20; // FLAG_DRAWN
+		}
+		foreach (var offset in _readOffsets) {
+			map[offset] |= 0x40; // FLAG_READ
+		}
+		foreach (var offset in _indirectOffsets) {
+			map[offset] |= 0x80; // FLAG_INDIRECT
 		}
 
 		return map;
