@@ -5,7 +5,7 @@
 **Version:** 1.0  
 **Status:** Draft  
 **Created:** 2026-01-19  
-**Last Updated:** 2026-01-24
+**Last Updated:** 2026-07-09
 
 ## Overview
 
@@ -26,8 +26,6 @@
 ┌──────────────────────────────────────┐
 │           Header (32 bytes)          │
 ├──────────────────────────────────────┤
-│         Section Count (uint32)       │
-├──────────────────────────────────────┤
 │                                      │
 │          Section Table               │
 │  ┌────────────────────────────────┐  │
@@ -45,13 +43,11 @@
 │  │   COMMENTS (uncompressed)      │  │
 │  └────────────────────────────────┘  │
 │               ...                    │
-├──────────────────────────────────────┤
-│          Footer (12 bytes)           │
-│  - ROM CRC32     (4 bytes)           │
-│  - Metadata CRC32 (4 bytes)          │
-│  - File CRC32    (4 bytes)           │
 └──────────────────────────────────────┘
 ```
+
+> **Note:** Section count is embedded in the header at offset 0x18. There is no footer;
+> integrity checks should be performed at the application level.
 
 ## Header Format
 
@@ -62,11 +58,13 @@
 |--------|------|------|-------------|
 | 0x00 | 8 | char[8] | Magic: "PANSY\0\0\0" |
 | 0x08 | 2 | uint16 | Version (0x0100 = v1.0) |
-| 0x0A | 1 | uint8 | Platform ID |
-| 0x0B | 1 | uint8 | Flags |
-| 0x0C | 4 | uint32 | ROM size |
-| 0x10 | 4 | uint32 | ROM CRC32 |
-| 0x14 | 8 | uint64 | Creation timestamp (Unix epoch) |
+| 0x0A | 2 | uint16 | Flags (see Flags section) |
+| 0x0C | 1 | uint8 | Platform ID |
+| 0x0D | 1 | uint8 | Reserved (must be 0) |
+| 0x0E | 2 | uint16 | Reserved (must be 0) |
+| 0x10 | 4 | uint32 | ROM size |
+| 0x14 | 4 | uint32 | ROM CRC32 |
+| 0x18 | 4 | uint32 | Section count |
 | 0x1C | 4 | uint32 | Reserved (must be 0) |
 
 ## Platform IDs
@@ -81,39 +79,41 @@
 | 0x06 | Sega Master System | Z80 | Mark III |
 | 0x07 | PC Engine | 6280 | TurboGrafx-16 |
 | 0x08 | Atari 2600 | 6507 | VCS |
-| 0x09 | Atari 7800 | 6502C | |
-| 0x0A | Atari Lynx | 65C02 | Handheld |
-| 0x0B | WonderSwan | V30MZ | Bandai |
-| 0x0C | Neo Geo | 68000 + Z80 | MVS/AES |
-| 0x0D | SPC700 | SPC700 | SNES audio |
-| 0x0E | Famicom Disk System | 6502 | FDS |
-| 0x0F | VirtualBoy | V810 | Nintendo VB |
-| 0x10 | N64 | MIPS R4300i | Ultra 64 |
-| 0x11 | PSX | MIPS R3000A | PlayStation |
-| 0x12 | Saturn | SH-2 | Sega Saturn |
-| 0x13 | Dreamcast | SH-4 | Sega Dreamcast |
-| 0x14 | GameCube | PowerPC | Nintendo GC |
-| 0x15 | PS2 | MIPS R5900 | PlayStation 2 |
-| 0x16 | Xbox | Pentium III | Microsoft Xbox |
-| 0x17 | Wii | PowerPC | Nintendo Wii |
-| 0x18 | PS3 | Cell | PlayStation 3 |
-| 0x19 | Xbox 360 | PowerPC | Microsoft 360 |
-| 0x1A | Nintendo DS | ARM9 + ARM7 | Dual-screen |
-| 0x1B | Nintendo 3DS | ARM11 | Stereoscopic |
-| 0x1C | PSP | MIPS R4000 | PlayStation Portable |
-| 0x1D | PS Vita | ARM Cortex-A9 | |
-| 0x1E | Switch | ARM Cortex-A57 | Nintendo Switch |
-| 0xFF | Custom | Varies | User-defined platform |
+| 0x09 | Atari Lynx | 65C02 | Handheld |
+| 0x0a | WonderSwan | V30MZ | Bandai |
+| 0x0b | Neo Geo | 68000 + Z80 | MVS/AES |
+| 0x0c | SPC700 | SPC700 | SNES audio |
+| 0x0d | Commodore 64 | 6510 | C64 |
+| 0x0e | MSX | Z80 | |
+| 0x0f | Atari 7800 | 6502C | |
+| 0x10 | Atari 8-bit | 6502 | 400/800/XL/XE |
+| 0x11 | Apple II | 6502 | |
+| 0x12 | ZX Spectrum | Z80 | Sinclair |
+| 0x13 | ColecoVision | Z80 | |
+| 0x14 | Intellivision | CP1610 | |
+| 0x15 | Vectrex | 6809 | |
+| 0x16 | Sega Game Gear | Z80 | |
+| 0x17 | Sega 32X | SH-2 | |
+| 0x18 | Sega CD | 68000 | |
+| 0x19 | Virtual Boy | V810 | Nintendo VB |
+| 0x1a | Amstrad CPC | Z80 | |
+| 0x1b | BBC Micro | 6502 | |
+| 0x1c | Commodore VIC-20 | 6502 | |
+| 0x1d | Commodore Plus/4 | 7501 | |
+| 0x1e | Commodore 128 | 8502 | |
+| 0xff | Custom | Varies | User-defined platform |
 
 ## Flags
 
+**Type:** uint16 (2 bytes)
+
 | Bit | Flag | Description |
 |-----|------|-------------|
-| 0 | COMPRESSED | Sections use zstd compression |
+| 0 | COMPRESSED | Sections use DEFLATE compression |
 | 1 | HAS_SOURCE_MAP | Includes source file mapping |
-| 2 | HAS_DEBUG_INFO | Extended debug information |
-| 3 | MULTI_BANK | Multiple ROM banks/segments |
-| 4-7 | Reserved | Must be 0 |
+| 2 | HAS_CROSS_REFS | Contains cross-references section |
+| 3 | DETAILED_CDL | Has detailed CDL data |
+| 4-15 | Reserved | Must be 0 |
 
 ## Section Types
 
@@ -186,9 +186,11 @@ Region Entry:
   Name: char[NameLength]
 ```
 
-### DATA_TYPES (0x0005)
+### DATA_TYPES (0x0005) — *Reserved*
 
 Data structure definitions for tables, arrays, etc.
+
+> **Status:** Defined in specification, not yet implemented in Pansy.Core.
 
 ```
 DataType Entry:
@@ -212,9 +214,11 @@ CrossRef Entry:
   Type: uint8 (jsr=1, jmp=2, branch=3, read=4, write=5)
 ```
 
-### SOURCE_MAP (0x0007)
+### SOURCE_MAP (0x0007) — *Reserved*
 
 Maps ROM addresses back to original source files.
+
+> **Status:** Defined in specification, not yet implemented in Pansy.Core.
 
 ```
 SourceMap Entry:
@@ -246,8 +250,9 @@ Metadata:
 
 ## Compression
 
-Section data is compressed using **zstd** (Zstandard) with compression level 3 by default.
-Uncompressed data is stored if COMPRESSED flag is not set or if compression increases size.
+Section data is compressed using **DEFLATE** (System.IO.Compression.DeflateStream) with `CompressionLevel.Optimal`.
+Uncompressed data is stored if the COMPRESSED flag is not set, or if compression increases the section size.
+Each section is compressed independently — a section whose compressed size equals or exceeds its uncompressed size is stored raw.
 
 ## Platform-Specific Details
 
@@ -335,6 +340,7 @@ Uncompressed data is stored if COMPRESSED flag is not set or if compression incr
 |---------|------|---------|
 | 1.0 | 2026-01-19 | Initial specification |
 | 1.0.1 | 2026-01-24 | Added platform-specific details |
+| 1.0.2 | 2026-07-09 | Synced spec with implementation: fixed header layout (flags is uint16, section count in header at 0x18), corrected platform IDs to match PansyLoader constants, changed compression from zstd to DEFLATE, marked DATA_TYPES and SOURCE_MAP as reserved/unimplemented, removed footer (integrity checks at application level) |
 
 ## Comparison with Existing Formats
 
@@ -349,7 +355,7 @@ Uncompressed data is stored if COMPRESSED flag is not set or if compression incr
 | Cross-references | ❌ | ❌ | ✅ |
 | Data types | ❌ | Limited | ✅ |
 | Multi-system | Limited | SNES only | ✅ |
-| Compression | ❌ | gzip | zstd |
+| Compression | ❌ | gzip | DEFLATE |
 | Binary format | ✅ | JSON | ✅ |
 
 ## File Extension
