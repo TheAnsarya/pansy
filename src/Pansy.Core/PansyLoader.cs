@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.IO.Compression;
 using System.Text;
 
@@ -17,23 +18,39 @@ public class PansyLoader {
 	private readonly uint _romCrc32;
 	private readonly List<SectionInfo> _sections = [];
 
-	// Parsed data
+	// Parsed data (frozen after construction for optimal lookup)
 	private byte[]? _codeDataMap;
-	private readonly HashSet<int> _codeOffsets = [];
-	private readonly HashSet<int> _dataOffsets = [];
-	private readonly HashSet<int> _jumpTargets = [];
-	private readonly HashSet<int> _subEntryPoints = [];
-	private readonly HashSet<int> _opcodeOffsets = [];
-	private readonly HashSet<int> _drawnOffsets = [];
-	private readonly HashSet<int> _readOffsets = [];
-	private readonly HashSet<int> _indirectOffsets = [];
-	private readonly Dictionary<int, SymbolEntry> _symbolEntries = [];
-	private readonly Dictionary<int, CommentEntry> _commentEntries = [];
+	private FrozenSet<int> _codeOffsets = FrozenSet<int>.Empty;
+	private FrozenSet<int> _dataOffsets = FrozenSet<int>.Empty;
+	private FrozenSet<int> _jumpTargets = FrozenSet<int>.Empty;
+	private FrozenSet<int> _subEntryPoints = FrozenSet<int>.Empty;
+	private FrozenSet<int> _opcodeOffsets = FrozenSet<int>.Empty;
+	private FrozenSet<int> _drawnOffsets = FrozenSet<int>.Empty;
+	private FrozenSet<int> _readOffsets = FrozenSet<int>.Empty;
+	private FrozenSet<int> _indirectOffsets = FrozenSet<int>.Empty;
+	private FrozenDictionary<int, SymbolEntry> _symbolEntries = FrozenDictionary<int, SymbolEntry>.Empty;
+	private FrozenDictionary<int, CommentEntry> _commentEntries = FrozenDictionary<int, CommentEntry>.Empty;
 	private readonly List<MemoryRegion> _memoryRegions = [];
 	private readonly List<CrossReference> _crossRefs = [];
 	private string _projectName = "";
 	private string _author = "";
 	private string _projectVersion = "";
+
+	// Cached backward-compat dictionaries (computed once, not per-access)
+	private IReadOnlyDictionary<int, string>? _symbolsCache;
+	private IReadOnlyDictionary<int, string>? _commentsCache;
+
+	// Temporary mutable collections used during parsing (nulled after freeze)
+	private HashSet<int>? _tempCodeOffsets;
+	private HashSet<int>? _tempDataOffsets;
+	private HashSet<int>? _tempJumpTargets;
+	private HashSet<int>? _tempSubEntryPoints;
+	private HashSet<int>? _tempOpcodeOffsets;
+	private HashSet<int>? _tempDrawnOffsets;
+	private HashSet<int>? _tempReadOffsets;
+	private HashSet<int>? _tempIndirectOffsets;
+	private Dictionary<int, SymbolEntry>? _tempSymbolEntries;
+	private Dictionary<int, CommentEntry>? _tempCommentEntries;
 
 	#region Constants
 	// Platform IDs
@@ -168,16 +185,16 @@ public class PansyLoader {
 	/// <summary>Gets all ROM offsets accessed via indirect addressing.</summary>
 	public IReadOnlySet<int> IndirectOffsets => _indirectOffsets;
 
-	/// <summary>Gets symbols by address (name only, for backward compatibility).</summary>
+	/// <summary>Gets symbols by address (name only, for backward compatibility). Cached — does not allocate per call.</summary>
 	public IReadOnlyDictionary<int, string> Symbols =>
-		_symbolEntries.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Name);
+		_symbolsCache ??= _symbolEntries.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Name);
 
-	/// <summary>Gets typed symbol entries by address.</summary>
+	/// <summary>Gets typed symbol entries by address (frozen for optimal lookups).</summary>
 	public IReadOnlyDictionary<int, SymbolEntry> SymbolEntries => _symbolEntries;
 
-	/// <summary>Gets comments by address (text only, for backward compatibility).</summary>
+	/// <summary>Gets comments by address (text only, for backward compatibility). Cached — does not allocate per call.</summary>
 	public IReadOnlyDictionary<int, string> Comments =>
-		_commentEntries.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Text);
+		_commentsCache ??= _commentEntries.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Text);
 
 	/// <summary>Gets typed comment entries by address.</summary>
 	public IReadOnlyDictionary<int, CommentEntry> CommentEntries => _commentEntries;
@@ -231,10 +248,46 @@ public class PansyLoader {
 			tableOffset += 16;
 		}
 
-		// Parse sections
+		// Initialize temporary mutable collections for parsing
+		_tempCodeOffsets = [];
+		_tempDataOffsets = [];
+		_tempJumpTargets = [];
+		_tempSubEntryPoints = [];
+		_tempOpcodeOffsets = [];
+		_tempDrawnOffsets = [];
+		_tempReadOffsets = [];
+		_tempIndirectOffsets = [];
+		_tempSymbolEntries = [];
+		_tempCommentEntries = [];
+
+		// Parse sections into temporary collections
 		foreach (var section in _sections) {
 			ParseSection(section);
 		}
+
+		// Freeze all collections for optimal immutable lookup performance
+		_codeOffsets = _tempCodeOffsets.ToFrozenSet();
+		_dataOffsets = _tempDataOffsets.ToFrozenSet();
+		_jumpTargets = _tempJumpTargets.ToFrozenSet();
+		_subEntryPoints = _tempSubEntryPoints.ToFrozenSet();
+		_opcodeOffsets = _tempOpcodeOffsets.ToFrozenSet();
+		_drawnOffsets = _tempDrawnOffsets.ToFrozenSet();
+		_readOffsets = _tempReadOffsets.ToFrozenSet();
+		_indirectOffsets = _tempIndirectOffsets.ToFrozenSet();
+		_symbolEntries = _tempSymbolEntries.ToFrozenDictionary();
+		_commentEntries = _tempCommentEntries.ToFrozenDictionary();
+
+		// Release temporary collections
+		_tempCodeOffsets = null;
+		_tempDataOffsets = null;
+		_tempJumpTargets = null;
+		_tempSubEntryPoints = null;
+		_tempOpcodeOffsets = null;
+		_tempDrawnOffsets = null;
+		_tempReadOffsets = null;
+		_tempIndirectOffsets = null;
+		_tempSymbolEntries = null;
+		_tempCommentEntries = null;
 	}
 
 	/// <summary>
@@ -431,28 +484,28 @@ public class PansyLoader {
 			if (flags == 0) continue;
 
 			if ((flags & FLAG_CODE) != 0)
-				_codeOffsets.Add(i);
+				_tempCodeOffsets!.Add(i);
 
 			if ((flags & FLAG_DATA) != 0)
-				_dataOffsets.Add(i);
+				_tempDataOffsets!.Add(i);
 
 			if ((flags & FLAG_JUMP_TARGET) != 0)
-				_jumpTargets.Add(i);
+				_tempJumpTargets!.Add(i);
 
 			if ((flags & FLAG_SUB_ENTRY) != 0)
-				_subEntryPoints.Add(i);
+				_tempSubEntryPoints!.Add(i);
 
 			if ((flags & FLAG_OPCODE) != 0)
-				_opcodeOffsets.Add(i);
+				_tempOpcodeOffsets!.Add(i);
 
 			if ((flags & FLAG_DRAWN) != 0)
-				_drawnOffsets.Add(i);
+				_tempDrawnOffsets!.Add(i);
 
 			if ((flags & FLAG_READ) != 0)
-				_readOffsets.Add(i);
+				_tempReadOffsets!.Add(i);
 
 			if ((flags & FLAG_INDIRECT) != 0)
-				_indirectOffsets.Add(i);
+				_tempIndirectOffsets!.Add(i);
 		}
 	}
 
@@ -473,7 +526,7 @@ public class PansyLoader {
 					reader.ReadBytes(valueLength); // Skip value for now
 				}
 
-				_symbolEntries[address] = new SymbolEntry(name, type);
+				_tempSymbolEntries![address] = new SymbolEntry(name, type);
 			} catch (EndOfStreamException) {
 				break;
 			}
@@ -491,7 +544,7 @@ public class PansyLoader {
 				var length = reader.ReadUInt16();
 				var text = Encoding.UTF8.GetString(reader.ReadBytes(length));
 
-				_commentEntries[address] = new CommentEntry(text, (CommentType)type);
+				_tempCommentEntries![address] = new CommentEntry(text, (CommentType)type);
 			} catch (EndOfStreamException) {
 				break;
 			}

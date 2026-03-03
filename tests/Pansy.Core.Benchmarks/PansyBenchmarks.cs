@@ -183,12 +183,20 @@ public class LoaderBenchmarks {
 	private byte[]? _largeFile;
 	private byte[]? _compressedFile;
 
+	// Pre-loaded loaders for pure lookup benchmarks (no loading cost)
+	private PansyLoader? _mediumLoader;
+	private PansyLoader? _largeLoader;
+
 	[GlobalSetup]
 	public void Setup() {
 		_smallFile = GenerateFile(100);
 		_mediumFile = GenerateFile(1000);
 		_largeFile = GenerateFile(10000);
 		_compressedFile = GenerateFile(10000, compressed: true);
+
+		// Pre-load for pure lookup benchmarks
+		_mediumLoader = new PansyLoader(_mediumFile);
+		_largeLoader = new PansyLoader(_largeFile);
 	}
 
 	private static byte[] GenerateFile(int count, bool compressed = false) {
@@ -283,4 +291,53 @@ public class LoaderBenchmarks {
 
 	[Benchmark]
 	public PansyLoader LoadLargeExtendedCompressed() => new(_compressedFile!);
+
+	// --- Pure lookup benchmarks (pre-loaded, no parsing cost) ---
+
+	[Benchmark]
+	public int PureLookupSymbols() {
+		var count = 0;
+		for (int i = 0; i < 1000; i++) {
+			if (_mediumLoader!.GetSymbol(0x8000 + i) != null) count++;
+		}
+		return count;
+	}
+
+	[Benchmark]
+	public int PureLookupCodeOffsets() {
+		var count = 0;
+		for (int i = 0; i < 1000; i++) {
+			if (_mediumLoader!.IsCode(i)) count++;
+		}
+		return count;
+	}
+
+	[Benchmark]
+	public int PureAccessSymbolsProperty() {
+		var total = 0;
+		for (int i = 0; i < 100; i++) {
+			total += _mediumLoader!.Symbols.Count;
+		}
+		return total;
+	}
+
+	[Benchmark]
+	public int PureAccessCommentsProperty() {
+		var total = 0;
+		for (int i = 0; i < 100; i++) {
+			total += _mediumLoader!.Comments.Count;
+		}
+		return total;
+	}
+
+	[Benchmark]
+	public int PureLookupExtendedFlags() {
+		var count = 0;
+		for (int i = 0; i < 10000; i++) {
+			if (_largeLoader!.IsDrawn(i)) count++;
+			if (_largeLoader!.IsRead(i)) count++;
+			if (_largeLoader!.IsIndirect(i)) count++;
+		}
+		return count;
+	}
 }
