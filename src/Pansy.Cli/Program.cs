@@ -75,7 +75,7 @@ static int RunInfo(string[] args) {
 		.AddColumn("Value");
 
 	headerTable.AddRow("Format Version", $"{pansy.Version:x4}");
-	headerTable.AddRow("Platform", GetPlatformName(pansy.Platform));
+	headerTable.AddRow("Platform", PansyLoader.GetPlatformName(pansy.Platform));
 	headerTable.AddRow("ROM Size", $"{pansy.RomSize} bytes ({pansy.RomSize / 1024}K)");
 	headerTable.AddRow("ROM CRC32", $"{pansy.RomCrc32:x8}");
 	headerTable.AddRow("Flags", pansy.Flags.ToString());
@@ -144,19 +144,6 @@ static int RunInfo(string[] args) {
 	}
 
 	return 0;
-}
-
-static string GetPlatformName(byte platformId) {
-	return platformId switch {
-		PansyLoader.PLATFORM_NES => "NES",
-		PansyLoader.PLATFORM_SNES => "SNES",
-		PansyLoader.PLATFORM_GB => "Game Boy",
-		PansyLoader.PLATFORM_GBA => "Game Boy Advance",
-		PansyLoader.PLATFORM_GENESIS => "Sega Genesis",
-		PansyLoader.PLATFORM_ATARI_2600 => "Atari 2600",
-		PansyLoader.PLATFORM_CUSTOM => "Custom",
-		_ => $"Unknown ({platformId:x2})"
-	};
 }
 
 static int RunSymbols(string[] args) {
@@ -668,8 +655,8 @@ static int RunDiff(string[] args) {
 
 	headerTable.AddRow(
 		"Platform",
-		GetPlatformName(pansy1.Platform),
-		GetPlatformName(pansy2.Platform),
+		PansyLoader.GetPlatformName(pansy1.Platform),
+		PansyLoader.GetPlatformName(pansy2.Platform),
 		platformMatch ? "[green]✓[/]" : "[red]✗[/]"
 	);
 
