@@ -108,7 +108,7 @@ public class PansyWriterTests {
 			Platform = PansyLoader.PLATFORM_NES,
 			RomSize = 0x8000
 		};
-		writer.AddMemoryRegion(new MemoryRegion(0x8000, 0xFFFF, 0x01, 0, "ROM"));
+		writer.AddMemoryRegion(new MemoryRegion(0x8000, 0xffff, 0x01, 0, "ROM"));
 
 		var data = writer.Generate();
 
@@ -138,7 +138,7 @@ public class PansyWriterTests {
 
 		// Add lots of data to make compression effective
 		for (uint i = 0; i < 500; i++) {
-			writer.AddSymbol(0x8000 + i, $"Symbol_{i:X4}");
+			writer.AddSymbol(0x8000 + i, $"Symbol_{i:x4}");
 		}
 
 		var compressedData = writer.Generate();
@@ -163,7 +163,7 @@ public class PansyWriterTests {
 		writer.MarkAsCode(0x8000);
 		writer.MarkAsJumpTarget(0x8050);
 		writer.MarkAsSubroutine(0x8100);
-		writer.AddMemoryRegion(new MemoryRegion(0x8000, 0xFFFF, 0x01, 0, "ROM"));
+		writer.AddMemoryRegion(new MemoryRegion(0x8000, 0xffff, 0x01, 0, "ROM"));
 		writer.AddCrossReference(new CrossReference(0x8010, 0x8100, CrossRefType.Jsr));
 
 		var data = writer.Generate();

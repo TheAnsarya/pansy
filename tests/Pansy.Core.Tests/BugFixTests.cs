@@ -189,7 +189,7 @@ public class BugFixTests {
 
 		for (uint i = 0; i < 500; i++) {
 			writer.MarkAsCode(i);
-			writer.AddSymbol(0x8000 + i, $"Sub_{i:X4}");
+			writer.AddSymbol(0x8000 + i, $"Sub_{i:x4}");
 		}
 		for (uint i = 0; i < 100; i++) {
 			writer.AddComment(0x8000 + i * 10, $"Comment at {i}");
@@ -210,7 +210,7 @@ public class BugFixTests {
 		Assert.Single(loader.MemoryRegions);
 		Assert.Single(loader.CrossReferences);
 		Assert.Equal("Sub_0000", loader.GetSymbol(0x8000));
-		Assert.Equal("Sub_01F3", loader.GetSymbol(0x8000 + 499));
+		Assert.Equal("Sub_01f3", loader.GetSymbol(0x8000 + 499));
 	}
 
 	#endregion

@@ -27,7 +27,7 @@ public class RoundtripTests {
 		writer.MarkAsData(0x9001);
 		writer.MarkAsJumpTarget(0x8010);
 		writer.MarkAsSubroutine(0x8020);
-		writer.AddMemoryRegion(new MemoryRegion(0x8000, 0xFFFF, 1, 0, "PRG-ROM"));
+		writer.AddMemoryRegion(new MemoryRegion(0x8000, 0xffff, 1, 0, "PRG-ROM"));
 		writer.AddCrossReference(new CrossReference(0x8005, 0x8010, CrossRefType.Jmp));
 
 		// Act
@@ -66,7 +66,7 @@ public class RoundtripTests {
 		Assert.Single(loader.MemoryRegions);
 		var region = loader.MemoryRegions[0];
 		Assert.Equal(0x8000u, region.Start);
-		Assert.Equal(0xFFFFu, region.End);
+		Assert.Equal(0xffffu, region.End);
 		Assert.Equal((byte)1, region.Type);
 		Assert.Equal((byte)0, region.Bank);
 		Assert.Equal("PRG-ROM", region.Name);
@@ -85,7 +85,7 @@ public class RoundtripTests {
 		var writer = new PansyWriter {
 			Platform = PansyLoader.PLATFORM_SNES,
 			RomSize = 0x80000,
-			RomCrc32 = 0xABCDEF00
+			RomCrc32 = 0xabcdef00
 		};
 
 		// Act
@@ -95,7 +95,7 @@ public class RoundtripTests {
 		// Assert
 		Assert.Equal(PansyLoader.PLATFORM_SNES, loader.Platform);
 		Assert.Equal(0x80000u, loader.RomSize);
-		Assert.Equal(0xABCDEF00u, loader.RomCrc32);
+		Assert.Equal(0xabcdef00u, loader.RomCrc32);
 		Assert.Empty(loader.Symbols);
 		Assert.Empty(loader.Comments);
 		Assert.Empty(loader.MemoryRegions);

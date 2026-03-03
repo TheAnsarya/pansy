@@ -25,7 +25,7 @@ public class WriterBenchmarks {
 			RomSize = 0x80000
 		};
 		for (uint i = 0; i < (uint)SymbolCount; i++) {
-			writer.AddSymbol(0x8000 + i, $"Symbol_{i:X4}");
+			writer.AddSymbol(0x8000 + i, $"Symbol_{i:x4}");
 		}
 		return writer.Generate();
 	}
@@ -52,7 +52,7 @@ public class WriterBenchmarks {
 			RomSize = 0x80000
 		};
 		for (uint i = 0; i < (uint)SymbolCount; i++) {
-			writer.AddComment(0x8000 + i, $"Comment for address ${0x8000 + i:X4}");
+			writer.AddComment(0x8000 + i, $"Comment for address ${0x8000 + i:x4}");
 		}
 		return writer.Generate();
 	}
@@ -80,7 +80,7 @@ public class WriterBenchmarks {
 			ProjectVersion = "1.0.0"
 		};
 		for (uint i = 0; i < (uint)SymbolCount; i++) {
-			writer.AddSymbol(0x8000 + i, $"Sym_{i:X4}");
+			writer.AddSymbol(0x8000 + i, $"Sym_{i:x4}");
 			writer.AddComment(0x8000 + i, $"Comment {i}");
 			writer.MarkAsCode(i);
 			if (i % 5 == 0) writer.MarkAsOpcode(i);
@@ -98,7 +98,7 @@ public class WriterBenchmarks {
 			EnableCompression = true
 		};
 		for (uint i = 0; i < (uint)SymbolCount; i++) {
-			writer.AddSymbol(0x8000 + i, $"Symbol_{i:X4}");
+			writer.AddSymbol(0x8000 + i, $"Symbol_{i:x4}");
 			writer.MarkAsCode(i);
 		}
 		return writer.Generate();
@@ -112,7 +112,7 @@ public class WriterBenchmarks {
 		};
 		for (uint i = 0; i < (uint)SymbolCount; i++) {
 			var type = (SymbolType)((i % 9) + 1);
-			writer.AddSymbol(0x8000 + i, $"TypedSym_{i:X4}", type);
+			writer.AddSymbol(0x8000 + i, $"TypedSym_{i:x4}", type);
 		}
 		return writer.Generate();
 	}
@@ -158,7 +158,7 @@ public class WriterBenchmarks {
 		};
 		for (uint i = 0; i < (uint)SymbolCount; i++) {
 			var symType = (SymbolType)((i % 9) + 1);
-			writer.AddSymbol(0x8000 + i, $"Sym_{i:X4}", symType);
+			writer.AddSymbol(0x8000 + i, $"Sym_{i:x4}", symType);
 			var cmtType = (byte)((i % 3) + 1);
 			writer.AddComment(0x8000 + i, $"Comment {i}", cmtType);
 			writer.MarkAsCode(i);
@@ -202,7 +202,7 @@ public class LoaderBenchmarks {
 		};
 		for (uint i = 0; i < (uint)count; i++) {
 			var symType = (SymbolType)((i % 9) + 1);
-			writer.AddSymbol(0x8000 + i, $"Sym_{i:X4}", symType);
+			writer.AddSymbol(0x8000 + i, $"Sym_{i:x4}", symType);
 			var cmtType = (byte)((i % 3) + 1);
 			writer.AddComment(0x8000 + i, $"Comment {i}", cmtType);
 			writer.MarkAsCode(i);

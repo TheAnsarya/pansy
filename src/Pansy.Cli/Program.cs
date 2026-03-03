@@ -188,7 +188,7 @@ static int RunSymbols(string[] args) {
 	}
 
 	foreach (var (addr, name) in symbolList) {
-		table.AddRow($"${addr:X4}", Markup.Escape(name));
+		table.AddRow($"${addr:x4}", Markup.Escape(name));
 	}
 
 	AnsiConsole.Write(table);
@@ -248,7 +248,7 @@ static int RunFind(string[] args) {
 				.AddColumn("Name");
 
 			foreach (var (addr, name) in matchedSymbols.OrderBy(x => x.Key)) {
-				table.AddRow($"${addr:X4}", Markup.Escape(name));
+				table.AddRow($"${addr:x4}", Markup.Escape(name));
 				foundCount++;
 			}
 
@@ -268,7 +268,7 @@ static int RunFind(string[] args) {
 				.AddColumn("Comment");
 
 			foreach (var (addr, comment) in matchedComments.OrderBy(x => x.Key)) {
-				table.AddRow($"${addr:X4}", Markup.Escape(comment));
+				table.AddRow($"${addr:x4}", Markup.Escape(comment));
 				foundCount++;
 			}
 
@@ -392,7 +392,7 @@ static int RunXrefs(string[] args) {
 	var fileData = File.ReadAllBytes(filePathLookup);
 	var pansy = new PansyLoader(fileData);
 
-	AnsiConsole.MarkupLine($"[bold magenta]🌼 Cross-references for ${targetAddress:X4}[/]");
+	AnsiConsole.MarkupLine($"[bold magenta]🌼 Cross-references for ${targetAddress:x4}[/]");
 
 	// Show symbol name if exists
 	if (pansy.Symbols.TryGetValue(targetAddress, out var symbolName)) {
@@ -423,7 +423,7 @@ static int RunXrefs(string[] args) {
 
 		foreach (var xref in referencesTo) {
 			var fromSymbol = pansy.Symbols.TryGetValue((int)xref.From, out var name) ? name : "";
-			table.AddRow($"${xref.From:X4}", xref.Type.ToString(), Markup.Escape(fromSymbol));
+			table.AddRow($"${xref.From:x4}", xref.Type.ToString(), Markup.Escape(fromSymbol));
 		}
 
 		AnsiConsole.Write(table);
@@ -440,7 +440,7 @@ static int RunXrefs(string[] args) {
 
 		foreach (var xref in referencesFrom) {
 			var toSymbol = pansy.Symbols.TryGetValue((int)xref.To, out var name) ? name : "";
-			table.AddRow($"${xref.To:X4}", xref.Type.ToString(), Markup.Escape(toSymbol));
+			table.AddRow($"${xref.To:x4}", xref.Type.ToString(), Markup.Escape(toSymbol));
 		}
 
 		AnsiConsole.Write(table);
@@ -523,7 +523,7 @@ static int ShowMostCalled(PansyLoader pansy, int count) {
 		var symbol = pansy.Symbols.TryGetValue(address, out var name) ? name : "-";
 		var types = string.Join(", ", group.Select(x => x.Type).Distinct());
 
-		table.AddRow(rank.ToString(), $"${address:X4}", Markup.Escape(symbol), group.Count().ToString(), types);
+		table.AddRow(rank.ToString(), $"${address:x4}", Markup.Escape(symbol), group.Count().ToString(), types);
 		rank++;
 	}
 
@@ -562,7 +562,7 @@ static int ShowUnreferencedCode(PansyLoader pansy) {
 
 	foreach (var address in unreferenced) {
 		var symbol = pansy.Symbols.TryGetValue(address, out var name) ? name : "-";
-		table.AddRow($"${address:X4}", Markup.Escape(symbol));
+		table.AddRow($"${address:x4}", Markup.Escape(symbol));
 	}
 
 	AnsiConsole.Write(table);
@@ -601,7 +601,7 @@ static int ShowByType(PansyLoader pansy, string typeName) {
 	foreach (var xref in filtered) {
 		var fromSymbol = pansy.Symbols.TryGetValue((int)xref.From, out var fromName) ? fromName : "-";
 		var toSymbol = pansy.Symbols.TryGetValue((int)xref.To, out var toName) ? toName : "-";
-		table.AddRow($"${xref.From:X4}", $"${xref.To:X4}", Markup.Escape(fromSymbol), Markup.Escape(toSymbol));
+		table.AddRow($"${xref.From:x4}", $"${xref.To:x4}", Markup.Escape(fromSymbol), Markup.Escape(toSymbol));
 	}
 
 	AnsiConsole.Write(table);
@@ -714,7 +714,7 @@ static int RunDiff(string[] args) {
 	if (addedSymbols.Count > 0) {
 		AnsiConsole.MarkupLine($"[bold green]Added Symbols ({addedSymbols.Count}):[/]");
 		foreach (var addr in addedSymbols.OrderBy(x => x).Take(10)) {
-			AnsiConsole.MarkupLine($"  [cyan]${addr:X4}:[/] {Markup.Escape(pansy2.Symbols[addr])}");
+			AnsiConsole.MarkupLine($"  [cyan]${addr:x4}:[/] {Markup.Escape(pansy2.Symbols[addr])}");
 		}
 		if (addedSymbols.Count > 10) {
 			AnsiConsole.MarkupLine($"  [grey]... and {addedSymbols.Count - 10} more[/]");
@@ -725,7 +725,7 @@ static int RunDiff(string[] args) {
 	if (removedSymbols.Count > 0) {
 		AnsiConsole.MarkupLine($"[bold yellow]Removed Symbols ({removedSymbols.Count}):[/]");
 		foreach (var addr in removedSymbols.OrderBy(x => x).Take(10)) {
-			AnsiConsole.MarkupLine($"  [cyan]${addr:X4}:[/] {Markup.Escape(pansy1.Symbols[addr])}");
+			AnsiConsole.MarkupLine($"  [cyan]${addr:x4}:[/] {Markup.Escape(pansy1.Symbols[addr])}");
 		}
 		if (removedSymbols.Count > 10) {
 			AnsiConsole.MarkupLine($"  [grey]... and {removedSymbols.Count - 10} more[/]");
@@ -736,7 +736,7 @@ static int RunDiff(string[] args) {
 	if (changedSymbols.Count > 0) {
 		AnsiConsole.MarkupLine($"[bold magenta]Changed Symbols ({changedSymbols.Count}):[/]");
 		foreach (var addr in changedSymbols.OrderBy(x => x).Take(10)) {
-			AnsiConsole.MarkupLine($"  [cyan]${addr:X4}:[/] {Markup.Escape(pansy1.Symbols[addr])} → {Markup.Escape(pansy2.Symbols[addr])}");
+			AnsiConsole.MarkupLine($"  [cyan]${addr:x4}:[/] {Markup.Escape(pansy1.Symbols[addr])} → {Markup.Escape(pansy2.Symbols[addr])}");
 		}
 		if (changedSymbols.Count > 10) {
 			AnsiConsole.MarkupLine($"  [grey]... and {changedSymbols.Count - 10} more[/]");

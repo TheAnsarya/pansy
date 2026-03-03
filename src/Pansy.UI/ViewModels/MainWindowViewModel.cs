@@ -548,7 +548,7 @@ public class MainWindowViewModel : INotifyPropertyChanged {
 			"VRAM" => 0x04,
 			"PRG-ROM" => 0x05,
 			"CHR-ROM" => 0x06,
-			"Custom" => 0xFF,
+			"Custom" => 0xff,
 			_ => 0x01
 		};
 	}
@@ -566,8 +566,8 @@ public class MainWindowViewModel : INotifyPropertyChanged {
 			FileName = Path.GetFileName(filePath);
 			PlatformName = GetPlatformName(loader.Platform);
 			RomSize = $"{loader.RomSize:N0} bytes";
-			RomCrc = $"0x{loader.RomCrc32:X8}";
-			FileVersion = $"{loader.Version >> 8}.{loader.Version & 0xFF}";
+			RomCrc = $"0x{loader.RomCrc32:x8}";
+			FileVersion = $"{loader.Version >> 8}.{loader.Version & 0xff}";
 			IsCompressed = loader.Flags.HasFlag(PansyFlags.Compressed) ? "Yes" : "No";
 
 			// Load statistics
@@ -585,7 +585,7 @@ public class MainWindowViewModel : INotifyPropertyChanged {
 			FilteredSymbols.Clear();
 			foreach (var symbol in loader.Symbols.OrderBy(s => s.Key)) {
 				var symbolInfo = new SymbolInfo {
-					Address = $"${symbol.Key:X4}",
+					Address = $"${symbol.Key:x4}",
 					Name = symbol.Value
 				};
 				Symbols.Add(symbolInfo);
@@ -597,7 +597,7 @@ public class MainWindowViewModel : INotifyPropertyChanged {
 			FilteredComments.Clear();
 			foreach (var comment in loader.Comments.OrderBy(c => c.Key)) {
 				var commentInfo = new CommentInfo {
-					Address = $"${comment.Key:X4}",
+					Address = $"${comment.Key:x4}",
 					Text = comment.Value
 				};
 				Comments.Add(commentInfo);
@@ -610,9 +610,9 @@ public class MainWindowViewModel : INotifyPropertyChanged {
 				MemoryRegions.Add(new MemoryRegionInfo {
 					Name = region.Name,
 					Type = GetRegionTypeName(region.Type),
-					Start = $"${region.Start:X4}",
-					End = $"${region.End:X4}",
-					Bank = region.Bank > 0 ? $"${region.Bank:X2}" : "-"
+					Start = $"${region.Start:x4}",
+					End = $"${region.End:x4}",
+					Bank = region.Bank > 0 ? $"${region.Bank:x2}" : "-"
 				});
 			}
 
@@ -621,8 +621,8 @@ public class MainWindowViewModel : INotifyPropertyChanged {
 			FilteredCrossReferences.Clear();
 			foreach (var xref in loader.CrossReferences.OrderBy(x => x.From)) {
 				var crossRefInfo = new CrossRefInfo {
-					From = $"${xref.From:X4}",
-					To = $"${xref.To:X4}",
+					From = $"${xref.From:x4}",
+					To = $"${xref.To:x4}",
 					Type = xref.Type.ToString()
 				};
 				CrossReferences.Add(crossRefInfo);
@@ -654,8 +654,8 @@ public class MainWindowViewModel : INotifyPropertyChanged {
 			0x04 => "Game Boy Advance (ARM7TDMI)",
 			0x05 => "Sega Genesis (68000)",
 			0x06 => "Atari 2600 (6507)",
-			0xFF => "Custom",
-			_ => $"Unknown (0x{platform:X2})"
+			0xff => "Custom",
+			_ => $"Unknown (0x{platform:x2})"
 		};
 	}
 
@@ -667,8 +667,8 @@ public class MainWindowViewModel : INotifyPropertyChanged {
 			0x04 => "VRAM",
 			0x05 => "PRG-ROM",
 			0x06 => "CHR-ROM",
-			0xFF => "Custom",
-			_ => $"Unknown (0x{type:X2})"
+			0xff => "Custom",
+			_ => $"Unknown (0x{type:x2})"
 		};
 	}
 }
