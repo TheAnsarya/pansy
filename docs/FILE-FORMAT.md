@@ -5,7 +5,7 @@
 **Version:** 1.0  
 **Status:** Draft  
 **Created:** 2026-01-19  
-**Last Updated:** 2026-07-09
+**Last Updated:** 2026-07-13
 
 ## Overview
 
@@ -181,12 +181,25 @@ Memory segment definitions.
 Region Entry:
   StartAddress: uint32
   EndAddress: uint32
-  Type: uint8 (code=1, data=2, bss=3, rodata=4)
+  Type: uint8 (see table below)
   Bank: uint8
   Flags: uint16
   NameLength: uint16
   Name: char[NameLength]
 ```
+
+**Memory Region Types:**
+| Value | Type | Description |
+|-------|------|-------------|
+| 0 | UNKNOWN | Unknown or unspecified region |
+| 1 | ROM | Read-only memory |
+| 2 | RAM | Random access memory |
+| 3 | VRAM | Video RAM |
+| 4 | IO | I/O registers |
+| 5 | SRAM | Save RAM (battery-backed) |
+| 6 | WRAM | Work RAM |
+| 7 | OPEN_BUS | Open bus / unmapped |
+| 8 | MIRROR | Mirror of another region |
 
 ### DATA_TYPES (0x0005) — *Reserved*
 
@@ -344,6 +357,7 @@ Each section is compressed independently — a section whose compressed size equ
 | 1.0.1 | 2026-01-24 | Added platform-specific details |
 | 1.0.2 | 2026-07-09 | Synced spec with implementation: fixed header layout (flags is uint16, section count in header at 0x18), corrected platform IDs to match PansyLoader constants, changed compression from zstd to DEFLATE, marked DATA_TYPES and SOURCE_MAP as reserved/unimplemented, removed footer (integrity checks at application level) |
 | 1.0.3 | 2026-07-12 | Added INTERRUPT_VECTOR (8) and FUNCTION (9) symbol types; typed SymbolEntry/CommentEntry records preserve full type info through roundtrip; DRAWN/READ/INDIRECT flags now fully implemented in writer and loader |
+| 1.0.4 | 2026-07-13 | Fixed MEMORY_REGIONS type table (was code/data/bss/rodata, now matches MemoryRegionType enum: ROM/RAM/VRAM/IO/SRAM/WRAM/OpenBus/Mirror); Nexen exporter/importer fully aligned with spec |
 
 ## Comparison with Existing Formats
 
