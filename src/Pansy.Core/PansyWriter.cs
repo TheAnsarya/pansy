@@ -12,8 +12,8 @@ namespace Pansy.Core;
 /// Pansy files contain code/data maps, symbols, comments, cross-references, and more.
 /// </summary>
 public sealed class PansyWriter {
-	private readonly Dictionary<uint, (string Name, SymbolType Type)> _symbols = [];
-	private readonly Dictionary<uint, (string Text, byte CommentType)> _comments = [];
+	private readonly Dictionary<uint, List<(string Name, SymbolType Type)>> _symbols = [];
+	private readonly Dictionary<uint, List<(string Text, byte CommentType)>> _comments = [];
 	private readonly HashSet<uint> _codeOffsets = [];
 	private readonly HashSet<uint> _dataOffsets = [];
 	private readonly HashSet<uint> _jumpTargets = [];
@@ -78,27 +78,43 @@ public sealed class PansyWriter {
 		set => _enableCompression = value;
 	}
 
-	/// <summary>Adds a symbol at the specified address.</summary>
+	/// <summary>Adds a symbol at the specified address. Multiple symbols per address are supported.</summary>
 	public void AddSymbol(uint address, string name) {
-		_symbols[address] = (name, SymbolType.Label);
+		if (!_symbols.TryGetValue(address, out var list)) {
+			list = [];
+			_symbols[address] = list;
+		}
+		list.Add((name, SymbolType.Label));
 	}
 
-	/// <summary>Adds a typed symbol at the specified address.</summary>
+	/// <summary>Adds a typed symbol at the specified address. Multiple symbols per address are supported.</summary>
 	public void AddSymbol(uint address, string name, SymbolType type) {
-		_symbols[address] = (name, type);
+		if (!_symbols.TryGetValue(address, out var list)) {
+			list = [];
+			_symbols[address] = list;
+		}
+		list.Add((name, type));
 	}
 
-	/// <summary>Adds a comment at the specified address.</summary>
+	/// <summary>Adds a comment at the specified address. Multiple comments per address are supported.</summary>
 	public void AddComment(uint address, string comment) {
-		_comments[address] = (comment, 1); // 1 = inline comment
+		if (!_comments.TryGetValue(address, out var list)) {
+			list = [];
+			_comments[address] = list;
+		}
+		list.Add((comment, 1)); // 1 = inline comment
 	}
 
-	/// <summary>Adds a typed comment at the specified address.</summary>
+	/// <summary>Adds a typed comment at the specified address. Multiple comments per address are supported.</summary>
 	/// <param name="address">The address for the comment.</param>
 	/// <param name="comment">The comment text.</param>
 	/// <param name="commentType">Comment type: 1=inline, 2=block, 3=todo.</param>
 	public void AddComment(uint address, string comment, byte commentType) {
-		_comments[address] = (comment, commentType);
+		if (!_comments.TryGetValue(address, out var list)) {
+			list = [];
+			_comments[address] = list;
+		}
+		list.Add((comment, commentType));
 	}
 
 	/// <summary>Marks an address as code.</summary>
@@ -322,14 +338,16 @@ public sealed class PansyWriter {
 		using var ms = new MemoryStream();
 		using var writer = new BinaryWriter(ms);
 		// No count - loader reads until EOF
-		foreach (var (addr, (name, type)) in _symbols.OrderBy(x => x.Key)) {
-			writer.Write(addr); // Address (uint32)
-			writer.Write((byte)type); // Type: from SymbolType enum
-			writer.Write((byte)0); // Flags
-			var nameBytes = Encoding.UTF8.GetBytes(name);
-			writer.Write((ushort)nameBytes.Length); // NameLength
-			writer.Write(nameBytes); // Name
-			writer.Write((ushort)0); // ValueLength (no value for labels)
+		foreach (var (addr, entries) in _symbols.OrderBy(x => x.Key)) {
+			foreach (var (name, type) in entries) {
+				writer.Write(addr); // Address (uint32)
+				writer.Write((byte)type); // Type: from SymbolType enum
+				writer.Write((byte)0); // Flags
+				var nameBytes = Encoding.UTF8.GetBytes(name);
+				writer.Write((ushort)nameBytes.Length); // NameLength
+				writer.Write(nameBytes); // Name
+				writer.Write((ushort)0); // ValueLength (no value for labels)
+			}
 		}
 		return ms.ToArray();
 	}
@@ -338,12 +356,14 @@ public sealed class PansyWriter {
 		using var ms = new MemoryStream();
 		using var writer = new BinaryWriter(ms);
 		// No count - loader reads until EOF
-		foreach (var (addr, (comment, commentType)) in _comments.OrderBy(x => x.Key)) {
-			writer.Write(addr); // Address (uint32)
-			writer.Write(commentType); // Type: from comment type parameter
-			var commentBytes = Encoding.UTF8.GetBytes(comment);
-			writer.Write((ushort)commentBytes.Length); // Length
-			writer.Write(commentBytes); // Text
+		foreach (var (addr, entries) in _comments.OrderBy(x => x.Key)) {
+			foreach (var (comment, commentType) in entries) {
+				writer.Write(addr); // Address (uint32)
+				writer.Write(commentType); // Type: from comment type parameter
+				var commentBytes = Encoding.UTF8.GetBytes(comment);
+				writer.Write((ushort)commentBytes.Length); // Length
+				writer.Write(commentBytes); // Text
+			}
 		}
 		return ms.ToArray();
 	}

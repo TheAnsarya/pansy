@@ -221,4 +221,160 @@ public class TypedDataTests {
 	}
 
 	#endregion
+
+	#region Multiple Symbols Per Address Tests
+
+	[Fact]
+	public void MultipleSymbols_SameAddress_AllPreserved() {
+		var writer = new PansyWriter { Platform = PansyLoader.PLATFORM_NES, RomSize = 0x8000 };
+		writer.AddSymbol(0x8000, "Reset", SymbolType.InterruptVector);
+		writer.AddSymbol(0x8000, "Main", SymbolType.Function);
+		writer.AddSymbol(0x8000, "ProgramStart", SymbolType.Label);
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		var entries = loader.GetSymbolEntries(0x8000);
+		Assert.NotNull(entries);
+		Assert.Equal(3, entries.Count);
+		Assert.Equal("Reset", entries[0].Name);
+		Assert.Equal(SymbolType.InterruptVector, entries[0].Type);
+		Assert.Equal("Main", entries[1].Name);
+		Assert.Equal(SymbolType.Function, entries[1].Type);
+		Assert.Equal("ProgramStart", entries[2].Name);
+		Assert.Equal(SymbolType.Label, entries[2].Type);
+	}
+
+	[Fact]
+	public void MultipleSymbols_BackwardCompat_ReturnsFirst() {
+		var writer = new PansyWriter { Platform = PansyLoader.PLATFORM_NES, RomSize = 0x8000 };
+		writer.AddSymbol(0x8000, "First", SymbolType.Label);
+		writer.AddSymbol(0x8000, "Second", SymbolType.Function);
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		// Backward-compat APIs return first entry
+		Assert.Equal("First", loader.GetSymbol(0x8000));
+		Assert.Equal(SymbolType.Label, loader.GetSymbolType(0x8000));
+		var entry = loader.GetSymbolEntry(0x8000);
+		Assert.NotNull(entry);
+		Assert.Equal("First", entry.Name);
+
+		// SymbolEntries dict returns first entry per address
+		Assert.Equal("First", loader.SymbolEntries[0x8000].Name);
+		Assert.Equal("First", loader.Symbols[0x8000]);
+	}
+
+	[Fact]
+	public void MultipleSymbols_AllSymbolEntries_ReturnsLists() {
+		var writer = new PansyWriter { Platform = PansyLoader.PLATFORM_NES, RomSize = 0x8000 };
+		writer.AddSymbol(0x8000, "A", SymbolType.Label);
+		writer.AddSymbol(0x8000, "B", SymbolType.Function);
+		writer.AddSymbol(0x8100, "C", SymbolType.Constant);
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		// AllSymbolEntries returns lists
+		Assert.Equal(2, loader.AllSymbolEntries.Count); // 2 addresses
+		Assert.Equal(2, loader.AllSymbolEntries[0x8000].Count); // 2 symbols at 0x8000
+		Assert.Single(loader.AllSymbolEntries[0x8100]); // 1 symbol at 0x8100
+
+		// SymbolEntries count = number of addresses (backward compat)
+		Assert.Equal(2, loader.SymbolEntries.Count);
+	}
+
+	[Fact]
+	public void MultipleSymbols_GetSymbolEntries_NullForMissing() {
+		var writer = new PansyWriter { Platform = PansyLoader.PLATFORM_NES, RomSize = 0x8000 };
+		writer.AddSymbol(0x8000, "Exists", SymbolType.Label);
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		Assert.Null(loader.GetSymbolEntries(0x9999));
+	}
+
+	[Fact]
+	public void MultipleSymbols_SingleEntry_WorksAsListOfOne() {
+		var writer = new PansyWriter { Platform = PansyLoader.PLATFORM_NES, RomSize = 0x8000 };
+		writer.AddSymbol(0x8000, "Only", SymbolType.Label);
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		var entries = loader.GetSymbolEntries(0x8000);
+		Assert.NotNull(entries);
+		Assert.Single(entries);
+		Assert.Equal("Only", entries[0].Name);
+	}
+
+	#endregion
+
+	#region Multiple Comments Per Address Tests
+
+	[Fact]
+	public void MultipleComments_SameAddress_AllPreserved() {
+		var writer = new PansyWriter { Platform = PansyLoader.PLATFORM_NES, RomSize = 0x8000 };
+		writer.AddComment(0x8000, "Initialize PPU", (byte)CommentType.Block);
+		writer.AddComment(0x8000, "Sets up rendering", (byte)CommentType.Inline);
+		writer.AddComment(0x8000, "TODO: optimize", (byte)CommentType.Todo);
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		var entries = loader.GetCommentEntries(0x8000);
+		Assert.NotNull(entries);
+		Assert.Equal(3, entries.Count);
+		Assert.Equal("Initialize PPU", entries[0].Text);
+		Assert.Equal(CommentType.Block, entries[0].Type);
+		Assert.Equal("Sets up rendering", entries[1].Text);
+		Assert.Equal(CommentType.Inline, entries[1].Type);
+		Assert.Equal("TODO: optimize", entries[2].Text);
+		Assert.Equal(CommentType.Todo, entries[2].Type);
+	}
+
+	[Fact]
+	public void MultipleComments_BackwardCompat_ReturnsFirst() {
+		var writer = new PansyWriter { Platform = PansyLoader.PLATFORM_NES, RomSize = 0x8000 };
+		writer.AddComment(0x8000, "First comment", (byte)CommentType.Block);
+		writer.AddComment(0x8000, "Second comment", (byte)CommentType.Inline);
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		Assert.Equal("First comment", loader.GetComment(0x8000));
+		Assert.Equal(CommentType.Block, loader.GetCommentType(0x8000));
+		Assert.Equal("First comment", loader.CommentEntries[0x8000].Text);
+		Assert.Equal("First comment", loader.Comments[0x8000]);
+	}
+
+	[Fact]
+	public void MultipleComments_AllCommentEntries_ReturnsLists() {
+		var writer = new PansyWriter { Platform = PansyLoader.PLATFORM_NES, RomSize = 0x8000 };
+		writer.AddComment(0x8000, "A", (byte)CommentType.Block);
+		writer.AddComment(0x8000, "B", (byte)CommentType.Inline);
+		writer.AddComment(0x8100, "C", (byte)CommentType.Todo);
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		Assert.Equal(2, loader.AllCommentEntries.Count);
+		Assert.Equal(2, loader.AllCommentEntries[0x8000].Count);
+		Assert.Single(loader.AllCommentEntries[0x8100]);
+	}
+
+	[Fact]
+	public void MultipleComments_GetCommentEntries_NullForMissing() {
+		var writer = new PansyWriter { Platform = PansyLoader.PLATFORM_NES, RomSize = 0x8000 };
+		writer.AddComment(0x8000, "Exists", (byte)CommentType.Inline);
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		Assert.Null(loader.GetCommentEntries(0x9999));
+	}
+
+	#endregion
 }

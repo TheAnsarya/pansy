@@ -284,19 +284,27 @@ public class BugFixTests {
 	}
 
 	[Fact]
-	public void DuplicateSymbol_LastOneWins() {
+	public void DuplicateSymbol_BothPreserved() {
 		var writer = new PansyWriter {
 			Platform = PansyLoader.PLATFORM_NES,
 			RomSize = 0x8000
 		};
 
 		writer.AddSymbol(0x8000, "FirstName");
-		writer.AddSymbol(0x8000, "SecondName"); // overwrites
+		writer.AddSymbol(0x8000, "SecondName");
 
 		var data = writer.Generate();
 		var loader = new PansyLoader(data);
 
-		Assert.Equal("SecondName", loader.GetSymbol(0x8000));
+		// Backward-compat API returns first symbol
+		Assert.Equal("FirstName", loader.GetSymbol(0x8000));
+
+		// New multi-value API returns all symbols
+		var entries = loader.GetSymbolEntries(0x8000);
+		Assert.NotNull(entries);
+		Assert.Equal(2, entries.Count);
+		Assert.Equal("FirstName", entries[0].Name);
+		Assert.Equal("SecondName", entries[1].Name);
 	}
 
 	[Fact]

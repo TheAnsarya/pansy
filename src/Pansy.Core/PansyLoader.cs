@@ -28,8 +28,8 @@ public class PansyLoader {
 	private FrozenSet<int> _drawnOffsets = FrozenSet<int>.Empty;
 	private FrozenSet<int> _readOffsets = FrozenSet<int>.Empty;
 	private FrozenSet<int> _indirectOffsets = FrozenSet<int>.Empty;
-	private FrozenDictionary<int, SymbolEntry> _symbolEntries = FrozenDictionary<int, SymbolEntry>.Empty;
-	private FrozenDictionary<int, CommentEntry> _commentEntries = FrozenDictionary<int, CommentEntry>.Empty;
+	private FrozenDictionary<int, IReadOnlyList<SymbolEntry>> _symbolEntries = FrozenDictionary<int, IReadOnlyList<SymbolEntry>>.Empty;
+	private FrozenDictionary<int, IReadOnlyList<CommentEntry>> _commentEntries = FrozenDictionary<int, IReadOnlyList<CommentEntry>>.Empty;
 	private readonly List<MemoryRegion> _memoryRegions = [];
 	private readonly List<CrossReference> _crossRefs = [];
 	private string _projectName = "";
@@ -39,6 +39,8 @@ public class PansyLoader {
 	// Cached backward-compat dictionaries (computed once, not per-access)
 	private IReadOnlyDictionary<int, string>? _symbolsCache;
 	private IReadOnlyDictionary<int, string>? _commentsCache;
+	private IReadOnlyDictionary<int, SymbolEntry>? _singleSymbolEntriesCache;
+	private IReadOnlyDictionary<int, CommentEntry>? _singleCommentEntriesCache;
 
 	// Temporary mutable collections used during parsing (nulled after freeze)
 	private HashSet<int>? _tempCodeOffsets;
@@ -49,8 +51,8 @@ public class PansyLoader {
 	private HashSet<int>? _tempDrawnOffsets;
 	private HashSet<int>? _tempReadOffsets;
 	private HashSet<int>? _tempIndirectOffsets;
-	private Dictionary<int, SymbolEntry>? _tempSymbolEntries;
-	private Dictionary<int, CommentEntry>? _tempCommentEntries;
+	private Dictionary<int, List<SymbolEntry>>? _tempSymbolEntries;
+	private Dictionary<int, List<CommentEntry>>? _tempCommentEntries;
 
 	#region Constants
 	// Platform IDs
@@ -188,19 +190,27 @@ public class PansyLoader {
 	/// <summary>Gets all ROM offsets accessed via indirect addressing.</summary>
 	public IReadOnlySet<int> IndirectOffsets => _indirectOffsets;
 
-	/// <summary>Gets symbols by address (name only, for backward compatibility). Cached — does not allocate per call.</summary>
+	/// <summary>Gets symbols by address (name only, for backward compatibility). Returns first symbol name per address. Cached.</summary>
 	public IReadOnlyDictionary<int, string> Symbols =>
-		_symbolsCache ??= _symbolEntries.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Name);
+		_symbolsCache ??= _symbolEntries.ToDictionary(kvp => kvp.Key, kvp => kvp.Value[0].Name);
 
-	/// <summary>Gets typed symbol entries by address (frozen for optimal lookups).</summary>
-	public IReadOnlyDictionary<int, SymbolEntry> SymbolEntries => _symbolEntries;
+	/// <summary>Gets first typed symbol entry per address (for backward compatibility). Cached.</summary>
+	public IReadOnlyDictionary<int, SymbolEntry> SymbolEntries =>
+		_singleSymbolEntriesCache ??= _symbolEntries.ToDictionary(kvp => kvp.Key, kvp => kvp.Value[0]);
 
-	/// <summary>Gets comments by address (text only, for backward compatibility). Cached — does not allocate per call.</summary>
+	/// <summary>Gets all typed symbol entries per address, supporting multiple symbols at the same address.</summary>
+	public IReadOnlyDictionary<int, IReadOnlyList<SymbolEntry>> AllSymbolEntries => _symbolEntries;
+
+	/// <summary>Gets comments by address (text only, for backward compatibility). Returns first comment text per address. Cached.</summary>
 	public IReadOnlyDictionary<int, string> Comments =>
-		_commentsCache ??= _commentEntries.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Text);
+		_commentsCache ??= _commentEntries.ToDictionary(kvp => kvp.Key, kvp => kvp.Value[0].Text);
 
-	/// <summary>Gets typed comment entries by address.</summary>
-	public IReadOnlyDictionary<int, CommentEntry> CommentEntries => _commentEntries;
+	/// <summary>Gets first typed comment entry per address (for backward compatibility). Cached.</summary>
+	public IReadOnlyDictionary<int, CommentEntry> CommentEntries =>
+		_singleCommentEntriesCache ??= _commentEntries.ToDictionary(kvp => kvp.Key, kvp => kvp.Value[0]);
+
+	/// <summary>Gets all typed comment entries per address, supporting multiple comments at the same address.</summary>
+	public IReadOnlyDictionary<int, IReadOnlyList<CommentEntry>> AllCommentEntries => _commentEntries;
 
 	/// <summary>Gets memory regions.</summary>
 	public IReadOnlyList<MemoryRegion> MemoryRegions => _memoryRegions;
@@ -277,8 +287,12 @@ public class PansyLoader {
 		_drawnOffsets = _tempDrawnOffsets.ToFrozenSet();
 		_readOffsets = _tempReadOffsets.ToFrozenSet();
 		_indirectOffsets = _tempIndirectOffsets.ToFrozenSet();
-		_symbolEntries = _tempSymbolEntries.ToFrozenDictionary();
-		_commentEntries = _tempCommentEntries.ToFrozenDictionary();
+		_symbolEntries = _tempSymbolEntries.ToFrozenDictionary(
+			kvp => kvp.Key,
+			kvp => (IReadOnlyList<SymbolEntry>)kvp.Value.AsReadOnly());
+		_commentEntries = _tempCommentEntries.ToFrozenDictionary(
+			kvp => kvp.Key,
+			kvp => (IReadOnlyList<CommentEntry>)kvp.Value.AsReadOnly());
 
 		// Release temporary collections
 		_tempCodeOffsets = null;
@@ -329,40 +343,52 @@ public class PansyLoader {
 	public bool IsOpcode(int offset) => _opcodeOffsets.Contains(offset);
 
 	/// <summary>
-	/// Gets the symbol name at an address, or null if none.
+	/// Gets the symbol name at an address, or null if none. Returns the first symbol if multiple exist.
 	/// </summary>
 	public string? GetSymbol(int address) =>
-		_symbolEntries.TryGetValue(address, out var entry) ? entry.Name : null;
+		_symbolEntries.TryGetValue(address, out var entries) ? entries[0].Name : null;
 
 	/// <summary>
-	/// Gets the typed symbol entry at an address, or null if none.
+	/// Gets the first typed symbol entry at an address, or null if none.
 	/// </summary>
 	public SymbolEntry? GetSymbolEntry(int address) =>
+		_symbolEntries.TryGetValue(address, out var entries) ? entries[0] : null;
+
+	/// <summary>
+	/// Gets all typed symbol entries at an address, or null if none.
+	/// </summary>
+	public IReadOnlyList<SymbolEntry>? GetSymbolEntries(int address) =>
 		_symbolEntries.GetValueOrDefault(address);
 
 	/// <summary>
-	/// Gets the symbol type at an address, or null if no symbol exists.
+	/// Gets the symbol type at an address, or null if no symbol exists. Returns the first symbol's type if multiple exist.
 	/// </summary>
 	public SymbolType? GetSymbolType(int address) =>
-		_symbolEntries.TryGetValue(address, out var entry) ? entry.Type : null;
+		_symbolEntries.TryGetValue(address, out var entries) ? entries[0].Type : null;
 
 	/// <summary>
-	/// Gets the comment text at an address, or null if none.
+	/// Gets the comment text at an address, or null if none. Returns the first comment if multiple exist.
 	/// </summary>
 	public string? GetComment(int address) =>
-		_commentEntries.TryGetValue(address, out var entry) ? entry.Text : null;
+		_commentEntries.TryGetValue(address, out var entries) ? entries[0].Text : null;
 
 	/// <summary>
-	/// Gets the typed comment entry at an address, or null if none.
+	/// Gets the first typed comment entry at an address, or null if none.
 	/// </summary>
 	public CommentEntry? GetCommentEntry(int address) =>
+		_commentEntries.TryGetValue(address, out var entries) ? entries[0] : null;
+
+	/// <summary>
+	/// Gets all typed comment entries at an address, or null if none.
+	/// </summary>
+	public IReadOnlyList<CommentEntry>? GetCommentEntries(int address) =>
 		_commentEntries.GetValueOrDefault(address);
 
 	/// <summary>
-	/// Gets the comment type at an address, or null if no comment exists.
+	/// Gets the comment type at an address, or null if no comment exists. Returns the first comment's type if multiple exist.
 	/// </summary>
 	public CommentType? GetCommentType(int address) =>
-		_commentEntries.TryGetValue(address, out var entry) ? entry.Type : null;
+		_commentEntries.TryGetValue(address, out var entries) ? entries[0].Type : null;
 
 	/// <summary>
 	/// Checks if a ROM offset was drawn/rendered as graphics.
@@ -529,7 +555,11 @@ public class PansyLoader {
 					reader.ReadBytes(valueLength); // Skip value for now
 				}
 
-				_tempSymbolEntries![address] = new SymbolEntry(name, type);
+				if (!_tempSymbolEntries!.TryGetValue(address, out var list)) {
+					list = [];
+					_tempSymbolEntries[address] = list;
+				}
+				list.Add(new SymbolEntry(name, type));
 			} catch (EndOfStreamException) {
 				break;
 			}
@@ -547,7 +577,11 @@ public class PansyLoader {
 				var length = reader.ReadUInt16();
 				var text = Encoding.UTF8.GetString(reader.ReadBytes(length));
 
-				_tempCommentEntries![address] = new CommentEntry(text, (CommentType)type);
+				if (!_tempCommentEntries!.TryGetValue(address, out var list)) {
+					list = [];
+					_tempCommentEntries[address] = list;
+				}
+				list.Add(new CommentEntry(text, (CommentType)type));
 			} catch (EndOfStreamException) {
 				break;
 			}
