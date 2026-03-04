@@ -5,7 +5,7 @@
 **Version:** 1.0  
 **Status:** Draft  
 **Created:** 2026-01-19  
-**Last Updated:** 2026-07-13
+**Last Updated:** 2026-07-09
 
 ## Overview
 
@@ -357,7 +357,6 @@ Each section is compressed independently — a section whose compressed size equ
 | 1.0.1 | 2026-01-24 | Added platform-specific details |
 | 1.0.2 | 2026-07-09 | Synced spec with implementation: fixed header layout (flags is uint16, section count in header at 0x18), corrected platform IDs to match PansyLoader constants, changed compression from zstd to DEFLATE, marked DATA_TYPES and SOURCE_MAP as reserved/unimplemented, removed footer (integrity checks at application level) |
 | 1.0.3 | 2026-07-12 | Added INTERRUPT_VECTOR (8) and FUNCTION (9) symbol types; typed SymbolEntry/CommentEntry records preserve full type info through roundtrip; DRAWN/READ/INDIRECT flags now fully implemented in writer and loader |
-| 1.0.4 | 2026-07-13 | Fixed MEMORY_REGIONS type table (was code/data/bss/rodata, now matches MemoryRegionType enum: ROM/RAM/VRAM/IO/SRAM/WRAM/OpenBus/Mirror); Nexen exporter/importer fully aligned with spec |
 
 ## Comparison with Existing Formats
 
