@@ -36,6 +36,10 @@ public class PansyLoader {
 	private string _author = "";
 	private string _projectVersion = "";
 
+	// Cross-reference indexes (built after parsing for efficient queries)
+	private FrozenDictionary<int, IReadOnlyList<CrossReference>> _xrefsTo = FrozenDictionary<int, IReadOnlyList<CrossReference>>.Empty;
+	private FrozenDictionary<int, IReadOnlyList<CrossReference>> _xrefsFrom = FrozenDictionary<int, IReadOnlyList<CrossReference>>.Empty;
+
 	// Cached backward-compat dictionaries (computed once, not per-access)
 	private IReadOnlyDictionary<int, string>? _symbolsCache;
 	private IReadOnlyDictionary<int, string>? _commentsCache;
@@ -294,6 +298,9 @@ public class PansyLoader {
 			kvp => kvp.Key,
 			kvp => (IReadOnlyList<CommentEntry>)kvp.Value.AsReadOnly());
 
+		// Build cross-reference indexes for efficient queries
+		BuildCrossRefIndexes();
+
 		// Release temporary collections
 		_tempCodeOffsets = null;
 		_tempDataOffsets = null;
@@ -414,6 +421,74 @@ public class PansyLoader {
 		var coverage = totalSize > 0 ? (totalMarked * 100.0) / totalSize : 0;
 		return (_codeOffsets.Count, _dataOffsets.Count, totalSize, coverage);
 	}
+
+	#region Cross-Reference Queries
+
+	/// <summary>
+	/// Gets all cross-references pointing TO an address.
+	/// </summary>
+	public IReadOnlyList<CrossReference> GetCrossRefsTo(int address) =>
+		_xrefsTo.GetValueOrDefault(address) ?? [];
+
+	/// <summary>
+	/// Gets all cross-references originating FROM an address.
+	/// </summary>
+	public IReadOnlyList<CrossReference> GetCrossRefsFrom(int address) =>
+		_xrefsFrom.GetValueOrDefault(address) ?? [];
+
+	/// <summary>
+	/// Gets all cross-references of a specific type.
+	/// </summary>
+	public IEnumerable<CrossReference> GetCrossRefsByType(CrossRefType type) =>
+		_crossRefs.Where(x => x.Type == type);
+
+	/// <summary>
+	/// Gets all cross-references where the source address is in the specified range.
+	/// </summary>
+	public IEnumerable<CrossReference> GetCrossRefsFromRange(int start, int end) =>
+		_crossRefs.Where(x => x.From >= (uint)start && x.From <= (uint)end);
+
+	/// <summary>
+	/// Gets all cross-references where the target address is in the specified range.
+	/// </summary>
+	public IEnumerable<CrossReference> GetCrossRefsToRange(int start, int end) =>
+		_crossRefs.Where(x => x.To >= (uint)start && x.To <= (uint)end);
+
+	/// <summary>
+	/// Gets the number of cross-references pointing TO an address.
+	/// </summary>
+	public int GetReferenceCount(int address) =>
+		_xrefsTo.TryGetValue(address, out var list) ? list.Count : 0;
+
+	/// <summary>
+	/// Gets addresses that are subroutine entry points but have no cross-references pointing to them.
+	/// These are potential dead code or entry points only reached via indirect calls.
+	/// </summary>
+	public IEnumerable<int> GetUnreferencedSubroutines() =>
+		_subEntryPoints.Where(addr => !_xrefsTo.ContainsKey(addr));
+
+	/// <summary>
+	/// Gets the most-referenced addresses, sorted by reference count descending.
+	/// </summary>
+	public IEnumerable<(int Address, int Count)> GetMostReferencedAddresses(int limit = 20) =>
+		_xrefsTo
+			.Select(kvp => (Address: kvp.Key, Count: kvp.Value.Count))
+			.OrderByDescending(x => x.Count)
+			.Take(limit);
+
+	/// <summary>
+	/// Gets cross-reference statistics.
+	/// </summary>
+	public (int TotalXrefs, int JsrCount, int JmpCount, int BranchCount, int ReadCount, int WriteCount) GetCrossRefStats() => (
+		_crossRefs.Count,
+		_crossRefs.Count(x => x.Type == CrossRefType.Jsr),
+		_crossRefs.Count(x => x.Type == CrossRefType.Jmp),
+		_crossRefs.Count(x => x.Type == CrossRefType.Branch),
+		_crossRefs.Count(x => x.Type == CrossRefType.Read),
+		_crossRefs.Count(x => x.Type == CrossRefType.Write)
+	);
+
+	#endregion
 
 	/// <summary>
 	/// Gets platform name from ID.
@@ -644,5 +719,35 @@ public class PansyLoader {
 		} catch (EndOfStreamException) {
 			// OK if metadata is truncated
 		}
+	}
+
+	private void BuildCrossRefIndexes() {
+		if (_crossRefs.Count == 0) return;
+
+		var toIndex = new Dictionary<int, List<CrossReference>>();
+		var fromIndex = new Dictionary<int, List<CrossReference>>();
+
+		foreach (var xref in _crossRefs) {
+			var toAddr = (int)xref.To;
+			if (!toIndex.TryGetValue(toAddr, out var toList)) {
+				toList = [];
+				toIndex[toAddr] = toList;
+			}
+			toList.Add(xref);
+
+			var fromAddr = (int)xref.From;
+			if (!fromIndex.TryGetValue(fromAddr, out var fromList)) {
+				fromList = [];
+				fromIndex[fromAddr] = fromList;
+			}
+			fromList.Add(xref);
+		}
+
+		_xrefsTo = toIndex.ToFrozenDictionary(
+			kvp => kvp.Key,
+			kvp => (IReadOnlyList<CrossReference>)kvp.Value.AsReadOnly());
+		_xrefsFrom = fromIndex.ToFrozenDictionary(
+			kvp => kvp.Key,
+			kvp => (IReadOnlyList<CrossReference>)kvp.Value.AsReadOnly());
 	}
 }
