@@ -115,6 +115,33 @@ public record CrossReference(uint From, uint To, CrossRefType Type);
 public record Bookmark(uint Address, string Name, byte Color = 0);
 
 /// <summary>
+/// Data element type for typed data annotations.
+/// </summary>
+public enum DataElementType : byte {
+	/// <summary>Single byte.</summary>
+	Byte = 1,
+	/// <summary>16-bit word.</summary>
+	Word = 2,
+	/// <summary>32-bit long.</summary>
+	Long = 3,
+	/// <summary>Pointer (address).</summary>
+	Pointer = 4,
+	/// <summary>String/text data.</summary>
+	String = 5,
+}
+
+/// <summary>
+/// A data type annotation marking a range of bytes with structural information.
+/// </summary>
+/// <param name="Address">Start address of the data.</param>
+/// <param name="Length">Total length in bytes.</param>
+/// <param name="ElementSize">Size of each element in bytes.</param>
+/// <param name="ElementCount">Number of elements.</param>
+/// <param name="Type">The element type.</param>
+/// <param name="Name">Optional name/label for this data.</param>
+public record DataTypeEntry(uint Address, uint Length, ushort ElementSize, ushort ElementCount, DataElementType Type, string Name);
+
+/// <summary>
 /// Pansy file flags.
 /// </summary>
 [Flags]

@@ -33,6 +33,7 @@ public class PansyLoader {
 	private readonly List<MemoryRegion> _memoryRegions = [];
 	private readonly List<CrossReference> _crossRefs = [];
 	private readonly List<Bookmark> _bookmarks = [];
+	private readonly List<DataTypeEntry> _dataTypes = [];
 	private string _projectName = "";
 	private string _author = "";
 	private string _projectVersion = "";
@@ -226,6 +227,9 @@ public class PansyLoader {
 
 	/// <summary>Gets bookmarks.</summary>
 	public IReadOnlyList<Bookmark> Bookmarks => _bookmarks;
+
+	/// <summary>Gets data type annotations.</summary>
+	public IReadOnlyList<DataTypeEntry> DataTypes => _dataTypes;
 
 	/// <summary>Gets the project name.</summary>
 	public string ProjectName => _projectName;
@@ -581,10 +585,13 @@ public class PansyLoader {
 			case SECTION_BOOKMARKS:
 				ParseBookmarks(data);
 				break;
+			case SECTION_DATA_TYPES:
+				ParseDataTypes(data);
+				break;
 			case SECTION_METADATA:
 				ParseMetadata(data);
 				break;
-			// DATA_TYPES and SOURCE_MAP are reserved for future use
+			// SOURCE_MAP is reserved for future use
 		}
 	}
 
@@ -721,6 +728,27 @@ public class PansyLoader {
 				var name = Encoding.UTF8.GetString(reader.ReadBytes(nameLength));
 
 				_bookmarks.Add(new Bookmark(address, name, color));
+			} catch (EndOfStreamException) {
+				break;
+			}
+		}
+	}
+
+	private void ParseDataTypes(byte[] data) {
+		using var ms = new MemoryStream(data);
+		using var reader = new BinaryReader(ms, Encoding.UTF8);
+
+		while (ms.Position < ms.Length) {
+			try {
+				var address = reader.ReadUInt32();
+				var length = reader.ReadUInt32();
+				var elementSize = reader.ReadUInt16();
+				var elementCount = reader.ReadUInt16();
+				var type = (DataElementType)reader.ReadByte();
+				var nameLength = reader.ReadUInt16();
+				var name = Encoding.UTF8.GetString(reader.ReadBytes(nameLength));
+
+				_dataTypes.Add(new DataTypeEntry(address, length, elementSize, elementCount, type, name));
 			} catch (EndOfStreamException) {
 				break;
 			}

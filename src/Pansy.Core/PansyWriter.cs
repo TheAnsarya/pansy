@@ -25,6 +25,7 @@ public sealed class PansyWriter {
 	private readonly List<MemoryRegion> _memoryRegions = [];
 	private readonly List<CrossReference> _crossRefs = [];
 	private readonly List<Bookmark> _bookmarks = [];
+	private readonly List<DataTypeEntry> _dataTypes = [];
 	private byte _platform = PansyLoader.PLATFORM_CUSTOM;
 	private uint _romSize;
 	private uint _romCrc32;
@@ -173,6 +174,11 @@ public sealed class PansyWriter {
 		_bookmarks.Add(bookmark);
 	}
 
+	/// <summary>Adds a data type annotation.</summary>
+	public void AddDataType(DataTypeEntry entry) {
+		_dataTypes.Add(entry);
+	}
+
 	/// <summary>Generates the Pansy file as a byte array.</summary>
 	public byte[] Generate() {
 		// Build sections first to get their data and sizes
@@ -197,6 +203,11 @@ public sealed class PansyWriter {
 		// Memory regions section
 		if (_memoryRegions.Count > 0) {
 			sectionData.Add((0x0004u, BuildMemoryRegionsSection()));
+		}
+
+		// Data types section
+		if (_dataTypes.Count > 0) {
+			sectionData.Add((0x0005u, BuildDataTypesSection()));
 		}
 
 		// Cross-references section
@@ -415,6 +426,20 @@ public sealed class PansyWriter {
 			writer.Write(bookmark.Address); // Address (uint32)
 			writer.Write(bookmark.Color); // Color index (byte)
 			WriteString(writer, bookmark.Name); // Name (length-prefixed string)
+		}
+		return ms.ToArray();
+	}
+
+	private byte[] BuildDataTypesSection() {
+		using var ms = new MemoryStream();
+		using var writer = new BinaryWriter(ms);
+		foreach (var dt in _dataTypes) {
+			writer.Write(dt.Address); // Address (uint32)
+			writer.Write(dt.Length); // Length (uint32)
+			writer.Write(dt.ElementSize); // ElementSize (uint16)
+			writer.Write(dt.ElementCount); // ElementCount (uint16)
+			writer.Write((byte)dt.Type); // Type (byte)
+			WriteString(writer, dt.Name); // Name (length-prefixed string)
 		}
 		return ms.ToArray();
 	}
