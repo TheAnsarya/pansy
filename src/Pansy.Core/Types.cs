@@ -142,6 +142,15 @@ public enum DataElementType : byte {
 public record DataTypeEntry(uint Address, uint Length, ushort ElementSize, ushort ElementCount, DataElementType Type, string Name);
 
 /// <summary>
+/// A source map entry linking a ROM address to a source file location.
+/// </summary>
+/// <param name="RomAddress">Address in the ROM.</param>
+/// <param name="FileIndex">Index into the source file list.</param>
+/// <param name="Line">1-based line number in the source file.</param>
+/// <param name="Column">1-based column number in the source file.</param>
+public record SourceMapEntry(uint RomAddress, ushort FileIndex, ushort Line, ushort Column);
+
+/// <summary>
 /// Pansy file flags.
 /// </summary>
 [Flags]

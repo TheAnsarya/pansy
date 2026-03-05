@@ -34,6 +34,8 @@ public class PansyLoader {
 	private readonly List<CrossReference> _crossRefs = [];
 	private readonly List<Bookmark> _bookmarks = [];
 	private readonly List<DataTypeEntry> _dataTypes = [];
+	private readonly List<string> _sourceFiles = [];
+	private readonly List<SourceMapEntry> _sourceMapEntries = [];
 	private string _projectName = "";
 	private string _author = "";
 	private string _projectVersion = "";
@@ -230,6 +232,12 @@ public class PansyLoader {
 
 	/// <summary>Gets data type annotations.</summary>
 	public IReadOnlyList<DataTypeEntry> DataTypes => _dataTypes;
+
+	/// <summary>Gets source file paths referenced by the source map.</summary>
+	public IReadOnlyList<string> SourceFiles => _sourceFiles;
+
+	/// <summary>Gets source map entries linking ROM addresses to source locations.</summary>
+	public IReadOnlyList<SourceMapEntry> SourceMapEntries => _sourceMapEntries;
 
 	/// <summary>Gets the project name.</summary>
 	public string ProjectName => _projectName;
@@ -588,6 +596,9 @@ public class PansyLoader {
 			case SECTION_DATA_TYPES:
 				ParseDataTypes(data);
 				break;
+			case SECTION_SOURCE_MAP:
+				ParseSourceMap(data);
+				break;
 			case SECTION_METADATA:
 				ParseMetadata(data);
 				break;
@@ -752,6 +763,33 @@ public class PansyLoader {
 			} catch (EndOfStreamException) {
 				break;
 			}
+		}
+	}
+
+	private void ParseSourceMap(byte[] data) {
+		using var ms = new MemoryStream(data);
+		using var reader = new BinaryReader(ms, Encoding.UTF8);
+
+		try {
+			// Read source file table
+			var fileCount = reader.ReadUInt16();
+			for (int i = 0; i < fileCount; i++) {
+				var pathLength = reader.ReadUInt16();
+				var path = Encoding.UTF8.GetString(reader.ReadBytes(pathLength));
+				_sourceFiles.Add(path);
+			}
+
+			// Read source map entries
+			while (ms.Position < ms.Length) {
+				var romAddress = reader.ReadUInt32();
+				var fileIndex = reader.ReadUInt16();
+				var line = reader.ReadUInt16();
+				var column = reader.ReadUInt16();
+
+				_sourceMapEntries.Add(new SourceMapEntry(romAddress, fileIndex, line, column));
+			}
+		} catch (EndOfStreamException) {
+			// Truncated data — keep what we got
 		}
 	}
 

@@ -45,6 +45,7 @@ public static class PansyMerger {
 		MergeMemoryRegions(writer, basePansy, overlayPansy);
 		MergeBookmarks(writer, basePansy, overlayPansy);
 		MergeDataTypes(writer, basePansy, overlayPansy);
+		MergeSourceMap(writer, basePansy, overlayPansy);
 
 		return writer;
 	}
@@ -203,5 +204,38 @@ public static class PansyMerger {
 				writer.AddDataType(dt);
 			}
 		}
+	}
+
+	private static void MergeSourceMap(PansyWriter writer, PansyLoader basePansy, PansyLoader overlayPansy) {
+		// Build unified file table from both loaders, remapping indexes
+		var fileToIndex = new Dictionary<string, ushort>();
+
+		void AddFiles(IReadOnlyList<string> files) {
+			foreach (var file in files) {
+				if (!fileToIndex.ContainsKey(file)) {
+					fileToIndex[file] = writer.AddSourceFile(file);
+				}
+			}
+		}
+
+		AddFiles(basePansy.SourceFiles);
+		AddFiles(overlayPansy.SourceFiles);
+
+		var seen = new HashSet<(uint RomAddress, ushort FileIndex, ushort Line, ushort Column)>();
+
+		void AddEntries(PansyLoader loader) {
+			foreach (var entry in loader.SourceMapEntries) {
+				// Remap file index to the unified table
+				var originalPath = loader.SourceFiles[entry.FileIndex];
+				var newIndex = fileToIndex[originalPath];
+				var remapped = entry with { FileIndex = newIndex };
+				if (seen.Add((remapped.RomAddress, remapped.FileIndex, remapped.Line, remapped.Column))) {
+					writer.AddSourceMapping(remapped);
+				}
+			}
+		}
+
+		AddEntries(basePansy);
+		AddEntries(overlayPansy);
 	}
 }

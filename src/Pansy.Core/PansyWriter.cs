@@ -26,6 +26,8 @@ public sealed class PansyWriter {
 	private readonly List<CrossReference> _crossRefs = [];
 	private readonly List<Bookmark> _bookmarks = [];
 	private readonly List<DataTypeEntry> _dataTypes = [];
+	private readonly List<string> _sourceFiles = [];
+	private readonly List<SourceMapEntry> _sourceMapEntries = [];
 	private byte _platform = PansyLoader.PLATFORM_CUSTOM;
 	private uint _romSize;
 	private uint _romCrc32;
@@ -179,6 +181,20 @@ public sealed class PansyWriter {
 		_dataTypes.Add(entry);
 	}
 
+	/// <summary>Adds a source file path and returns its index.</summary>
+	public ushort AddSourceFile(string path) {
+		var index = _sourceFiles.IndexOf(path);
+		if (index >= 0)
+			return (ushort)index;
+		_sourceFiles.Add(path);
+		return (ushort)(_sourceFiles.Count - 1);
+	}
+
+	/// <summary>Adds a source map entry linking a ROM address to source location.</summary>
+	public void AddSourceMapping(SourceMapEntry entry) {
+		_sourceMapEntries.Add(entry);
+	}
+
 	/// <summary>Generates the Pansy file as a byte array.</summary>
 	public byte[] Generate() {
 		// Build sections first to get their data and sizes
@@ -215,6 +231,11 @@ public sealed class PansyWriter {
 			sectionData.Add((0x0006u, BuildCrossReferencesSection()));
 		}
 
+		// Source map section
+		if (_sourceMapEntries.Count > 0) {
+			sectionData.Add((0x0007u, BuildSourceMapSection()));
+		}
+
 		// Bookmarks section
 		if (_bookmarks.Count > 0) {
 			sectionData.Add((0x000au, BuildBookmarksSection()));
@@ -237,6 +258,12 @@ public sealed class PansyWriter {
 		var flags = PansyFlags.None;
 		if (_enableCompression) {
 			flags |= PansyFlags.Compressed;
+		}
+		if (_sourceMapEntries.Count > 0) {
+			flags |= PansyFlags.HasSourceMap;
+		}
+		if (_crossRefs.Count > 0) {
+			flags |= PansyFlags.HasCrossRefs;
 		}
 		writer.Write((ushort)flags); // 2 bytes (offset 10)
 
@@ -441,6 +468,27 @@ public sealed class PansyWriter {
 			writer.Write((byte)dt.Type); // Type (byte)
 			WriteString(writer, dt.Name); // Name (length-prefixed string)
 		}
+		return ms.ToArray();
+	}
+
+	private byte[] BuildSourceMapSection() {
+		using var ms = new MemoryStream();
+		using var writer = new BinaryWriter(ms);
+
+		// Write source file table: count + paths
+		writer.Write((ushort)_sourceFiles.Count);
+		foreach (var path in _sourceFiles) {
+			WriteString(writer, path);
+		}
+
+		// Write source map entries
+		foreach (var entry in _sourceMapEntries) {
+			writer.Write(entry.RomAddress);
+			writer.Write(entry.FileIndex);
+			writer.Write(entry.Line);
+			writer.Write(entry.Column);
+		}
+
 		return ms.ToArray();
 	}
 
