@@ -20,6 +20,9 @@ if (args.Length == 0) {
 	AnsiConsole.MarkupLine("  find <file> <pattern>   Search for symbols/comments (supports regex, wildcards)");
 	AnsiConsole.MarkupLine("  xrefs <file> <address>  Show cross-references for an address");
 	AnsiConsole.MarkupLine("  diff <file1> <file2>    Compare two Pansy files");
+	AnsiConsole.MarkupLine("  merge <base> <overlay>  Merge two Pansy files");
+	AnsiConsole.MarkupLine("  validate <file>         Validate Pansy file structure");
+	AnsiConsole.MarkupLine("  graph <file>            Export cross-reference graph");
 	AnsiConsole.WriteLine();
 	return 0;
 }
@@ -40,6 +43,12 @@ try {
 			return RunXrefs(args.Skip(1).ToArray());
 		case "diff":
 			return RunDiff(args.Skip(1).ToArray());
+		case "merge":
+			return RunMerge(args.Skip(1).ToArray());
+		case "validate":
+			return RunValidate(args.Skip(1).ToArray());
+		case "graph":
+			return RunGraph(args.Skip(1).ToArray());
 		default:
 			AnsiConsole.MarkupLine($"[red]Unknown command:[/] {command}");
 			return 1;
@@ -971,6 +980,280 @@ static int RunDiff(string[] args) {
 			AnsiConsole.MarkupLine($"  [grey]... and {changedSymbols.Count - 10} more[/]");
 		}
 		AnsiConsole.WriteLine();
+	}
+
+	return 0;
+}
+
+static int RunMerge(string[] args) {
+	if (args.Length < 2) {
+		AnsiConsole.MarkupLine("[red]Error:[/] Missing arguments");
+		AnsiConsole.MarkupLine("[cyan]Usage:[/] pansy merge <base.pansy> <overlay.pansy> [-o|--output <file>]");
+		AnsiConsole.WriteLine();
+		AnsiConsole.MarkupLine("[dim]Merge strategies:[/]");
+		AnsiConsole.MarkupLine("  [dim]Symbols/Comments: union with dedup[/]");
+		AnsiConsole.MarkupLine("  [dim]Code/Data map: flag union[/]");
+		AnsiConsole.MarkupLine("  [dim]Cross-refs: dedup by (from, to, type)[/]");
+		AnsiConsole.MarkupLine("  [dim]Memory regions: overlay wins by name[/]");
+		AnsiConsole.MarkupLine("  [dim]Metadata: overlay wins with fallback[/]");
+		return 1;
+	}
+
+	var basePath = args[0];
+	var overlayPath = args[1];
+	var outputPath = "merged.pansy";
+
+	for (int i = 2; i < args.Length; i++) {
+		if ((args[i] == "-o" || args[i] == "--output") && i + 1 < args.Length) {
+			outputPath = args[++i];
+		}
+	}
+
+	if (!File.Exists(basePath)) {
+		AnsiConsole.MarkupLine($"[red]Error:[/] File not found: {Markup.Escape(basePath)}");
+		return 1;
+	}
+
+	if (!File.Exists(overlayPath)) {
+		AnsiConsole.MarkupLine($"[red]Error:[/] File not found: {Markup.Escape(overlayPath)}");
+		return 1;
+	}
+
+	var baseLoader = new PansyLoader(File.ReadAllBytes(basePath));
+	var overlayLoader = new PansyLoader(File.ReadAllBytes(overlayPath));
+
+	AnsiConsole.MarkupLine("[bold magenta]🌼 Merging Pansy files[/]");
+	AnsiConsole.MarkupLine($"[cyan]Base:[/]    {Markup.Escape(basePath)}");
+	AnsiConsole.MarkupLine($"[cyan]Overlay:[/] {Markup.Escape(overlayPath)}");
+	AnsiConsole.MarkupLine($"[cyan]Output:[/]  {Markup.Escape(outputPath)}");
+	AnsiConsole.WriteLine();
+
+	var merged = PansyMerger.Merge(baseLoader, overlayLoader);
+	var output = merged.Generate();
+	File.WriteAllBytes(outputPath, output);
+
+	// Verify the output
+	var result = new PansyLoader(output);
+
+	var table = new Table()
+		.Border(TableBorder.Rounded)
+		.AddColumn("Content")
+		.AddColumn("Base")
+		.AddColumn("Overlay")
+		.AddColumn("Merged");
+
+	table.AddRow("Symbols", $"{baseLoader.Symbols.Count}", $"{overlayLoader.Symbols.Count}", $"{result.Symbols.Count}");
+	table.AddRow("Comments", $"{baseLoader.Comments.Count}", $"{overlayLoader.Comments.Count}", $"{result.Comments.Count}");
+	table.AddRow("Memory Regions", $"{baseLoader.MemoryRegions.Count}", $"{overlayLoader.MemoryRegions.Count}", $"{result.MemoryRegions.Count}");
+	table.AddRow("Cross-refs", $"{baseLoader.CrossReferences.Count}", $"{overlayLoader.CrossReferences.Count}", $"{result.CrossReferences.Count}");
+
+	AnsiConsole.Write(table);
+	AnsiConsole.WriteLine();
+	AnsiConsole.MarkupLine($"[green]Merged file written:[/] {Markup.Escape(outputPath)} ({output.Length:N0} bytes)");
+
+	return 0;
+}
+
+static int RunValidate(string[] args) {
+	if (args.Length == 0) {
+		AnsiConsole.MarkupLine("[red]Error:[/] Missing file argument");
+		AnsiConsole.MarkupLine("[cyan]Usage:[/] pansy validate <file>");
+		return 1;
+	}
+
+	var filePath = args[0];
+
+	if (!File.Exists(filePath)) {
+		AnsiConsole.MarkupLine($"[red]Error:[/] File not found: {Markup.Escape(filePath)}");
+		return 1;
+	}
+
+	AnsiConsole.MarkupLine($"[bold magenta]🌼 Validating {Markup.Escape(Path.GetFileName(filePath))}[/]");
+	AnsiConsole.WriteLine();
+
+	var errors = new List<string>();
+	var warnings = new List<string>();
+
+	var fileBytes = File.ReadAllBytes(filePath);
+
+	// Check minimum size
+	if (fileBytes.Length < 32) {
+		AnsiConsole.MarkupLine("[red]✗ File too small to contain a valid Pansy header (minimum 32 bytes)[/]");
+		return 1;
+	}
+
+	// Check magic
+	var magic = System.Text.Encoding.ASCII.GetString(fileBytes, 0, 5);
+	if (magic != "PANSY") {
+		errors.Add($"Invalid magic bytes: expected 'PANSY', got '{magic}'");
+	}
+
+	// Try to load
+	PansyLoader? pansy = null;
+	try {
+		pansy = new PansyLoader(fileBytes);
+		AnsiConsole.MarkupLine("[green]✓ File parsed successfully[/]");
+	} catch (Exception ex) {
+		errors.Add($"Parse error: {ex.Message}");
+		AnsiConsole.MarkupLine($"[red]✗ Parse error:[/] {Markup.Escape(ex.Message)}");
+		return 1;
+	}
+
+	// Header validation
+	if (pansy.Version == 0) {
+		warnings.Add("Version is 0 (expected ≥ 0x0100)");
+	}
+	if (pansy.Platform == 0) {
+		warnings.Add("Platform is 0 (unknown/unset)");
+	}
+	if (pansy.RomSize == 0) {
+		warnings.Add("ROM size is 0");
+	}
+	if (pansy.RomCrc32 == 0) {
+		warnings.Add("ROM CRC32 is 0");
+	}
+
+	// Symbol validation
+	foreach (var (addr, entries) in pansy.AllSymbolEntries) {
+		foreach (var entry in entries) {
+			if (string.IsNullOrWhiteSpace(entry.Name)) {
+				errors.Add($"Empty symbol name at address ${addr:x}");
+			}
+			if ((int)entry.Type < 1 || (int)entry.Type > 9) {
+				errors.Add($"Invalid symbol type {(int)entry.Type} at ${addr:x}");
+			}
+		}
+	}
+
+	// Comment validation
+	foreach (var (addr, entries) in pansy.AllCommentEntries) {
+		foreach (var entry in entries) {
+			if (string.IsNullOrWhiteSpace(entry.Text)) {
+				warnings.Add($"Empty comment at address ${addr:x}");
+			}
+			if ((int)entry.Type < 1 || (int)entry.Type > 3) {
+				errors.Add($"Invalid comment type {(int)entry.Type} at ${addr:x}");
+			}
+		}
+	}
+
+	// Cross-reference validation
+	foreach (var xref in pansy.CrossReferences) {
+		if ((int)xref.Type < 1 || (int)xref.Type > 5) {
+			errors.Add($"Invalid cross-reference type {(int)xref.Type}: ${xref.From:x} → ${xref.To:x}");
+		}
+	}
+
+	// Memory region validation
+	foreach (var region in pansy.MemoryRegions) {
+		if (region.End < region.Start) {
+			errors.Add($"Memory region '{region.Name}' has end (${region.End:x}) < start (${region.Start:x})");
+		}
+		if (string.IsNullOrWhiteSpace(region.Name)) {
+			warnings.Add($"Unnamed memory region at ${region.Start:x}-${region.End:x}");
+		}
+	}
+
+	// Report
+	AnsiConsole.WriteLine();
+
+	if (errors.Count > 0) {
+		AnsiConsole.MarkupLine($"[bold red]Errors ({errors.Count}):[/]");
+		foreach (var err in errors) {
+			AnsiConsole.MarkupLine($"  [red]✗[/] {Markup.Escape(err)}");
+		}
+		AnsiConsole.WriteLine();
+	}
+
+	if (warnings.Count > 0) {
+		AnsiConsole.MarkupLine($"[bold yellow]Warnings ({warnings.Count}):[/]");
+		foreach (var warn in warnings) {
+			AnsiConsole.MarkupLine($"  [yellow]⚠[/] {Markup.Escape(warn)}");
+		}
+		AnsiConsole.WriteLine();
+	}
+
+	// Summary
+	var table = new Table()
+		.Border(TableBorder.Rounded)
+		.AddColumn("Check")
+		.AddColumn("Result");
+
+	table.AddRow("Magic/Header", errors.Count == 0 ? "[green]✓ Valid[/]" : "[red]✗ Invalid[/]");
+	table.AddRow("Symbols", $"{pansy.Symbols.Count} entries");
+	table.AddRow("Comments", $"{pansy.Comments.Count} entries");
+	table.AddRow("Cross-refs", $"{pansy.CrossReferences.Count} entries");
+	table.AddRow("Memory Regions", $"{pansy.MemoryRegions.Count} entries");
+	table.AddRow("Errors", errors.Count == 0 ? "[green]0[/]" : $"[red]{errors.Count}[/]");
+	table.AddRow("Warnings", warnings.Count == 0 ? "[green]0[/]" : $"[yellow]{warnings.Count}[/]");
+
+	AnsiConsole.Write(table);
+
+	if (errors.Count == 0 && warnings.Count == 0) {
+		AnsiConsole.MarkupLine("[bold green]✓ File is valid![/]");
+	} else if (errors.Count == 0) {
+		AnsiConsole.MarkupLine("[bold yellow]⚠ File is valid with warnings[/]");
+	} else {
+		AnsiConsole.MarkupLine("[bold red]✗ File has errors[/]");
+	}
+
+	return errors.Count > 0 ? 1 : 0;
+}
+
+static int RunGraph(string[] args) {
+	if (args.Length == 0) {
+		AnsiConsole.MarkupLine("[red]Error:[/] Missing file argument");
+		AnsiConsole.MarkupLine("[cyan]Usage:[/] pansy graph <file> [-f|--format <dot|graphml|json>] [-t|--type <type>] [-o|--output <file>]");
+		AnsiConsole.WriteLine();
+		AnsiConsole.MarkupLine("[dim]Formats: dot (default), graphml, json[/]");
+		AnsiConsole.MarkupLine("[dim]Types: Jsr, Jmp, Branch, Read, Write (optional filter)[/]");
+		return 1;
+	}
+
+	var filePath = args[0];
+	var format = "dot";
+	CrossRefType? filter = null;
+	string? outputPath = null;
+
+	for (int i = 1; i < args.Length; i++) {
+		if ((args[i] == "-f" || args[i] == "--format") && i + 1 < args.Length) {
+			format = args[++i].ToLowerInvariant();
+		} else if ((args[i] == "-t" || args[i] == "--type") && i + 1 < args.Length) {
+			if (Enum.TryParse<CrossRefType>(args[++i], true, out var type)) {
+				filter = type;
+			} else {
+				AnsiConsole.MarkupLine($"[red]Error:[/] Invalid type. Valid: Jsr, Jmp, Branch, Read, Write");
+				return 1;
+			}
+		} else if ((args[i] == "-o" || args[i] == "--output") && i + 1 < args.Length) {
+			outputPath = args[++i];
+		}
+	}
+
+	if (!File.Exists(filePath)) {
+		AnsiConsole.MarkupLine($"[red]Error:[/] File not found: {Markup.Escape(filePath)}");
+		return 1;
+	}
+
+	var loader = new PansyLoader(File.ReadAllBytes(filePath));
+
+	var result = format switch {
+		"dot" => PansyGraphExporter.ToDot(loader, filter),
+		"graphml" => PansyGraphExporter.ToGraphML(loader, filter),
+		"json" => PansyGraphExporter.ToJson(loader, filter),
+		_ => null
+	};
+
+	if (result == null) {
+		AnsiConsole.MarkupLine($"[red]Error:[/] Unknown format '{Markup.Escape(format)}'. Use: dot, graphml, json");
+		return 1;
+	}
+
+	if (outputPath != null) {
+		File.WriteAllText(outputPath, result);
+		AnsiConsole.MarkupLine($"[green]Graph written to:[/] {Markup.Escape(outputPath)} ({result.Length:N0} chars)");
+	} else {
+		Console.Write(result);
 	}
 
 	return 0;
