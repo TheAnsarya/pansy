@@ -549,23 +549,21 @@ public class PansyLoader {
 	/// Decompresses section data if needed.
 	/// </summary>
 	private byte[] GetSectionData(SectionInfo section) {
-		var compressedData = _data.AsSpan((int)section.Offset, (int)section.CompressedSize);
-
 		// Check if compressed (different sizes)
 		if (section.CompressedSize != section.UncompressedSize && _flags.HasFlag(PansyFlags.Compressed)) {
 			try {
-				using var compStream = new MemoryStream(compressedData.ToArray());
+				using var compStream = new MemoryStream(_data, (int)section.Offset, (int)section.CompressedSize, writable: false);
 				using var deflate = new DeflateStream(compStream, CompressionMode.Decompress);
-				using var result = new MemoryStream();
-				deflate.CopyTo(result);
-				return result.ToArray();
+				var result = new byte[section.UncompressedSize];
+				deflate.ReadExactly(result);
+				return result;
 			} catch {
 				// If decompression fails, return raw data
-				return compressedData.ToArray();
+				return _data.AsSpan((int)section.Offset, (int)section.CompressedSize).ToArray();
 			}
 		}
 
-		return compressedData.ToArray();
+		return _data.AsSpan((int)section.Offset, (int)section.CompressedSize).ToArray();
 	}
 
 	/// <summary>
@@ -640,177 +638,185 @@ public class PansyLoader {
 	}
 
 	private void ParseSymbols(byte[] data) {
-		using var ms = new MemoryStream(data);
-		using var reader = new BinaryReader(ms, Encoding.UTF8);
+		int pos = 0;
+		int len = data.Length;
 
-		while (ms.Position < ms.Length) {
-			try {
-				var addr24 = reader.ReadUInt32();
-				var address = (int)addr24;
-				var type = (SymbolType)reader.ReadByte();
-				var flags = reader.ReadByte();
-				var nameLength = reader.ReadUInt16();
-				var name = Encoding.UTF8.GetString(reader.ReadBytes(nameLength));
-				var valueLength = reader.ReadUInt16();
-				if (valueLength > 0) {
-					reader.ReadBytes(valueLength); // Skip value for now
-				}
+		while (pos + 10 <= len) { // minimum record: 4+1+1+2+0+2 = 10 bytes
+			var address = (int)BitConverter.ToUInt32(data, pos);
+			var type = (SymbolType)data[pos + 4];
+			// skip flags byte at pos+5
+			var nameLength = BitConverter.ToUInt16(data, pos + 6);
+			pos += 8;
 
-				if (!_tempSymbolEntries!.TryGetValue(address, out var list)) {
-					list = [];
-					_tempSymbolEntries[address] = list;
-				}
-				list.Add(new SymbolEntry(name, type));
-			} catch (EndOfStreamException) {
-				break;
+			if (pos + nameLength > len) break;
+			var name = Encoding.UTF8.GetString(data.AsSpan(pos, nameLength));
+			pos += nameLength;
+
+			if (pos + 2 > len) break;
+			var valueLength = BitConverter.ToUInt16(data, pos);
+			pos += 2 + valueLength;
+
+			if (!_tempSymbolEntries!.TryGetValue(address, out var list)) {
+				list = [];
+				_tempSymbolEntries[address] = list;
 			}
+			list.Add(new SymbolEntry(name, type));
 		}
 	}
 
 	private void ParseComments(byte[] data) {
-		using var ms = new MemoryStream(data);
-		using var reader = new BinaryReader(ms, Encoding.UTF8);
+		int pos = 0;
+		int len = data.Length;
 
-		while (ms.Position < ms.Length) {
-			try {
-				var address = (int)reader.ReadUInt32();
-				var type = reader.ReadByte();
-				var length = reader.ReadUInt16();
-				var text = Encoding.UTF8.GetString(reader.ReadBytes(length));
+		while (pos + 7 <= len) { // minimum record: 4+1+2+0 = 7 bytes
+			var address = (int)BitConverter.ToUInt32(data, pos);
+			var type = data[pos + 4];
+			var length = BitConverter.ToUInt16(data, pos + 5);
+			pos += 7;
 
-				if (!_tempCommentEntries!.TryGetValue(address, out var list)) {
-					list = [];
-					_tempCommentEntries[address] = list;
-				}
-				list.Add(new CommentEntry(text, (CommentType)type));
-			} catch (EndOfStreamException) {
-				break;
+			if (pos + length > len) break;
+			var text = Encoding.UTF8.GetString(data.AsSpan(pos, length));
+			pos += length;
+
+			if (!_tempCommentEntries!.TryGetValue(address, out var list)) {
+				list = [];
+				_tempCommentEntries[address] = list;
 			}
+			list.Add(new CommentEntry(text, (CommentType)type));
 		}
 	}
 
 	private void ParseMemoryRegions(byte[] data) {
-		using var ms = new MemoryStream(data);
-		using var reader = new BinaryReader(ms, Encoding.UTF8);
+		int pos = 0;
+		int len = data.Length;
 
-		while (ms.Position < ms.Length) {
-			try {
-				var start = reader.ReadUInt32();
-				var end = reader.ReadUInt32();
-				var type = reader.ReadByte();
-				var bank = reader.ReadByte();
-				var flags = reader.ReadUInt16();
-				var nameLength = reader.ReadUInt16();
-				var name = Encoding.UTF8.GetString(reader.ReadBytes(nameLength));
+		while (pos + 14 <= len) { // minimum: 4+4+1+1+2+2+0 = 14 bytes
+			var start = BitConverter.ToUInt32(data, pos);
+			var end = BitConverter.ToUInt32(data, pos + 4);
+			var type = data[pos + 8];
+			var bank = data[pos + 9];
+			// flags at pos+10 (2 bytes) — currently unused
+			var nameLength = BitConverter.ToUInt16(data, pos + 12);
+			pos += 14;
 
-				_memoryRegions.Add(new MemoryRegion(start, end, type, bank, name));
-			} catch (EndOfStreamException) {
-				break;
-			}
+			if (pos + nameLength > len) break;
+			var name = Encoding.UTF8.GetString(data.AsSpan(pos, nameLength));
+			pos += nameLength;
+
+			_memoryRegions.Add(new MemoryRegion(start, end, type, bank, name));
 		}
 	}
 
 	private void ParseCrossRefs(byte[] data) {
-		using var ms = new MemoryStream(data);
-		using var reader = new BinaryReader(ms, Encoding.UTF8);
+		int pos = 0;
+		int len = data.Length;
 
-		while (ms.Position < ms.Length) {
-			try {
-				var from = reader.ReadUInt32();
-				var to = reader.ReadUInt32();
-				var type = (CrossRefType)reader.ReadByte();
+		while (pos + 9 <= len) { // 4+4+1 = 9 bytes per record
+			var from = BitConverter.ToUInt32(data, pos);
+			var to = BitConverter.ToUInt32(data, pos + 4);
+			var type = (CrossRefType)data[pos + 8];
+			pos += 9;
 
-				_crossRefs.Add(new CrossReference(from, to, type));
-			} catch (EndOfStreamException) {
-				break;
-			}
+			_crossRefs.Add(new CrossReference(from, to, type));
 		}
 	}
 
 	private void ParseBookmarks(byte[] data) {
-		using var ms = new MemoryStream(data);
-		using var reader = new BinaryReader(ms, Encoding.UTF8);
+		int pos = 0;
+		int len = data.Length;
 
-		while (ms.Position < ms.Length) {
-			try {
-				var address = reader.ReadUInt32();
-				var color = reader.ReadByte();
-				var nameLength = reader.ReadUInt16();
-				var name = Encoding.UTF8.GetString(reader.ReadBytes(nameLength));
+		while (pos + 7 <= len) { // minimum: 4+1+2+0 = 7 bytes
+			var address = BitConverter.ToUInt32(data, pos);
+			var color = data[pos + 4];
+			var nameLength = BitConverter.ToUInt16(data, pos + 5);
+			pos += 7;
 
-				_bookmarks.Add(new Bookmark(address, name, color));
-			} catch (EndOfStreamException) {
-				break;
-			}
+			if (pos + nameLength > len) break;
+			var name = Encoding.UTF8.GetString(data.AsSpan(pos, nameLength));
+			pos += nameLength;
+
+			_bookmarks.Add(new Bookmark(address, name, color));
 		}
 	}
 
 	private void ParseDataTypes(byte[] data) {
-		using var ms = new MemoryStream(data);
-		using var reader = new BinaryReader(ms, Encoding.UTF8);
+		int pos = 0;
+		int len = data.Length;
 
-		while (ms.Position < ms.Length) {
-			try {
-				var address = reader.ReadUInt32();
-				var length = reader.ReadUInt32();
-				var elementSize = reader.ReadUInt16();
-				var elementCount = reader.ReadUInt16();
-				var type = (DataElementType)reader.ReadByte();
-				var nameLength = reader.ReadUInt16();
-				var name = Encoding.UTF8.GetString(reader.ReadBytes(nameLength));
+		while (pos + 15 <= len) { // minimum: 4+4+2+2+1+2+0 = 15 bytes
+			var address = BitConverter.ToUInt32(data, pos);
+			var length = BitConverter.ToUInt32(data, pos + 4);
+			var elementSize = BitConverter.ToUInt16(data, pos + 8);
+			var elementCount = BitConverter.ToUInt16(data, pos + 10);
+			var type = (DataElementType)data[pos + 12];
+			var nameLength = BitConverter.ToUInt16(data, pos + 13);
+			pos += 15;
 
-				_dataTypes.Add(new DataTypeEntry(address, length, elementSize, elementCount, type, name));
-			} catch (EndOfStreamException) {
-				break;
-			}
+			if (pos + nameLength > len) break;
+			var name = Encoding.UTF8.GetString(data.AsSpan(pos, nameLength));
+			pos += nameLength;
+
+			_dataTypes.Add(new DataTypeEntry(address, length, elementSize, elementCount, type, name));
 		}
 	}
 
 	private void ParseSourceMap(byte[] data) {
-		using var ms = new MemoryStream(data);
-		using var reader = new BinaryReader(ms, Encoding.UTF8);
+		int pos = 0;
+		int len = data.Length;
 
-		try {
-			// Read source file table
-			var fileCount = reader.ReadUInt16();
-			for (int i = 0; i < fileCount; i++) {
-				var pathLength = reader.ReadUInt16();
-				var path = Encoding.UTF8.GetString(reader.ReadBytes(pathLength));
-				_sourceFiles.Add(path);
-			}
+		if (pos + 2 > len) return;
 
-			// Read source map entries
-			while (ms.Position < ms.Length) {
-				var romAddress = reader.ReadUInt32();
-				var fileIndex = reader.ReadUInt16();
-				var line = reader.ReadUInt16();
-				var column = reader.ReadUInt16();
+		// Read source file table
+		var fileCount = BitConverter.ToUInt16(data, pos);
+		pos += 2;
 
-				_sourceMapEntries.Add(new SourceMapEntry(romAddress, fileIndex, line, column));
-			}
-		} catch (EndOfStreamException) {
-			// Truncated data — keep what we got
+		for (int i = 0; i < fileCount; i++) {
+			if (pos + 2 > len) return;
+			var pathLength = BitConverter.ToUInt16(data, pos);
+			pos += 2;
+
+			if (pos + pathLength > len) return;
+			var path = Encoding.UTF8.GetString(data.AsSpan(pos, pathLength));
+			pos += pathLength;
+			_sourceFiles.Add(path);
+		}
+
+		// Read source map entries (10 bytes each: 4+2+2+2)
+		while (pos + 10 <= len) {
+			var romAddress = BitConverter.ToUInt32(data, pos);
+			var fileIndex = BitConverter.ToUInt16(data, pos + 4);
+			var line = BitConverter.ToUInt16(data, pos + 6);
+			var column = BitConverter.ToUInt16(data, pos + 8);
+			pos += 10;
+
+			_sourceMapEntries.Add(new SourceMapEntry(romAddress, fileIndex, line, column));
 		}
 	}
 
 	private void ParseMetadata(byte[] data) {
-		using var ms = new MemoryStream(data);
-		using var reader = new BinaryReader(ms, Encoding.UTF8);
+		int pos = 0;
+		int len = data.Length;
 
-		try {
-			var nameLength = reader.ReadUInt16();
-			_projectName = Encoding.UTF8.GetString(reader.ReadBytes(nameLength));
+		if (pos + 2 > len) return;
+		var nameLength = BitConverter.ToUInt16(data, pos);
+		pos += 2;
+		if (pos + nameLength > len) return;
+		_projectName = Encoding.UTF8.GetString(data.AsSpan(pos, nameLength));
+		pos += nameLength;
 
-			var authorLength = reader.ReadUInt16();
-			_author = Encoding.UTF8.GetString(reader.ReadBytes(authorLength));
+		if (pos + 2 > len) return;
+		var authorLength = BitConverter.ToUInt16(data, pos);
+		pos += 2;
+		if (pos + authorLength > len) return;
+		_author = Encoding.UTF8.GetString(data.AsSpan(pos, authorLength));
+		pos += authorLength;
 
-			var versionLength = reader.ReadUInt16();
-			_projectVersion = Encoding.UTF8.GetString(reader.ReadBytes(versionLength));
-
-			// Timestamps are ignored for now
-		} catch (EndOfStreamException) {
-			// OK if metadata is truncated
-		}
+		if (pos + 2 > len) return;
+		var versionLength = BitConverter.ToUInt16(data, pos);
+		pos += 2;
+		if (pos + versionLength > len) return;
+		_projectVersion = Encoding.UTF8.GetString(data.AsSpan(pos, versionLength));
+		// Timestamps are ignored for now
 	}
 
 	private void BuildCrossRefIndexes() {
