@@ -24,6 +24,7 @@ public sealed class PansyWriter {
 	private readonly HashSet<uint> _indirectOffsets = [];
 	private readonly List<MemoryRegion> _memoryRegions = [];
 	private readonly List<CrossReference> _crossRefs = [];
+	private readonly List<Bookmark> _bookmarks = [];
 	private byte _platform = PansyLoader.PLATFORM_CUSTOM;
 	private uint _romSize;
 	private uint _romCrc32;
@@ -167,6 +168,11 @@ public sealed class PansyWriter {
 		_crossRefs.Add(xref);
 	}
 
+	/// <summary>Adds a bookmark at the specified address.</summary>
+	public void AddBookmark(Bookmark bookmark) {
+		_bookmarks.Add(bookmark);
+	}
+
 	/// <summary>Generates the Pansy file as a byte array.</summary>
 	public byte[] Generate() {
 		// Build sections first to get their data and sizes
@@ -196,6 +202,11 @@ public sealed class PansyWriter {
 		// Cross-references section
 		if (_crossRefs.Count > 0) {
 			sectionData.Add((0x0006u, BuildCrossReferencesSection()));
+		}
+
+		// Bookmarks section
+		if (_bookmarks.Count > 0) {
+			sectionData.Add((0x000au, BuildBookmarksSection()));
 		}
 
 		// Metadata section
@@ -393,6 +404,17 @@ public sealed class PansyWriter {
 			writer.Write(xref.From); // From address (uint32)
 			writer.Write(xref.To); // To address (uint32)
 			writer.Write((byte)xref.Type); // Type (CrossRefType)
+		}
+		return ms.ToArray();
+	}
+
+	private byte[] BuildBookmarksSection() {
+		using var ms = new MemoryStream();
+		using var writer = new BinaryWriter(ms);
+		foreach (var bookmark in _bookmarks) {
+			writer.Write(bookmark.Address); // Address (uint32)
+			writer.Write(bookmark.Color); // Color index (byte)
+			WriteString(writer, bookmark.Name); // Name (length-prefixed string)
 		}
 		return ms.ToArray();
 	}

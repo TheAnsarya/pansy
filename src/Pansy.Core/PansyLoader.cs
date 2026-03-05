@@ -32,6 +32,7 @@ public class PansyLoader {
 	private FrozenDictionary<int, IReadOnlyList<CommentEntry>> _commentEntries = FrozenDictionary<int, IReadOnlyList<CommentEntry>>.Empty;
 	private readonly List<MemoryRegion> _memoryRegions = [];
 	private readonly List<CrossReference> _crossRefs = [];
+	private readonly List<Bookmark> _bookmarks = [];
 	private string _projectName = "";
 	private string _author = "";
 	private string _projectVersion = "";
@@ -132,6 +133,7 @@ public class PansyLoader {
 	private const uint SECTION_CROSS_REFS = 0x0006;
 	private const uint SECTION_SOURCE_MAP = 0x0007;
 	private const uint SECTION_METADATA = 0x0008;
+	private const uint SECTION_BOOKMARKS = 0x000a;
 
 	// Byte flags
 	private const byte FLAG_CODE = 0x01;
@@ -221,6 +223,9 @@ public class PansyLoader {
 
 	/// <summary>Gets cross-references.</summary>
 	public IReadOnlyList<CrossReference> CrossReferences => _crossRefs;
+
+	/// <summary>Gets bookmarks.</summary>
+	public IReadOnlyList<Bookmark> Bookmarks => _bookmarks;
 
 	/// <summary>Gets the project name.</summary>
 	public string ProjectName => _projectName;
@@ -573,6 +578,9 @@ public class PansyLoader {
 			case SECTION_CROSS_REFS:
 				ParseCrossRefs(data);
 				break;
+			case SECTION_BOOKMARKS:
+				ParseBookmarks(data);
+				break;
 			case SECTION_METADATA:
 				ParseMetadata(data);
 				break;
@@ -695,6 +703,24 @@ public class PansyLoader {
 				var type = (CrossRefType)reader.ReadByte();
 
 				_crossRefs.Add(new CrossReference(from, to, type));
+			} catch (EndOfStreamException) {
+				break;
+			}
+		}
+	}
+
+	private void ParseBookmarks(byte[] data) {
+		using var ms = new MemoryStream(data);
+		using var reader = new BinaryReader(ms, Encoding.UTF8);
+
+		while (ms.Position < ms.Length) {
+			try {
+				var address = reader.ReadUInt32();
+				var color = reader.ReadByte();
+				var nameLength = reader.ReadUInt16();
+				var name = Encoding.UTF8.GetString(reader.ReadBytes(nameLength));
+
+				_bookmarks.Add(new Bookmark(address, name, color));
 			} catch (EndOfStreamException) {
 				break;
 			}

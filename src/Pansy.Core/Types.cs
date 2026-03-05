@@ -107,6 +107,14 @@ public record MemoryRegion(uint Start, uint End, byte Type, byte Bank, string Na
 public record CrossReference(uint From, uint To, CrossRefType Type);
 
 /// <summary>
+/// A user-placed bookmark for quick navigation during analysis.
+/// </summary>
+/// <param name="Address">The bookmarked address.</param>
+/// <param name="Name">Bookmark label/name.</param>
+/// <param name="Color">Optional color index (0 = default).</param>
+public record Bookmark(uint Address, string Name, byte Color = 0);
+
+/// <summary>
 /// Pansy file flags.
 /// </summary>
 [Flags]

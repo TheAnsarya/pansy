@@ -43,6 +43,7 @@ public static class PansyMerger {
 		MergeCodeDataFlags(writer, basePansy, overlayPansy);
 		MergeCrossReferences(writer, basePansy, overlayPansy);
 		MergeMemoryRegions(writer, basePansy, overlayPansy);
+		MergeBookmarks(writer, basePansy, overlayPansy);
 
 		return writer;
 	}
@@ -167,6 +168,22 @@ public static class PansyMerger {
 		foreach (var region in overlayPansy.MemoryRegions) {
 			if (!addedNames.Contains(region.Name)) {
 				writer.AddMemoryRegion(region);
+			}
+		}
+	}
+
+	private static void MergeBookmarks(PansyWriter writer, PansyLoader basePansy, PansyLoader overlayPansy) {
+		var seen = new HashSet<(uint Address, string Name)>();
+
+		foreach (var bookmark in basePansy.Bookmarks) {
+			if (seen.Add((bookmark.Address, bookmark.Name))) {
+				writer.AddBookmark(bookmark);
+			}
+		}
+
+		foreach (var bookmark in overlayPansy.Bookmarks) {
+			if (seen.Add((bookmark.Address, bookmark.Name))) {
+				writer.AddBookmark(bookmark);
 			}
 		}
 	}
