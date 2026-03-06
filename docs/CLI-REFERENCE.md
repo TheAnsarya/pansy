@@ -21,6 +21,7 @@ dotnet run -- <command> [options]
 ## Global Options
 
 All commands support:
+
 - `--help` - Show command-specific help
 - `-v`, `--verbose` - Enable verbose output (where applicable)
 
@@ -31,17 +32,21 @@ All commands support:
 Shows comprehensive information about a Pansy file including header details, content statistics, and memory regions.
 
 **Usage:**
+
 ```bash
 dotnet run --project src/Pansy.Cli -- info <file> [-v|--verbose]
 ```
 
 **Arguments:**
+
 - `<file>` - Path to the Pansy file
 
 **Options:**
+
 - `-v`, `--verbose` - Show additional details
 
 **Example:**
+
 ```bash
 $ dotnet run --project src/Pansy.Cli -- info game.pansy
 
@@ -77,6 +82,7 @@ Memory Regions:
 ```
 
 **Output:**
+
 - File header (version, platform, ROM size/CRC, flags)
 - Content statistics (symbol counts, code/data coverage)
 - Memory regions table (if any)
@@ -89,19 +95,23 @@ Memory Regions:
 Lists all symbols defined in a Pansy file with addresses and names.
 
 **Usage:**
+
 ```bash
 dotnet run --project src/Pansy.Cli -- symbols <file> [--sort address|name] [--filter <pattern>]
 ```
 
 **Arguments:**
+
 - `<file>` - Path to the Pansy file
 
 **Options:**
+
 - `--sort address` - Sort by address (default)
 - `--sort name` - Sort alphabetically by name
 - `--filter <pattern>` - Filter symbols by pattern (case-insensitive)
 
 **Example:**
+
 ```bash
 $ dotnet run --project src/Pansy.Cli -- symbols game.pansy
 
@@ -122,6 +132,7 @@ Total: 7 symbols
 ```
 
 **Output:**
+
 - Table of addresses and symbol names
 - Total symbol count
 
@@ -132,15 +143,18 @@ Total: 7 symbols
 Searches for symbols and comments matching a pattern. Supports plain text, regex, and wildcard patterns.
 
 **Usage:**
+
 ```bash
 dotnet run --project src/Pansy.Cli -- find <file> <pattern> [options]
 ```
 
 **Arguments:**
+
 - `<file>` - Path to the Pansy file
 - `<pattern>` - Search pattern
 
 **Options:**
+
 - `-c`, `--comments` - Search comments only
 - `-s`, `--symbols` - Search symbols only
 - `-i`, `--case-insensitive` - Case-insensitive search
@@ -148,16 +162,18 @@ dotnet run --project src/Pansy.Cli -- find <file> <pattern> [options]
 - `-w`, `--wildcard` - Treat pattern as a wildcard (* and ?)
 
 **Pattern Modes:**
+
 - **Plain text** (default): Matches if the pattern appears anywhere in the text
-  - Example: `Main` matches `Main_Loop`, `Update_Main`
+    - Example: `Main` matches `Main_Loop`, `Update_Main`
 - **Regex** (`-r`): Full regular expression support
-  - Example: `^NMI_.*Handler$` matches exactly `NMI_Handler`
+    - Example: `^NMI_.*Handler$` matches exactly `NMI_Handler`
 - **Wildcard** (`-w`): Simple wildcard patterns
-  - `*` matches any characters (zero or more)
-  - `?` matches any single character
-  - Example: `*Loop` matches `Main_Loop`, `Update_Loop`
+    - `*` matches any characters (zero or more)
+    - `?` matches any single character
+    - Example: `*Loop` matches `Main_Loop`, `Update_Loop`
 
 **Examples:**
+
 ```bash
 # Plain text search
 $ dotnet run --project src/Pansy.Cli -- find game.pansy "Handler"
@@ -185,6 +201,7 @@ $ dotnet run --project src/Pansy.Cli -- find game.pansy "Loop" -s
 ```
 
 **Output:**
+
 - Matching symbols table (if searching symbols)
 - Matching comments table (if searching comments)
 - Total match count
@@ -196,6 +213,7 @@ $ dotnet run --project src/Pansy.Cli -- find game.pansy "Loop" -s
 Displays cross-references for a specific address or performs cross-reference analysis across the entire file.
 
 **Usage:**
+
 ```bash
 # Show references for a specific address
 dotnet run --project src/Pansy.Cli -- xrefs <file> <address>
@@ -208,16 +226,19 @@ dotnet run --project src/Pansy.Cli -- xrefs <file> --type <type>
 ```
 
 **Arguments:**
+
 - `<file>` - Path to the Pansy file
 - `<address>` - Address to query (decimal format, e.g., 32784 for $8010)
 
 **Options:**
+
 - `--stats` - Show cross-reference statistics summary
 - `--most-called [n]` - Show top N most referenced addresses (default: 10)
 - `--unreferenced` - Show subroutines with no incoming references
 - `--type <type>` - Filter by reference type (Jsr, Jmp, Branch, Read, Write, DataRef)
 
 **Analysis Examples:**
+
 ```bash
 # Show overall cross-reference statistics
 $ dotnet run --project src/Pansy.Cli -- xrefs game.pansy --stats
@@ -279,6 +300,7 @@ Found 23 Jsr references
 ```
 
 **Address Query Example:**
+
 ```bash
 $ dotnet run --project src/Pansy.Cli -- xrefs game.pansy 32784
 
@@ -296,12 +318,14 @@ Total: 1 incoming, 0 outgoing
 ```
 
 **Output:**
+
 - Target address and symbol name (if any)
 - Incoming references table (FROM → TO this address)
 - Outgoing references table (FROM this address → TO)
 - Total counts
 
 **Note:** Addresses must be specified in decimal. To convert hex to decimal:
+
 - `$8000` = 32768
 - `$8010` = 32784
 - `$C000` = 49152
@@ -313,18 +337,22 @@ Total: 1 incoming, 0 outgoing
 Compares two Pansy files and shows differences in headers, symbols, comments, and cross-references.
 
 **Usage:**
+
 ```bash
 dotnet run --project src/Pansy.Cli -- diff <file1> <file2> [--summary]
 ```
 
 **Arguments:**
+
 - `<file1>` - Path to first Pansy file
 - `<file2>` - Path to second Pansy file
 
 **Options:**
+
 - `--summary` - Show only summary, not detailed differences
 
 **Example:**
+
 ```bash
 $ dotnet run --project src/Pansy.Cli -- diff original.pansy modified.pansy
 
@@ -354,6 +382,7 @@ Symbols Removed:
 ```
 
 **Output:**
+
 - Header comparison table
 - Change statistics
 - Added/removed/modified symbols
@@ -365,14 +394,17 @@ Symbols Removed:
 Shows detailed statistics and analysis of a Pansy file's contents.
 
 **Usage:**
+
 ```bash
 dotnet run --project src/Pansy.Cli -- stats <file>
 ```
 
 **Arguments:**
+
 - `<file>` - Path to the Pansy file
 
 **Output:**
+
 - Symbol count by type (Label, Function, Constant, etc.)
 - Comment count by type (Inline, Block, Todo)
 - Code/data map flag counts
@@ -386,18 +418,22 @@ dotnet run --project src/Pansy.Cli -- stats <file>
 Merges two Pansy files using a base + overlay strategy with intelligent deduplication.
 
 **Usage:**
+
 ```bash
 dotnet run --project src/Pansy.Cli -- merge <base> <overlay> [-o|--output <file>]
 ```
 
 **Arguments:**
+
 - `<base>` - Base Pansy file (provides ROM info and foundation)
 - `<overlay>` - Overlay Pansy file (adds or supplements data)
 
 **Options:**
+
 - `-o`, `--output <file>` - Output path (default: `merged.pansy`)
 
 **Merge Strategies:**
+
 - **Symbols/Comments:** Union of all entries, base-first ordering, duplicates removed
 - **Code/Data Map:** Flag union (OR of all flags)
 - **Cross-references:** Deduplicated by (from, to, type)
@@ -405,6 +441,7 @@ dotnet run --project src/Pansy.Cli -- merge <base> <overlay> [-o|--output <file>
 - **Metadata:** Overlay wins with fallback to base
 
 **Example:**
+
 ```bash
 $ dotnet run --project src/Pansy.Cli -- merge base.pansy overlay.pansy -o merged.pansy
 
@@ -428,14 +465,17 @@ Merge Results:
 Validates the internal structure and consistency of a Pansy file.
 
 **Usage:**
+
 ```bash
 dotnet run --project src/Pansy.Cli -- validate <file>
 ```
 
 **Arguments:**
+
 - `<file>` - Path to the Pansy file
 
 **Output:**
+
 - Header validation (magic, version, platform)
 - Section integrity checks
 - Content consistency verification
@@ -448,14 +488,17 @@ dotnet run --project src/Pansy.Cli -- validate <file>
 Exports cross-reference data as a DOT graph for visualization.
 
 **Usage:**
+
 ```bash
 dotnet run --project src/Pansy.Cli -- graph <file> [-o|--output <file>] [--format <format>]
 ```
 
 **Arguments:**
+
 - `<file>` - Path to the Pansy file
 
 **Options:**
+
 - `-o`, `--output <file>` - Output path (default: `graph.dot`)
 - `--format <format>` - Output format: `dot` (default), `mermaid`
 
@@ -466,15 +509,18 @@ dotnet run --project src/Pansy.Cli -- graph <file> [-o|--output <file>] [--forma
 Analyzes ROM coverage using CDL data and optionally detects data patterns in unclassified gaps.
 
 **Usage:**
+
 ```bash
 dotnet run --project src/Pansy.Cli -- analyze <pansy-file> [rom-file] [-p|--patterns]
 ```
 
 **Arguments:**
+
 - `<pansy-file>` - Path to the Pansy file
 - `[rom-file]` - Optional path to the ROM file (enables full analysis)
 
 **Options:**
+
 - `-p`, `--patterns` - Enable pattern detection in gaps (requires ROM file)
 
 **Without ROM file:** CDL-only coverage analysis using code/data map flags.
@@ -482,12 +528,14 @@ dotnet run --project src/Pansy.Cli -- analyze <pansy-file> [rom-file] [-p|--patt
 **With ROM file:** Full analysis including gap detection and optional pattern detection.
 
 **Detected Patterns:**
+
 - **Fill regions** - Blocks of repeated bytes (e.g., `$ff` padding)
 - **ASCII strings** - Text data with printable characters
 - **Pointer tables** - Arrays of addresses (platform-aware: NES 16-bit, SNES 24-bit, GBA 32-bit)
 - **Tile data** - Graphics tile patterns (NES 2bpp, SNES/SMS 4bpp)
 
 **Example:**
+
 ```bash
 $ dotnet run --project src/Pansy.Cli -- analyze game.pansy game.nes --patterns
 
@@ -512,6 +560,7 @@ Detected Patterns (3)
 │ $007200 │ Ascii        │ 128    │ 90%        │ ASCII: "HELLO..." │
 ╰─────────┴──────────────┴────────┴────────────┴───────────────────╯
 ```
+
 - Added/removed comments
 - Cross-reference differences
 
@@ -520,12 +569,14 @@ Detected Patterns (3)
 ## Error Handling
 
 All commands return exit codes:
+
 - `0` - Success
 - `1` - Error (file not found, invalid format, etc.)
 
 Error messages are displayed in red with the `Error:` prefix.
 
 **Example:**
+
 ```bash
 $ dotnet run --project src/Pansy.Cli -- info missing.pansy
 Error: File not found: missing.pansy
@@ -602,26 +653,33 @@ Use in continuous integration to verify analysis:
 ## Troubleshooting
 
 **Problem:** Command not recognized
+
 ```bash
 Error: Unknown command: infp
 ```
+
 **Solution:** Check spelling - valid commands are `info`, `symbols`, `find`, `xrefs`, `diff`
 
 ---
 
 **Problem:** File format error
+
 ```bash
 Error: Invalid Pansy file: bad magic number
 ```
+
 **Solution:** Verify the file is a valid Pansy file (not corrupted or different format)
 
 ---
 
 **Problem:** Address out of range
+
 ```bash
 Error: Invalid address: 0x8010
 ```
+
 **Solution:** Use decimal addresses, not hex format:
+
 - Instead of `0x8010`, use `32784`
 - Instead of `$C000`, use `49152`
 

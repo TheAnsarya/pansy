@@ -10,6 +10,7 @@
 **Status:** Beta - Format stable, core functionality complete
 
 ### Recent Updates
+
 - ✅ **Data Pattern Detection** - Automated fill, ASCII, pointer table, and tile data detection
 - ✅ **Auto-Annotation** - Generate enriched Pansy files with detected pattern metadata
 - ✅ **File Merging** - Combine base + overlay Pansy files with intelligent deduplication
@@ -26,6 +27,7 @@
 ## 🎯 Purpose
 
 Disassembly is more than just converting bytes to instructions. It involves:
+
 - **Symbols** - Meaningful names for addresses (subroutines, variables, labels)
 - **Comments** - Explanations of what code does
 - **Cross-References** - Understanding who calls what
@@ -37,12 +39,14 @@ Pansy provides a universal, efficient format to store all this metadata independ
 ## ✨ Features
 
 ### 🗃️ Binary Format
+
 - Compact, versioned binary format (`.pansy` files)
 - Platform-agnostic (NES, SNES, GB, GBA, Genesis, Atari 2600, Custom)
 - Fast loading and saving
 - Supports large ROMs efficiently
 
 ### 📚 C# Library
+
 - `Pansy.Core` - Read/write Pansy files
 - `PansyAnalyzer` - Coverage analysis, gap detection, pattern detection, auto-annotation
 - `PansyMerger` - Merge base + overlay files with parallel operations
@@ -51,6 +55,7 @@ Pansy provides a universal, efficient format to store all this metadata independ
 - Comprehensive xUnit test coverage (253 tests)
 
 ### 🖥️ Cross-Platform UI
+
 - Built with Avalonia UI (Windows, Linux, macOS)
 - **Add/Edit/Delete** symbols, comments, and memory regions
 - **Save/Save As** with dirty state tracking
@@ -61,6 +66,7 @@ Pansy provides a universal, efficient format to store all this metadata independ
 - Input dialogs for all editing tasks
 
 ### 🛠️ CLI Tools
+
 - Inspect Pansy files from command line
 - Convert to/from other formats (Mesen, FCEUX, No$GBA, etc.)
 - Merge multiple analysis files
@@ -86,6 +92,7 @@ dotnet test Pansy.sln
 ### Usage Examples
 
 **CLI:**
+
 ```bash
 # View Pansy file info
 dotnet run --project src/Pansy.Cli -- info game.pansy
@@ -110,6 +117,7 @@ dotnet run --project src/Pansy.Cli -- merge base.pansy overlay.pansy -o merged.p
 ```
 
 **UI:**
+
 ```bash
 # Launch the UI application
 dotnet run --project src/Pansy.UI
@@ -121,6 +129,7 @@ dotnet run --project src/Pansy.UI
 ```
 
 **Library:**
+
 ```csharp
 using Pansy.Core;
 
@@ -188,6 +197,7 @@ File.WriteAllBytes("merged.pansy", merged.Generate());
 ## 🔗 Integration
 
 Pansy integrates with:
+
 - **[Peony](https://github.com/TheAnsarya/peony)** - Disassembler (generates Pansy files)
 - **[Poppy](https://github.com/TheAnsarya/poppy)** - Assembler (uses Pansy for symbols)
 - **[GameInfo](https://github.com/TheAnsarya/GameInfo)** - ROM hacking toolkit
@@ -214,7 +224,7 @@ Pansy integrates with:
 
 ## 🏗️ Architecture
 
-```
+```text
 Pansy/
 ├── src/
 │   ├── Pansy.Core/              # Core library (format I/O)

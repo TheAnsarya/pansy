@@ -17,6 +17,7 @@
 **Time:** 18:46 - 19:08 UTC (22 minutes)
 
 #### Implementation Details
+
 - Created `CallGraphRenderer.cs` (322 lines)
 - Hierarchical node layout algorithm
 - Color-coded edges (JSR=blue, JMP=green, Branch=orange, Read=purple, Write=red)
@@ -25,6 +26,7 @@
 - DOT format export for GraphViz
 
 #### Technical Challenges
+
 1. **Type mismatch:** `CrossRefInfo` (ViewModel) vs `CrossReference` (Core)
    - Solution: Added `RawCrossReferences` property to ViewModel
 2. **Address types:** `int` vs `uint` inconsistency in Core library
@@ -35,12 +37,14 @@
    - Solution: Updated CallGraphRenderer to use correct property names
 
 #### Files Modified
+
 - `src/Pansy.UI/Controls/CallGraphRenderer.cs` (NEW)
 - `src/Pansy.UI/MainWindow.axaml` (graph tab UI)
 - `src/Pansy.UI/MainWindow.axaml.cs` (event handlers)
 - `src/Pansy.UI/ViewModels/MainWindowViewModel.cs` (raw data accessors)
 
 #### Build Results
+
 - ✅ Build successful (0 errors, 0 warnings)
 - ✅ All tests passing
 
@@ -53,6 +57,7 @@
 **Objective:** Clean master branch, preserve all custom work
 
 #### Steps Completed
+
 1. Created `my-features-combined` branch (preserved ~50 commits)
 2. Reset `master` to `upstream/master` (fabc9a62)
 3. Force pushed clean master to fork
@@ -64,16 +69,18 @@
 **Commit:** 6fd99def (implementation), 615c63aa (documentation)
 
 #### Core Features
+
 - Binary format writer (Pansy v1.0 specification)
 - Platform ID mapping for 13 Mesen2 platforms
 - Section exports:
-  - CODE_DATA_MAP (CDL flags)
-  - SYMBOLS (labels)
-  - COMMENTS (annotations)
-  - JUMP_TARGETS (branch destinations)
-  - SUB_ENTRY_POINTS (subroutine entry points)
+    - CODE_DATA_MAP (CDL flags)
+    - SYMBOLS (labels)
+    - COMMENTS (annotations)
+    - JUMP_TARGETS (branch destinations)
+    - SUB_ENTRY_POINTS (subroutine entry points)
 
 #### UI Integration
+
 - Menu action: "Export Pansy metadata"
 - Auto-export setting (enabled by default)
 - File save dialog
@@ -167,12 +174,14 @@
 ## Key Technical Decisions
 
 ### Pansy
+
 1. **Expose raw Core data** via `RawCrossReferences` and `RawSymbols` properties
 2. **Cast int/uint** where needed to bridge type inconsistency
 3. **Hierarchical layout** for graph rendering (based on incoming edge count)
 4. **Export formats:** PNG (RenderTargetBitmap) and DOT (text generation)
 
 ### Mesen2
+
 1. **Binary format** for performance and fidelity
 2. **Auto-export by default** for seamless workflow
 3. **Section-based structure** for future extensibility
@@ -184,6 +193,7 @@
 ## Lessons Learned
 
 ### Process
+
 1. **Always verify API signatures** before implementation
 2. **Use batch edit tools** (`multi_replace_string_in_file`) for efficiency
 3. **Document with timestamps** for future reference
@@ -191,6 +201,7 @@
 5. **Roadmaps provide focus** and measurable progress
 
 ### Technical
+
 1. **Type consistency matters** - `int` vs `uint` caused multiple fixes
 2. **View models vs domain models** - distinguish display data from core data
 3. **Explicit type conversions** better than implicit assumptions
@@ -202,12 +213,14 @@
 ## Remaining Work
 
 ### Pansy
+
 - Issue #3: Data pattern detection
 - Issue #7: Export graph visualization
 - Issue #8: Statistics dashboard
 - Issues #12-15: Various enhancements
 
 ### Mesen2
+
 - **Phase 2:** Testing & Validation (Issue #2)
 - **Phase 3:** Memory regions, cross-references, data types (Issues #3, #4)
 - **Phase 4:** Performance optimization (Issue #5)
@@ -220,6 +233,7 @@
 ## Success Metrics
 
 ### Pansy Issue #4 ✅
+
 - [x] Call graph rendering functional
 - [x] Zoom control working
 - [x] PNG export implemented
@@ -229,6 +243,7 @@
 - [x] Committed and pushed
 
 ### Mesen2 Phase 1 ✅
+
 - [x] PansyExporter implementation complete
 - [x] UI integration functional
 - [x] Configuration option working
@@ -242,6 +257,7 @@
 ## Next Steps
 
 ### Immediate (Today)
+
 1. ✅ Complete Pansy Issue #4
 2. ✅ Update Mesen2 documentation
 3. ✅ Create GitHub issues
@@ -249,6 +265,7 @@
 5. [ ] Create demo .pansy file
 
 ### Short Term (This Week)
+
 1. [ ] Implement Mesen2 Phase 2 testing
 2. [ ] Fix int/uint inconsistency in Pansy Core
 3. [ ] Create example test ROMs
@@ -256,6 +273,7 @@
 5. [ ] Create video demonstrations
 
 ### Medium Term (This Month)
+
 1. [ ] Complete Mesen2 Phase 3 (enhanced data)
 2. [ ] Work on Pansy Issues #3, #7, #8
 3. [ ] Performance optimization (Mesen2 Phase 4)

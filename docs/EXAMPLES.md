@@ -24,12 +24,14 @@ This guide demonstrates common workflows and use cases for 🌼 Pansy in ROM hac
 **Steps:**
 
 1. **Initial Analysis** - Use Peony to generate initial Pansy file:
+
 ```bash
 # Disassemble ROM with Peony
 peony disasm game.nes --output game.pasm --pansy game.pansy
 ```
 
-2. **Review Metadata** - Check what was automatically detected:
+1. **Review Metadata** - Check what was automatically detected:
+
 ```bash
 # View file info
 dotnet run --project src/Pansy.Cli -- info game.pansy
@@ -38,7 +40,8 @@ dotnet run --project src/Pansy.Cli -- info game.pansy
 dotnet run --project src/Pansy.Cli -- symbols game.pansy > symbols.txt
 ```
 
-3. **Manual Enhancement** - Add/improve symbols using code:
+1. **Manual Enhancement** - Add/improve symbols using code:
+
 ```csharp
 using Pansy.Core;
 
@@ -73,12 +76,14 @@ var enhanced = writer.Generate();
 File.WriteAllBytes("game-enhanced.pansy", enhanced);
 ```
 
-4. **Verify Changes** - Compare to original:
+1. **Verify Changes** - Compare to original:
+
 ```bash
 dotnet run --project src/Pansy.Cli -- diff game.pansy game-enhanced.pansy
 ```
 
-5. **Reassemble** - Use with Poppy to rebuild:
+1. **Reassemble** - Use with Poppy to rebuild:
+
 ```bash
 poppy game.pasm --pansy game-enhanced.pansy --output game-rebuild.nes
 ```
@@ -94,6 +99,7 @@ poppy game.pasm --pansy game-enhanced.pansy --output game-rebuild.nes
 **Workflow:**
 
 1. **Initial Setup** - Person A starts analysis:
+
 ```csharp
 var writer = new PansyWriter {
 	Platform = PansyLoader.PLATFORM_NES,
@@ -113,7 +119,8 @@ writer.AddMemoryRegion(new MemoryRegion(
 File.WriteAllBytes("bank0-analysis.pansy", writer.Generate());
 ```
 
-2. **Parallel Work** - Person B works on second bank:
+1. **Parallel Work** - Person B works on second bank:
+
 ```csharp
 var writer = new PansyWriter {
 	Platform = PansyLoader.PLATFORM_NES,
@@ -133,7 +140,8 @@ writer.AddMemoryRegion(new MemoryRegion(
 File.WriteAllBytes("bank1-analysis.pansy", writer.Generate());
 ```
 
-3. **Merge Analyses** - Combine work:
+1. **Merge Analyses** - Combine work:
+
 ```csharp
 // Load both analyses
 var bank0 = new PansyLoader(File.ReadAllBytes("bank0-analysis.pansy"));
@@ -167,7 +175,8 @@ foreach (var region in bank1.MemoryRegions) {
 File.WriteAllBytes("complete-analysis.pansy", merged.Generate());
 ```
 
-4. **Verify Merge** - Check for conflicts:
+1. **Verify Merge** - Check for conflicts:
+
 ```bash
 # Compare merged with originals
 dotnet run --project src/Pansy.Cli -- diff bank0-analysis.pansy complete-analysis.pansy
@@ -185,7 +194,8 @@ dotnet run --project src/Pansy.Cli -- diff bank1-analysis.pansy complete-analysi
 **Workflow:**
 
 1. **Set Up Project** - Initialize Pansy alongside source:
-```
+
+```text
 my-rom-hack/
 ├── src/
 │   ├── main.pasm
@@ -200,7 +210,7 @@ my-rom-hack/
 	└── memory-map.md
 ```
 
-2. **Development Cycle**:
+1. **Development Cycle**:
 
 ```bash
 # 1. Edit source code
@@ -222,7 +232,8 @@ dotnet run --project src/Pansy.Cli -- symbols build/game.pansy
 dotnet run --project src/Pansy.Cli -- find build/game.pansy "PlayerState"
 ```
 
-3. **Cross-Reference Analysis** - Find who calls a function:
+1. **Cross-Reference Analysis** - Find who calls a function:
+
 ```bash
 # Convert symbol name to address first
 dotnet run --project src/Pansy.Cli -- symbols build/game.pansy | grep UpdatePlayer
@@ -232,7 +243,8 @@ dotnet run --project src/Pansy.Cli -- symbols build/game.pansy | grep UpdatePlay
 dotnet run --project src/Pansy.Cli -- xrefs build/game.pansy 33872
 ```
 
-4. **Version Tracking** - Compare builds:
+1. **Version Tracking** - Compare builds:
+
 ```bash
 # After making changes
 poppy src/main.pasm --output build/game-v2.nes --pansy build/game-v2.pansy
@@ -252,6 +264,7 @@ dotnet run --project src/Pansy.Cli -- diff build/game.pansy build/game-v2.pansy
 **Workflow:**
 
 1. **Analyze Both Versions**:
+
 ```bash
 # Disassemble USA version
 peony disasm game-usa.nes --output usa.pasm --pansy game-usa.pansy
@@ -260,12 +273,14 @@ peony disasm game-usa.nes --output usa.pasm --pansy game-usa.pansy
 peony disasm game-jpn.nes --output jpn.pasm --pansy game-jpn.pansy
 ```
 
-2. **Compare Analyses**:
+1. **Compare Analyses**:
+
 ```bash
 dotnet run --project src/Pansy.Cli -- diff game-usa.pansy game-jpn.pansy > differences.txt
 ```
 
-3. **Identify Changes Programmatically**:
+1. **Identify Changes Programmatically**:
+
 ```csharp
 var usa = new PansyLoader(File.ReadAllBytes("game-usa.pansy"));
 var jpn = new PansyLoader(File.ReadAllBytes("game-jpn.pansy"));

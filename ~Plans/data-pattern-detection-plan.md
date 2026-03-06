@@ -38,6 +38,7 @@ After Phase 1, identify **unclassified bytes** — ROM regions with no CDL flags
 no cross-references. These are the candidates for statistical analysis.
 
 Typical gaps in CDL coverage:
+
 - Lookup tables (data arrays accessed via indexed addressing)
 - Graphics tiles (CHR data, sprite data, tilemaps)
 - Text strings (game dialogue, menu text)
@@ -69,7 +70,7 @@ Each platform has known data layout conventions:
 
 ### Recommended Design
 
-```
+```text
 PansyAnalyzer (new class)
 ├── AnalyzeFromMetadata(PansyFile)     ← Phase 1: uses existing sections
 │   ├── ClassifyFromCdl()              ← CODE/DATA/DRAWN classification
@@ -103,7 +104,7 @@ PansyAnalyzer (new class)
 
 Given a ROM of N bytes, the **coverage score** measures how much is classified:
 
-```
+```text
 CoverageScore = (ClassifiedBytes / TotalBytes) × 100%
 
 Where ClassifiedBytes = Σ(bytes with CDL flags OR symbols OR data type annotations)
@@ -111,7 +112,7 @@ Where ClassifiedBytes = Σ(bytes with CDL flags OR symbols OR data type annotati
 
 ### Gap Report
 
-```
+```text
 GapReport:
 - Total ROM: 524,288 bytes (512 KB)
 - CDL classified: 412,000 bytes (78.6%)
@@ -164,6 +165,7 @@ GapReport:
 ## Future Trigger
 
 Implement this when:
+
 - Multiple Pansy files exist with CDL gaps > 20%
 - Users request "what's in these gaps?" functionality
 - Peony needs better initialization hints for unanalyzed regions

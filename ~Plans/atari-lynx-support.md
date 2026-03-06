@@ -23,6 +23,7 @@ public const byte PLATFORM_LYNX = 0x09;
 #### 1. Lynx-Specific Memory Regions
 
 Define default memory regions for Lynx ROMs:
+
 - Zero Page: $0000-$00ff
 - Stack: $0100-$01ff
 - Work RAM: $0200-$fbff
@@ -33,6 +34,7 @@ Define default memory regions for Lynx ROMs:
 #### 2. Lynx Symbol Defaults
 
 Common symbols that should be auto-recognized:
+
 - Suzy register names
 - Mikey register names
 - Timer names
@@ -66,6 +68,7 @@ public static MemoryRegion[] GetLynxDefaultRegions() => [
 ### Phase 2: Symbol Templates
 
 Add well-known Lynx symbols for automatic recognition:
+
 - Suzy hardware registers
 - Mikey hardware registers
 - Vector addresses
@@ -82,7 +85,7 @@ Add well-known Lynx symbols for automatic recognition:
 
 **Labels:** `epic`, `enhancement`, `lynx`
 
-### Sub-Issues:
+### Sub-Issues
 
 1. **Add Lynx memory region templates**
    - Labels: `enhancement`, `lynx`

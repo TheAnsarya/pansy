@@ -22,7 +22,7 @@
 
 ## File Structure
 
-```
+```text
 ┌──────────────────────────────────────┐
 │           Header (32 bytes)          │
 ├──────────────────────────────────────┤
@@ -122,6 +122,7 @@
 Per-byte classification flags, similar to CDL but extended.
 
 **Byte flags:**
+
 | Bit | Flag | Description |
 |-----|------|-------------|
 | 0 | CODE | Byte is code (opcode or operand) |
@@ -137,7 +138,7 @@ Per-byte classification flags, similar to CDL but extended.
 
 Label and constant definitions.
 
-```
+```text
 Symbol Entry:
   Address: uint32 (24-bit address + 8-bit bank)
   Type: uint8 (label=1, constant=2, enum=3, struct=4)
@@ -149,6 +150,7 @@ Symbol Entry:
 ```
 
 **Symbol Types:**
+
 | Value | Type | Description |
 |-------|------|-------------|
 | 1 | LABEL | Code or data label |
@@ -165,7 +167,7 @@ Symbol Entry:
 
 Per-address comments.
 
-```
+```text
 Comment Entry:
   Address: uint32
   Type: uint8 (inline=1, block=2, todo=3)
@@ -177,7 +179,7 @@ Comment Entry:
 
 Memory segment definitions.
 
-```
+```text
 Region Entry:
   StartAddress: uint32
   EndAddress: uint32
@@ -189,6 +191,7 @@ Region Entry:
 ```
 
 **Memory Region Types:**
+
 | Value | Type | Description |
 |-------|------|-------------|
 | 0 | UNKNOWN | Unknown or unspecified region |
@@ -201,13 +204,13 @@ Region Entry:
 | 7 | OPEN_BUS | Open bus / unmapped |
 | 8 | MIRROR | Mirror of another region |
 
-### DATA_TYPES (0x0005) — *Reserved*
+### DATA_TYPES (0x0005) — _Reserved_
 
 Data structure definitions for tables, arrays, etc.
 
 > **Status:** Defined in specification, not yet implemented in Pansy.Core.
 
-```
+```text
 DataType Entry:
   Address: uint32
   Length: uint32
@@ -222,20 +225,20 @@ DataType Entry:
 
 Cross-reference data for jump/call targets.
 
-```
+```text
 CrossRef Entry:
   FromAddress: uint32
   ToAddress: uint32
   Type: uint8 (jsr=1, jmp=2, branch=3, read=4, write=5)
 ```
 
-### SOURCE_MAP (0x0007) — *Reserved*
+### SOURCE_MAP (0x0007) — _Reserved_
 
 Maps ROM addresses back to original source files.
 
 > **Status:** Defined in specification, not yet implemented in Pansy.Core.
 
-```
+```text
 SourceMap Entry:
   RomAddress: uint32
   FileIndex: uint16
@@ -251,7 +254,7 @@ SourceFile Entry:
 
 Project metadata.
 
-```
+```text
 Metadata:
   ProjectNameLength: uint16
   ProjectName: char[Length]
@@ -274,12 +277,14 @@ Each section is compressed independently — a section whose compressed size equ
 ### NES (0x01)
 
 **Memory Map:**
+
 - $0000-$07FF: RAM (2KB, mirrored to $0800-$1FFF)
 - $2000-$2007: PPU registers (mirrored to $2008-$3FFF)
 - $4000-$4017: APU and I/O registers
 - $4020-$FFFF: Cartridge space (PRG ROM/RAM)
 
 **Special Considerations:**
+
 - Bank switching via mappers (use bank byte in addresses)
 - CHR data stored separately from PRG ROM
 - Use `MEMORY_REGIONS` to define mapper-specific banks
@@ -287,22 +292,26 @@ Each section is compressed independently — a section whose compressed size equ
 ### SNES (0x02)
 
 **Memory Map:**
+
 - $00:0000-$00:1FFF: RAM (8KB, mirrored)
 - $00:2000-$00:7FFF: Hardware registers
 - $00:8000-$FF:FFFF: ROM (varies by mapping mode)
 
 **Mapping Modes:**
+
 - **LoROM**: Banks $00-$7D/$80-$FD, $8000-$FFFF per bank
 - **HiROM**: Banks $00-$7D/$80-$FD, $0000-$FFFF per bank
 - **ExHiROM**: Banks $00-$FF with extended addressing
 
 **Special Considerations:**
+
 - Use 24-bit addresses (bank:offset)
 - SPC700 audio coprocessor (separate Platform ID 0x0D)
 
 ### Game Boy (0x03)
 
 **Memory Map:**
+
 - $0000-$3FFF: ROM Bank 0 (16KB fixed)
 - $4000-$7FFF: ROM Bank 1-N (16KB switchable)
 - $8000-$9FFF: VRAM (8KB)
@@ -315,12 +324,14 @@ Each section is compressed independently — a section whose compressed size equ
 - $FFFF: Interrupt Enable register
 
 **Special Considerations:**
+
 - Bank numbers stored in bank byte (up to 512 banks)
 - GBC extended features (VRAM bank 1, extended palettes)
 
 ### Game Boy Advance (0x04)
 
 **Memory Map:**
+
 - $00000000-$00003FFF: BIOS ROM (16KB)
 - $02000000-$0203FFFF: On-board WRAM (256KB)
 - $03000000-$03007FFF: On-chip WRAM (32KB)
@@ -331,12 +342,14 @@ Each section is compressed independently — a section whose compressed size equ
 - $08000000-$09FFFFFF: Game ROM (32MB max)
 
 **Special Considerations:**
+
 - 32-bit ARM and 16-bit Thumb instructions
 - Use CODE flags to distinguish instruction types
 
 ### Sega Genesis (0x05)
 
 **Memory Map:**
+
 - $000000-$3FFFFF: Cartridge ROM (4MB max)
 - $400000-$7FFFFF: Reserved
 - $800000-$9FFFFF: Reserved (used for SRAM mapping)
@@ -345,6 +358,7 @@ Each section is compressed independently — a section whose compressed size equ
 - $E00000-$FFFFFF: RAM (64KB, mirrored)
 
 **Special Considerations:**
+
 - 68000 main CPU (16/32-bit instructions)
 - Z80 sound CPU (separate address space, use Platform ID 0x06 or embed)
 - VDP graphics data
@@ -425,12 +439,14 @@ peony disasm game.nes \
 ## Future Enhancements
 
 ### Planned for Version 1.1
+
 - Additional section types for graphics metadata
 - Improved compression with dictionary sharing
 - Incremental update support
 - Embedded source code snippets
 
 ### Under Consideration
+
 - SQLite-based format option for large projects
 - Differential/patch format for version control
 - Encrypted sections for commercial projects

@@ -10,7 +10,7 @@ any statistical heuristics to unclassified gaps.
 
 **Hard data first, heuristics second.**
 
-```
+```csharp
 Input: PansyFile (loaded from .pansy) + byte[] romData
 Output: AnalysisResult containing coverage stats, gap list, detected patterns
 ```
@@ -272,7 +272,7 @@ public void DetectPointerTable_NesAddresses_DetectsCorrectly() { ... }
 
 ## File Locations
 
-```
+```text
 src/Pansy.Core/
 ├── PansyAnalyzer.cs          ← New file (Phase 1)
 ├── AnalysisResult.cs         ← New types file
