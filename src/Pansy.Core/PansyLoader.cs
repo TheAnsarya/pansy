@@ -294,9 +294,21 @@ public class PansyLoader {
 		_tempSymbolEntries = [];
 		_tempCommentEntries = [];
 
-		// Parse sections into temporary collections
-		foreach (var section in _sections) {
-			ParseSection(section);
+		// Decompress sections in parallel (DEFLATE is CPU-intensive)
+		var decompressed = new byte[_sections.Count][];
+		if (_sections.Count >= 3) {
+			Parallel.For(0, _sections.Count, i => {
+				decompressed[i] = GetSectionData(_sections[i]);
+			});
+		} else {
+			for (int i = 0; i < _sections.Count; i++) {
+				decompressed[i] = GetSectionData(_sections[i]);
+			}
+		}
+
+		// Parse sections sequentially (writes to shared temp collections)
+		for (int i = 0; i < _sections.Count; i++) {
+			ParseSectionData(_sections[i].Type, decompressed[i]);
 		}
 
 		// Freeze all collections for optimal immutable lookup performance
@@ -571,8 +583,14 @@ public class PansyLoader {
 	/// </summary>
 	private void ParseSection(SectionInfo section) {
 		var data = GetSectionData(section);
+		ParseSectionData(section.Type, data);
+	}
 
-		switch (section.Type) {
+	/// <summary>
+	/// Parses pre-decompressed section data based on its type.
+	/// </summary>
+	private void ParseSectionData(uint sectionType, byte[] data) {
+		switch (sectionType) {
 			case SECTION_CODE_DATA_MAP:
 				ParseCodeDataMap(data);
 				break;

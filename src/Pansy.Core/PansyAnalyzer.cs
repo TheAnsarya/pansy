@@ -4,6 +4,7 @@
 // ============================================================================
 
 using System.Collections;
+using System.Collections.Concurrent;
 
 namespace Pansy.Core;
 
@@ -328,10 +329,37 @@ public static class PansyAnalyzer {
 
 	/// <summary>
 	/// Detect data patterns in unclassified gap regions.
+	/// Uses parallel processing when there are enough gaps to benefit.
 	/// </summary>
 	public static List<DetectedPattern> DetectPatternsInGaps(
 		IReadOnlyList<GapRegion> gaps, byte[] romData,
 		byte platform = 0, PansyLoader? loader = null) {
+		if (gaps.Count == 0) return [];
+
+		// Use parallel processing for multiple gaps
+		if (gaps.Count >= 4) {
+			var bag = new ConcurrentBag<DetectedPattern>();
+
+			Parallel.ForEach(gaps, gap => {
+				if (gap.Offset + gap.Length > romData.Length) return;
+				var span = romData.AsSpan(gap.Offset, gap.Length);
+
+				if (TryDetectFill(span, gap.Offset, out var fill)) {
+					bag.Add(fill);
+				} else if (TryDetectAsciiString(span, gap.Offset, out var str)) {
+					bag.Add(str);
+				} else if (TryDetectPointerTable(span, gap.Offset, platform, loader, out var ptrs)) {
+					bag.Add(ptrs);
+				} else if (TryDetectTileData(span, gap.Offset, platform, out var tile)) {
+					bag.Add(tile);
+				}
+			});
+
+			// Sort by offset for deterministic output
+			return [.. bag.OrderBy(p => p.Offset)];
+		}
+
+		// Sequential fallback for small gap counts
 		var patterns = new List<DetectedPattern>();
 
 		foreach (var gap in gaps) {

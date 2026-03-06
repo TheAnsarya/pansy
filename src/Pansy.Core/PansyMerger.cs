@@ -3,6 +3,8 @@
 // 🌼 Pansy - Universal Disassembly Metadata Format
 // ============================================================================
 
+using System.Collections.Concurrent;
+
 namespace Pansy.Core;
 
 /// <summary>
@@ -38,20 +40,58 @@ public static class PansyMerger {
 			EnableCompression = basePansy.IsCompressed || overlayPansy.IsCompressed,
 		};
 
+		// Collect order-independent merge results in parallel
+		var codeFlags = new ConcurrentBag<(uint Offset, byte FlagType)>();
+		var crossRefs = new ConcurrentBag<CrossReference>();
+		var regions = new ConcurrentBag<MemoryRegion>();
+		var bookmarks = new ConcurrentBag<Bookmark>();
+		var dataTypes = new ConcurrentBag<DataTypeEntry>();
+
+		Parallel.Invoke(
+			() => CollectCodeDataFlags(codeFlags, basePansy, overlayPansy),
+			() => CollectCrossReferences(crossRefs, basePansy, overlayPansy),
+			() => CollectMemoryRegions(regions, basePansy, overlayPansy),
+			() => CollectBookmarks(bookmarks, basePansy, overlayPansy),
+			() => CollectDataTypes(dataTypes, basePansy, overlayPansy)
+		);
+
+		// Symbols and comments must be sequential to preserve base-first ordering
 		MergeSymbols(writer, basePansy, overlayPansy);
 		MergeComments(writer, basePansy, overlayPansy);
-		MergeCodeDataFlags(writer, basePansy, overlayPansy);
-		MergeCrossReferences(writer, basePansy, overlayPansy);
-		MergeMemoryRegions(writer, basePansy, overlayPansy);
-		MergeBookmarks(writer, basePansy, overlayPansy);
-		MergeDataTypes(writer, basePansy, overlayPansy);
+
+		// Apply parallel-collected results to writer
+		foreach (var (offset, flagType) in codeFlags) {
+			switch (flagType) {
+				case 1: writer.MarkAsCode(offset); break;
+				case 2: writer.MarkAsData(offset); break;
+				case 3: writer.MarkAsJumpTarget(offset); break;
+				case 4: writer.MarkAsSubroutine(offset); break;
+				case 5: writer.MarkAsOpcode(offset); break;
+				case 6: writer.MarkAsDrawn(offset); break;
+				case 7: writer.MarkAsRead(offset); break;
+				case 8: writer.MarkAsIndirect(offset); break;
+			}
+		}
+		foreach (var xref in crossRefs) {
+			writer.AddCrossReference(xref);
+		}
+		foreach (var region in regions) {
+			writer.AddMemoryRegion(region);
+		}
+		foreach (var bookmark in bookmarks) {
+			writer.AddBookmark(bookmark);
+		}
+		foreach (var dt in dataTypes) {
+			writer.AddDataType(dt);
+		}
+
+		// Source map merge must be sequential (needs file index remapping)
 		MergeSourceMap(writer, basePansy, overlayPansy);
 
 		return writer;
 	}
 
 	private static void MergeSymbols(PansyWriter writer, PansyLoader basePansy, PansyLoader overlayPansy) {
-		// Collect all addresses from both files
 		var allAddresses = new HashSet<int>(basePansy.AllSymbolEntries.Keys);
 		allAddresses.UnionWith(overlayPansy.AllSymbolEntries.Keys);
 
@@ -67,7 +107,6 @@ public static class PansyMerger {
 
 			if (overlayEntries != null) {
 				foreach (var entry in overlayEntries) {
-					// Skip exact duplicates already added from base
 					if (baseEntries != null && baseEntries.Any(b => b.Name == entry.Name && b.Type == entry.Type)) {
 						continue;
 					}
@@ -102,52 +141,56 @@ public static class PansyMerger {
 		}
 	}
 
-	private static void MergeCodeDataFlags(PansyWriter writer, PansyLoader basePansy, PansyLoader overlayPansy) {
-		// Union all code/data flag sets
+	private static void CollectCodeDataFlags(
+		ConcurrentBag<(uint Offset, byte FlagType)> bag,
+		PansyLoader basePansy, PansyLoader overlayPansy) {
 		foreach (var offset in basePansy.CodeOffsets.Concat(overlayPansy.CodeOffsets).Distinct()) {
-			writer.MarkAsCode((uint)offset);
+			bag.Add(((uint)offset, 1));
 		}
 		foreach (var offset in basePansy.DataOffsets.Concat(overlayPansy.DataOffsets).Distinct()) {
-			writer.MarkAsData((uint)offset);
+			bag.Add(((uint)offset, 2));
 		}
 		foreach (var offset in basePansy.JumpTargets.Concat(overlayPansy.JumpTargets).Distinct()) {
-			writer.MarkAsJumpTarget((uint)offset);
+			bag.Add(((uint)offset, 3));
 		}
 		foreach (var offset in basePansy.SubEntryPoints.Concat(overlayPansy.SubEntryPoints).Distinct()) {
-			writer.MarkAsSubroutine((uint)offset);
+			bag.Add(((uint)offset, 4));
 		}
 		foreach (var offset in basePansy.OpcodeOffsets.Concat(overlayPansy.OpcodeOffsets).Distinct()) {
-			writer.MarkAsOpcode((uint)offset);
+			bag.Add(((uint)offset, 5));
 		}
 		foreach (var offset in basePansy.DrawnOffsets.Concat(overlayPansy.DrawnOffsets).Distinct()) {
-			writer.MarkAsDrawn((uint)offset);
+			bag.Add(((uint)offset, 6));
 		}
 		foreach (var offset in basePansy.ReadOffsets.Concat(overlayPansy.ReadOffsets).Distinct()) {
-			writer.MarkAsRead((uint)offset);
+			bag.Add(((uint)offset, 7));
 		}
 		foreach (var offset in basePansy.IndirectOffsets.Concat(overlayPansy.IndirectOffsets).Distinct()) {
-			writer.MarkAsIndirect((uint)offset);
+			bag.Add(((uint)offset, 8));
 		}
 	}
 
-	private static void MergeCrossReferences(PansyWriter writer, PansyLoader basePansy, PansyLoader overlayPansy) {
+	private static void CollectCrossReferences(
+		ConcurrentBag<CrossReference> bag,
+		PansyLoader basePansy, PansyLoader overlayPansy) {
 		var seen = new HashSet<(uint From, uint To, CrossRefType Type)>();
 
 		foreach (var xref in basePansy.CrossReferences) {
 			if (seen.Add((xref.From, xref.To, xref.Type))) {
-				writer.AddCrossReference(xref);
+				bag.Add(xref);
 			}
 		}
 
 		foreach (var xref in overlayPansy.CrossReferences) {
 			if (seen.Add((xref.From, xref.To, xref.Type))) {
-				writer.AddCrossReference(xref);
+				bag.Add(xref);
 			}
 		}
 	}
 
-	private static void MergeMemoryRegions(PansyWriter writer, PansyLoader basePansy, PansyLoader overlayPansy) {
-		// Use overlay regions as overrides by name, then add remaining base regions
+	private static void CollectMemoryRegions(
+		ConcurrentBag<MemoryRegion> bag,
+		PansyLoader basePansy, PansyLoader overlayPansy) {
 		var overlayByName = new Dictionary<string, MemoryRegion>();
 		foreach (var region in overlayPansy.MemoryRegions) {
 			overlayByName[region.Name] = region;
@@ -155,53 +198,55 @@ public static class PansyMerger {
 
 		var addedNames = new HashSet<string>();
 
-		// Add base regions, substituting overlay versions where names match
 		foreach (var region in basePansy.MemoryRegions) {
 			if (overlayByName.TryGetValue(region.Name, out var overlayRegion)) {
-				writer.AddMemoryRegion(overlayRegion);
+				bag.Add(overlayRegion);
 				addedNames.Add(region.Name);
 			} else {
-				writer.AddMemoryRegion(region);
+				bag.Add(region);
 				addedNames.Add(region.Name);
 			}
 		}
 
-		// Add overlay-only regions
 		foreach (var region in overlayPansy.MemoryRegions) {
 			if (!addedNames.Contains(region.Name)) {
-				writer.AddMemoryRegion(region);
+				bag.Add(region);
 			}
 		}
 	}
 
-	private static void MergeBookmarks(PansyWriter writer, PansyLoader basePansy, PansyLoader overlayPansy) {
+	private static void CollectBookmarks(
+		ConcurrentBag<Bookmark> bag,
+		PansyLoader basePansy, PansyLoader overlayPansy) {
 		var seen = new HashSet<(uint Address, string Name)>();
 
 		foreach (var bookmark in basePansy.Bookmarks) {
 			if (seen.Add((bookmark.Address, bookmark.Name))) {
-				writer.AddBookmark(bookmark);
+				bag.Add(bookmark);
 			}
 		}
 
 		foreach (var bookmark in overlayPansy.Bookmarks) {
 			if (seen.Add((bookmark.Address, bookmark.Name))) {
-				writer.AddBookmark(bookmark);
+				bag.Add(bookmark);
 			}
 		}
 	}
 
-	private static void MergeDataTypes(PansyWriter writer, PansyLoader basePansy, PansyLoader overlayPansy) {
+	private static void CollectDataTypes(
+		ConcurrentBag<DataTypeEntry> bag,
+		PansyLoader basePansy, PansyLoader overlayPansy) {
 		var seen = new HashSet<(uint Address, string Name)>();
 
 		foreach (var dt in basePansy.DataTypes) {
 			if (seen.Add((dt.Address, dt.Name))) {
-				writer.AddDataType(dt);
+				bag.Add(dt);
 			}
 		}
 
 		foreach (var dt in overlayPansy.DataTypes) {
 			if (seen.Add((dt.Address, dt.Name))) {
-				writer.AddDataType(dt);
+				bag.Add(dt);
 			}
 		}
 	}
