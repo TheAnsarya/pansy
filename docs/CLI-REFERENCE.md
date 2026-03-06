@@ -357,6 +357,161 @@ Symbols Removed:
 - Header comparison table
 - Change statistics
 - Added/removed/modified symbols
+
+---
+
+### `stats` - Detailed Statistics
+
+Shows detailed statistics and analysis of a Pansy file's contents.
+
+**Usage:**
+```bash
+dotnet run --project src/Pansy.Cli -- stats <file>
+```
+
+**Arguments:**
+- `<file>` - Path to the Pansy file
+
+**Output:**
+- Symbol count by type (Label, Function, Constant, etc.)
+- Comment count by type (Inline, Block, Todo)
+- Code/data map flag counts
+- Cross-reference counts by type
+- Memory region summary
+
+---
+
+### `merge` - Merge Two Files
+
+Merges two Pansy files using a base + overlay strategy with intelligent deduplication.
+
+**Usage:**
+```bash
+dotnet run --project src/Pansy.Cli -- merge <base> <overlay> [-o|--output <file>]
+```
+
+**Arguments:**
+- `<base>` - Base Pansy file (provides ROM info and foundation)
+- `<overlay>` - Overlay Pansy file (adds or supplements data)
+
+**Options:**
+- `-o`, `--output <file>` - Output path (default: `merged.pansy`)
+
+**Merge Strategies:**
+- **Symbols/Comments:** Union of all entries, base-first ordering, duplicates removed
+- **Code/Data Map:** Flag union (OR of all flags)
+- **Cross-references:** Deduplicated by (from, to, type)
+- **Memory Regions:** Overlay wins on name conflicts
+- **Metadata:** Overlay wins with fallback to base
+
+**Example:**
+```bash
+$ dotnet run --project src/Pansy.Cli -- merge base.pansy overlay.pansy -o merged.pansy
+
+🌼 Merging Pansy files
+Base:    base.pansy
+Overlay: overlay.pansy
+Output:  merged.pansy
+
+Merge Results:
+  Symbols:     125 (base: 100, overlay: 50, merged: 125)
+  Comments:    80 (base: 60, overlay: 30, merged: 80)
+  Cross-refs:  200 (base: 150, overlay: 100, merged: 200)
+
+✅ Merged successfully: merged.pansy (4,521 bytes)
+```
+
+---
+
+### `validate` - Validate File Structure
+
+Validates the internal structure and consistency of a Pansy file.
+
+**Usage:**
+```bash
+dotnet run --project src/Pansy.Cli -- validate <file>
+```
+
+**Arguments:**
+- `<file>` - Path to the Pansy file
+
+**Output:**
+- Header validation (magic, version, platform)
+- Section integrity checks
+- Content consistency verification
+- Pass/fail status
+
+---
+
+### `graph` - Export Cross-Reference Graph
+
+Exports cross-reference data as a DOT graph for visualization.
+
+**Usage:**
+```bash
+dotnet run --project src/Pansy.Cli -- graph <file> [-o|--output <file>] [--format <format>]
+```
+
+**Arguments:**
+- `<file>` - Path to the Pansy file
+
+**Options:**
+- `-o`, `--output <file>` - Output path (default: `graph.dot`)
+- `--format <format>` - Output format: `dot` (default), `mermaid`
+
+---
+
+### `analyze` - ROM Coverage Analysis
+
+Analyzes ROM coverage using CDL data and optionally detects data patterns in unclassified gaps.
+
+**Usage:**
+```bash
+dotnet run --project src/Pansy.Cli -- analyze <pansy-file> [rom-file] [-p|--patterns]
+```
+
+**Arguments:**
+- `<pansy-file>` - Path to the Pansy file
+- `[rom-file]` - Optional path to the ROM file (enables full analysis)
+
+**Options:**
+- `-p`, `--patterns` - Enable pattern detection in gaps (requires ROM file)
+
+**Without ROM file:** CDL-only coverage analysis using code/data map flags.
+
+**With ROM file:** Full analysis including gap detection and optional pattern detection.
+
+**Detected Patterns:**
+- **Fill regions** - Blocks of repeated bytes (e.g., `$ff` padding)
+- **ASCII strings** - Text data with printable characters
+- **Pointer tables** - Arrays of addresses (platform-aware: NES 16-bit, SNES 24-bit, GBA 32-bit)
+- **Tile data** - Graphics tile patterns (NES 2bpp, SNES/SMS 4bpp)
+
+**Example:**
+```bash
+$ dotnet run --project src/Pansy.Cli -- analyze game.pansy game.nes --patterns
+
+🌼 ROM Coverage Analysis
+File: game.pansy
+
+╭────────────────────┬─────────╮
+│ Metric             │ Value   │
+├────────────────────┼─────────┤
+│ Total Bytes        │ 32,768  │
+│ Classified Bytes   │ 24,576  │
+│ Unclassified Bytes │ 8,192   │
+│ Coverage           │ 75.0%   │
+╰────────────────────┴─────────╯
+
+Detected Patterns (3)
+╭─────────┬──────────────┬────────┬────────────┬───────────────────╮
+│ Offset  │ Kind         │ Length │ Confidence │ Description       │
+├─────────┼──────────────┼────────┼────────────┼───────────────────┤
+│ $006000 │ Fill         │ 4,096  │ 100%       │ Fill: $ff x 4096  │
+│ $007000 │ PointerTable │ 512    │ 95%        │ 256 NES addresses │
+│ $007200 │ Ascii        │ 128    │ 90%        │ ASCII: "HELLO..." │
+╰─────────┴──────────────┴────────┴────────────┴───────────────────╯
+```
 - Added/removed comments
 - Cross-reference differences
 
