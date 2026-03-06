@@ -10,13 +10,17 @@
 **Status:** Beta - Format stable, core functionality complete
 
 ### Recent Updates
+- ✅ **Data Pattern Detection** - Automated fill, ASCII, pointer table, and tile data detection
+- ✅ **Auto-Annotation** - Generate enriched Pansy files with detected pattern metadata
+- ✅ **File Merging** - Combine base + overlay Pansy files with intelligent deduplication
+- ✅ **Parallel Processing** - Parallel gap detection, section decompression, and merge operations
+- ✅ **253 Tests Passing** - Comprehensive coverage including analyzer, merger, and roundtrip tests
+- ✅ **42 Benchmarks** - Writer, loader, analyzer, and merger performance tracking
 - ✅ **Performance Optimized** - FrozenDictionary/FrozenSet for zero-allocation lookups
 - ✅ **Typed Metadata** - SymbolEntry/CommentEntry records with type preservation
 - ✅ **Extended Flags** - DRAWN, READ, INDIRECT code/data map flags
-- ✅ **78 Tests Passing** - Comprehensive test coverage including roundtrip, typed data, integration
-- ✅ **BenchmarkDotNet Suite** - 16 writer + 16 loader benchmarks for performance tracking
 - ✅ **UI Editing Complete** - Full CRUD operations for symbols, comments, and memory regions
-- ✅ **CLI Commands Working** - info, symbols, find, xrefs, diff all functional
+- ✅ **CLI Commands Working** - info, symbols, find, xrefs, diff, analyze, merge all functional
 - ✅ **Documentation Complete** - File format spec, CLI reference, examples guide
 
 ## 🎯 Purpose
@@ -40,9 +44,11 @@ Pansy provides a universal, efficient format to store all this metadata independ
 
 ### 📚 C# Library
 - `Pansy.Core` - Read/write Pansy files
+- `PansyAnalyzer` - Coverage analysis, gap detection, pattern detection, auto-annotation
+- `PansyMerger` - Merge base + overlay files with parallel operations
 - Modern .NET 10 / C# 14
 - Cross-platform (Windows, Linux, macOS)
-- Comprehensive xUnit test coverage
+- Comprehensive xUnit test coverage (253 tests)
 
 ### 🖥️ Cross-Platform UI
 - Built with Avalonia UI (Windows, Linux, macOS)
@@ -95,6 +101,12 @@ dotnet run --project src/Pansy.Cli -- xrefs game.pansy 32784
 
 # Diff two files
 dotnet run --project src/Pansy.Cli -- diff original.pansy modified.pansy
+
+# Analyze coverage and detect patterns
+dotnet run --project src/Pansy.Cli -- analyze game.pansy --rom game.nes --detect-patterns
+
+# Merge two Pansy files (base + overlay)
+dotnet run --project src/Pansy.Cli -- merge base.pansy overlay.pansy -o merged.pansy
 ```
 
 **UI:**
@@ -148,6 +160,22 @@ var refsTo = pansy.CrossReferences
 	.ToList();
 
 Console.WriteLine($"References to $8100: {refsTo.Count}");
+
+// Analyze coverage and detect patterns
+var romData = File.ReadAllBytes("game.nes");
+var analysis = PansyAnalyzer.Analyze(pansy, romData, detectPatterns: true);
+Console.WriteLine($"Coverage: {analysis.CoveragePercent:F1}%");
+Console.WriteLine($"Patterns found: {analysis.DetectedPatterns.Count}");
+
+// Generate enriched annotations from analysis
+var annotated = PansyAnalyzer.GenerateAnnotations(pansy, analysis);
+File.WriteAllBytes("game-annotated.pansy", annotated);
+
+// Merge two Pansy files
+var basePansy = new PansyLoader(File.ReadAllBytes("base.pansy"));
+var overlay = new PansyLoader(File.ReadAllBytes("overlay.pansy"));
+var merged = PansyMerger.Merge(basePansy, overlay);
+File.WriteAllBytes("merged.pansy", merged.Generate());
 ```
 
 ## 📖 Documentation
@@ -193,8 +221,8 @@ Pansy/
 │   ├── Pansy.UI/                # Avalonia desktop app
 │   └── Pansy.Cli/               # Command-line tools
 ├── tests/
-│   ├── Pansy.Core.Tests/        # xUnit tests (78 tests)
-│   └── Pansy.Core.Benchmarks/   # BenchmarkDotNet suite
+│   ├── Pansy.Core.Tests/        # xUnit tests (253 tests)
+│   └── Pansy.Core.Benchmarks/   # BenchmarkDotNet suite (42 benchmarks)
 └── docs/                        # Documentation
 ```
 
