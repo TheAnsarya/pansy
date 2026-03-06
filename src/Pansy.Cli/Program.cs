@@ -23,6 +23,7 @@ if (args.Length == 0) {
 	AnsiConsole.MarkupLine("  merge <base> <overlay>  Merge two Pansy files");
 	AnsiConsole.MarkupLine("  validate <file>         Validate Pansy file structure");
 	AnsiConsole.MarkupLine("  graph <file>            Export cross-reference graph");
+	AnsiConsole.MarkupLine("  analyze <pansy> <rom>   Analyze ROM coverage and detect gaps");
 	AnsiConsole.WriteLine();
 	return 0;
 }
@@ -49,6 +50,8 @@ try {
 			return RunValidate(args.Skip(1).ToArray());
 		case "graph":
 			return RunGraph(args.Skip(1).ToArray());
+		case "analyze":
+			return RunAnalyze(args.Skip(1).ToArray());
 		default:
 			AnsiConsole.MarkupLine($"[red]Unknown command:[/] {command}");
 			return 1;
@@ -1254,6 +1257,218 @@ static int RunGraph(string[] args) {
 		AnsiConsole.MarkupLine($"[green]Graph written to:[/] {Markup.Escape(outputPath)} ({result.Length:N0} chars)");
 	} else {
 		Console.Write(result);
+	}
+
+	return 0;
+}
+
+static int RunAnalyze(string[] args) {
+	if (args.Length < 1) {
+		AnsiConsole.MarkupLine("[red]Error:[/] Missing arguments");
+		AnsiConsole.MarkupLine("[cyan]Usage:[/] pansy analyze <pansy-file> [[rom-file]] [[-p|--patterns]]");
+		AnsiConsole.MarkupLine("  Without ROM: CDL-only coverage analysis");
+		AnsiConsole.MarkupLine("  With ROM: full analysis including pattern detection");
+		return 1;
+	}
+
+	var pansyPath = args[0];
+	if (!File.Exists(pansyPath)) {
+		AnsiConsole.MarkupLine($"[red]Error:[/] File not found: {Markup.Escape(pansyPath)}");
+		return 1;
+	}
+
+	string? romPath = null;
+	if (args.Length >= 2 && !args[1].StartsWith('-')) {
+		romPath = args[1];
+	}
+
+	var detectPatterns = args.Any(a => a == "-p" || a == "--patterns");
+
+	var pansyData = File.ReadAllBytes(pansyPath);
+	var loader = new PansyLoader(pansyData);
+
+	AnsiConsole.MarkupLine($"[bold magenta]🌼 ROM Coverage Analysis[/]");
+	AnsiConsole.MarkupLine($"[grey]File: {Markup.Escape(Path.GetFileName(pansyPath))}[/]");
+	AnsiConsole.WriteLine();
+
+	AnalysisResult result;
+
+	if (romPath != null) {
+		if (!File.Exists(romPath)) {
+			AnsiConsole.MarkupLine($"[red]Error:[/] ROM file not found: {Markup.Escape(romPath)}");
+			return 1;
+		}
+		var romData = File.ReadAllBytes(romPath);
+		result = PansyAnalyzer.Analyze(loader, romData, detectPatterns);
+	} else {
+		result = PansyAnalyzer.AnalyzeCoverage(loader, (int)loader.RomSize);
+	}
+
+	// Coverage summary
+	var coverageTable = new Table()
+		.Border(TableBorder.Rounded)
+		.Title("[bold cyan]Coverage Summary[/]")
+		.AddColumn("Metric")
+		.AddColumn(new TableColumn("Value").RightAligned());
+
+	coverageTable.AddRow("Total Bytes", $"{result.TotalBytes:N0}");
+	coverageTable.AddRow("Classified Bytes", $"{result.ClassifiedBytes:N0}");
+	coverageTable.AddRow("Unclassified Bytes", $"{result.TotalBytes - result.ClassifiedBytes:N0}");
+
+	var coveragePct = result.CoveragePercent;
+	var coverageColor = coveragePct >= 80 ? "green" : coveragePct >= 50 ? "yellow" : "red";
+	coverageTable.AddRow("Coverage", $"[{coverageColor}]{coveragePct:F1}%[/]");
+
+	if (result.CdlClassifiedBytes > 0) {
+		coverageTable.AddRow("[grey]  CDL classified[/]", $"[grey]{result.CdlClassifiedBytes:N0}[/]");
+	}
+	if (result.SymbolCoveredBytes > 0) {
+		coverageTable.AddRow("[grey]  Symbol covered[/]", $"[grey]{result.SymbolCoveredBytes:N0}[/]");
+	}
+	if (result.CrossRefCoveredBytes > 0) {
+		coverageTable.AddRow("[grey]  Cross-ref covered[/]", $"[grey]{result.CrossRefCoveredBytes:N0}[/]");
+	}
+
+	AnsiConsole.Write(coverageTable);
+	AnsiConsole.WriteLine();
+
+	// Coverage bar
+	if (result.TotalBytes > 0) {
+		var chart = new BarChart()
+			.Label("[bold cyan]Coverage[/]")
+			.CenterLabel();
+
+		chart.AddItem("Classified", result.ClassifiedBytes, Color.Green);
+		chart.AddItem("Unclassified", result.TotalBytes - result.ClassifiedBytes, Color.Red);
+
+		AnsiConsole.Write(chart);
+		AnsiConsole.WriteLine();
+	}
+
+	// Gaps
+	if (result.Gaps.Count > 0) {
+		var gapTable = new Table()
+			.Border(TableBorder.Rounded)
+			.Title($"[bold cyan]Gaps ({result.Gaps.Count})[/]")
+			.AddColumn("Offset")
+			.AddColumn("End")
+			.AddColumn(new TableColumn("Length").RightAligned());
+
+		foreach (var gap in result.Gaps.Take(25)) {
+			gapTable.AddRow(
+				$"${gap.Offset:x6}",
+				$"${gap.End:x6}",
+				$"{gap.Length:N0}"
+			);
+		}
+
+		if (result.Gaps.Count > 25) {
+			gapTable.AddRow("[grey]...[/]", $"[grey]+{result.Gaps.Count - 25} more[/]", "");
+		}
+
+		AnsiConsole.Write(gapTable);
+		AnsiConsole.WriteLine();
+	}
+
+	// Patterns
+	if (result.Patterns.Count > 0) {
+		var patternTable = new Table()
+			.Border(TableBorder.Rounded)
+			.Title($"[bold cyan]Detected Patterns ({result.Patterns.Count})[/]")
+			.AddColumn("Offset")
+			.AddColumn("Kind")
+			.AddColumn(new TableColumn("Length").RightAligned())
+			.AddColumn("Confidence")
+			.AddColumn("Description");
+
+		foreach (var pattern in result.Patterns.Take(25)) {
+			patternTable.AddRow(
+				$"${pattern.Offset:x6}",
+				pattern.Kind.ToString(),
+				$"{pattern.Length:N0}",
+				$"{pattern.Confidence:P0}",
+				Markup.Escape(pattern.Description ?? "")
+			);
+		}
+
+		if (result.Patterns.Count > 25) {
+			patternTable.AddRow("[grey]...[/]", "", "", "", $"[grey]+{result.Patterns.Count - 25} more[/]");
+		}
+
+		AnsiConsole.Write(patternTable);
+		AnsiConsole.WriteLine();
+	}
+
+	// Symbol boundaries
+	if (result.SymbolBoundaries.Count > 0) {
+		var boundaryTable = new Table()
+			.Border(TableBorder.Rounded)
+			.Title($"[bold cyan]Symbol Boundaries ({result.SymbolBoundaries.Count})[/]")
+			.AddColumn("Start")
+			.AddColumn("End")
+			.AddColumn("Name")
+			.AddColumn("Type")
+			.AddColumn(new TableColumn("Length").RightAligned());
+
+		foreach (var b in result.SymbolBoundaries.Take(20)) {
+			boundaryTable.AddRow(
+				$"${b.StartAddress:x6}",
+				$"${b.EndAddress:x6}",
+				Markup.Escape(b.Name),
+				b.Type.ToString(),
+				$"{b.Length:N0}"
+			);
+		}
+
+		if (result.SymbolBoundaries.Count > 20) {
+			boundaryTable.AddRow("[grey]...[/]", "", $"[grey]+{result.SymbolBoundaries.Count - 20} more[/]", "", "");
+		}
+
+		AnsiConsole.Write(boundaryTable);
+		AnsiConsole.WriteLine();
+	}
+
+	// Cross-ref graph stats
+	if (result.GraphStats != null && result.GraphStats.TotalCrossRefs > 0) {
+		var gs = result.GraphStats;
+		var graphTable = new Table()
+			.Border(TableBorder.Rounded)
+			.Title("[bold cyan]Cross-Reference Graph[/]")
+			.AddColumn("Metric")
+			.AddColumn(new TableColumn("Value").RightAligned());
+
+		graphTable.AddRow("Total Cross-refs", $"{gs.TotalCrossRefs:N0}");
+		graphTable.AddRow("Unique Sources", $"{gs.UniqueSourceAddresses:N0}");
+		graphTable.AddRow("Unique Targets", $"{gs.UniqueTargetAddresses:N0}");
+		graphTable.AddRow("[grey]  JSR[/]", $"[grey]{gs.JsrCount:N0}[/]");
+		graphTable.AddRow("[grey]  JMP[/]", $"[grey]{gs.JmpCount:N0}[/]");
+		graphTable.AddRow("[grey]  Branch[/]", $"[grey]{gs.BranchCount:N0}[/]");
+		graphTable.AddRow("[grey]  Read[/]", $"[grey]{gs.ReadCount:N0}[/]");
+		graphTable.AddRow("[grey]  Write[/]", $"[grey]{gs.WriteCount:N0}[/]");
+
+		if (gs.UnreferencedSubroutines.Count > 0) {
+			graphTable.AddRow("[yellow]Unreferenced subs[/]", $"[yellow]{gs.UnreferencedSubroutines.Count:N0}[/]");
+		}
+
+		AnsiConsole.Write(graphTable);
+		AnsiConsole.WriteLine();
+
+		if (gs.MostReferenced.Count > 0) {
+			var topTable = new Table()
+				.Border(TableBorder.Rounded)
+				.Title("[bold cyan]Most Referenced Addresses[/]")
+				.AddColumn("Address")
+				.AddColumn("Symbol")
+				.AddColumn(new TableColumn("References").RightAligned());
+
+			foreach (var (addr, count) in gs.MostReferenced.Take(10)) {
+				var symbol = loader.GetSymbol(addr) ?? "[grey]-[/]";
+				topTable.AddRow($"${addr:x6}", Markup.Escape(symbol), $"{count}");
+			}
+
+			AnsiConsole.Write(topTable);
+			AnsiConsole.WriteLine();
+		}
 	}
 
 	return 0;
