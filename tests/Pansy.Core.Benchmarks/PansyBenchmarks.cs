@@ -473,3 +473,64 @@ public class AnalyzerBenchmarks {
 		return count;
 	}
 }
+
+/// <summary>
+/// Benchmarks for PansyMerger — merging two Pansy files with parallel operations.
+/// </summary>
+[MemoryDiagnoser]
+[SimpleJob(warmupCount: 3, iterationCount: 5)]
+public class MergerBenchmarks {
+	private PansyLoader _baseSmall = null!;
+	private PansyLoader _overlaySmall = null!;
+	private PansyLoader _baseLarge = null!;
+	private PansyLoader _overlayLarge = null!;
+
+	[GlobalSetup]
+	public void Setup() {
+		_baseSmall = new PansyLoader(GenerateMergeFile(100, "base"));
+		_overlaySmall = new PansyLoader(GenerateMergeFile(100, "overlay", addressOffset: 50));
+		_baseLarge = new PansyLoader(GenerateMergeFile(5000, "base"));
+		_overlayLarge = new PansyLoader(GenerateMergeFile(5000, "overlay", addressOffset: 2500));
+	}
+
+	private static byte[] GenerateMergeFile(int count, string prefix, uint addressOffset = 0) {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x80000,
+			RomCrc32 = 0xdeadbeef,
+			ProjectName = $"{prefix} project",
+		};
+		for (uint i = 0; i < (uint)count; i++) {
+			writer.AddSymbol(0x8000 + addressOffset + i, $"{prefix}_{i:x4}");
+			writer.AddComment(0x8000 + addressOffset + i, $"{prefix} comment {i}");
+			writer.MarkAsCode(addressOffset + i);
+			if (i % 5 == 0) writer.MarkAsOpcode(addressOffset + i);
+			writer.AddCrossReference(new CrossReference(
+				0x8000 + addressOffset + i, 0x9000 + addressOffset + i, CrossRefType.Jsr));
+		}
+		writer.AddMemoryRegion(new MemoryRegion(
+			0x8000 + addressOffset, 0x8000 + addressOffset + (uint)count, 1, 0, $"{prefix}_ROM"));
+		return writer.Generate();
+	}
+
+	[Benchmark(Description = "Merge small (100 entries)")]
+	public byte[] MergeSmall() {
+		return PansyMerger.Merge(_baseSmall, _overlaySmall).Generate();
+	}
+
+	[Benchmark(Description = "Merge large (5000 entries)")]
+	public byte[] MergeLarge() {
+		return PansyMerger.Merge(_baseLarge, _overlayLarge).Generate();
+	}
+
+	[Benchmark(Description = "Merge small no-overlap")]
+	public byte[] MergeSmallNoOverlap() {
+		var overlay = new PansyLoader(GenerateMergeFile(100, "other", addressOffset: 200));
+		return PansyMerger.Merge(_baseSmall, overlay).Generate();
+	}
+
+	[Benchmark(Description = "Merge large full-overlap")]
+	public byte[] MergeLargeFullOverlap() {
+		return PansyMerger.Merge(_baseLarge, _baseLarge).Generate();
+	}
+}
