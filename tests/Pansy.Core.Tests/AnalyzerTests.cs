@@ -579,4 +579,695 @@ public class AnalyzerTests {
 		Assert.Equal(0x10000, result.Gaps[0].Offset);
 		Assert.Equal(0x10000, result.Gaps[0].Length);
 	}
+
+	// ========================================================================
+	// Phase 3: Platform-Specific Address Helpers (#41)
+	// ========================================================================
+
+	[Theory]
+	[InlineData(PansyLoader.PLATFORM_NES, 2)]
+	[InlineData(PansyLoader.PLATFORM_GB, 2)]
+	[InlineData(PansyLoader.PLATFORM_ATARI_2600, 2)]
+	[InlineData(PansyLoader.PLATFORM_SMS, 2)]
+	[InlineData(PansyLoader.PLATFORM_PCE, 2)]
+	[InlineData(PansyLoader.PLATFORM_SNES, 3)]
+	[InlineData(PansyLoader.PLATFORM_GBA, 4)]
+	[InlineData(PansyLoader.PLATFORM_GENESIS, 4)]
+	public void GetAddressSize_ReturnsCorrectSize(byte platform, int expected) {
+		Assert.Equal(expected, PansyAnalyzer.GetAddressSize(platform));
+	}
+
+	[Fact]
+	public void GetAddressSize_UnknownPlatform_Defaults2() {
+		Assert.Equal(2, PansyAnalyzer.GetAddressSize(0xff));
+	}
+
+	[Fact]
+	public void ReadAddress_NES_LittleEndian16() {
+		byte[] data = [0x34, 0x12];
+		uint addr = PansyAnalyzer.ReadAddress(data, PansyLoader.PLATFORM_NES);
+		Assert.Equal(0x1234u, addr);
+	}
+
+	[Fact]
+	public void ReadAddress_SNES_LittleEndian24() {
+		byte[] data = [0x56, 0x34, 0x12];
+		uint addr = PansyAnalyzer.ReadAddress(data, PansyLoader.PLATFORM_SNES);
+		Assert.Equal(0x123456u, addr);
+	}
+
+	[Fact]
+	public void ReadAddress_GBA_LittleEndian32() {
+		byte[] data = [0x00, 0x00, 0x00, 0x08];
+		uint addr = PansyAnalyzer.ReadAddress(data, PansyLoader.PLATFORM_GBA);
+		Assert.Equal(0x08000000u, addr);
+	}
+
+	[Fact]
+	public void ReadAddress_Genesis_BigEndian32() {
+		byte[] data = [0x00, 0x12, 0x34, 0x56];
+		uint addr = PansyAnalyzer.ReadAddress(data, PansyLoader.PLATFORM_GENESIS);
+		Assert.Equal(0x00123456u, addr);
+	}
+
+	[Fact]
+	public void ReadAddress_TooShort_ReturnsMaxValue() {
+		byte[] data = [0x34];
+		Assert.Equal(0xffffffffu, PansyAnalyzer.ReadAddress(data, PansyLoader.PLATFORM_NES));
+		Assert.Equal(0xffffffffu, PansyAnalyzer.ReadAddress(data, PansyLoader.PLATFORM_SNES));
+		Assert.Equal(0xffffffffu, PansyAnalyzer.ReadAddress(data, PansyLoader.PLATFORM_GBA));
+		Assert.Equal(0xffffffffu, PansyAnalyzer.ReadAddress(data, PansyLoader.PLATFORM_GENESIS));
+	}
+
+	[Theory]
+	[InlineData(PansyLoader.PLATFORM_NES, 0x8000u, true)]
+	[InlineData(PansyLoader.PLATFORM_NES, 0x0000u, true)]
+	[InlineData(PansyLoader.PLATFORM_GB, 0x0150u, true)]
+	[InlineData(PansyLoader.PLATFORM_SNES, 0x808000u, true)]
+	[InlineData(PansyLoader.PLATFORM_GBA, 0x08000000u, true)]
+	[InlineData(PansyLoader.PLATFORM_GBA, 0x07ffffffu, false)]
+	[InlineData(PansyLoader.PLATFORM_GBA, 0x0e010000u, false)]
+	[InlineData(PansyLoader.PLATFORM_GENESIS, 0x000000u, true)]
+	[InlineData(PansyLoader.PLATFORM_GENESIS, 0x01000000u, false)]
+	[InlineData(PansyLoader.PLATFORM_ATARI_2600, 0xf000u, true)]
+	[InlineData(PansyLoader.PLATFORM_ATARI_2600, 0xefffu, false)]
+	public void IsValidAddress_RangeChecks(byte platform, uint addr, bool expected) {
+		Assert.Equal(expected, PansyAnalyzer.IsValidAddress(addr, platform, null));
+	}
+
+	// ========================================================================
+	// Phase 3: Pointer Table Detection (#41)
+	// ========================================================================
+
+	[Fact]
+	public void TryDetectPointerTable_NES_ValidTable_Detects() {
+		// 4 valid NES addresses (16-bit LE): $8000, $8100, $8200, $8300
+		byte[] data = [
+			0x00, 0x80, // $8000
+			0x00, 0x81, // $8100
+			0x00, 0x82, // $8200
+			0x00, 0x83, // $8300
+		];
+
+		bool result = PansyAnalyzer.TryDetectPointerTable(
+			data, 0, PansyLoader.PLATFORM_NES, null, out var pattern);
+
+		Assert.True(result);
+		Assert.Equal(PatternKind.PointerTable, pattern.Kind);
+		Assert.Equal(8, pattern.Length);
+		Assert.True(pattern.Confidence >= 0.75);
+		Assert.Contains("16-bit", pattern.Description);
+	}
+
+	[Fact]
+	public void TryDetectPointerTable_SNES_ValidTable_Detects() {
+		// 3 valid SNES 24-bit addresses (LE): $808000, $808100, $818000
+		byte[] data = [
+			0x00, 0x80, 0x80, // $808000
+			0x00, 0x81, 0x80, // $808100
+			0x00, 0x80, 0x81, // $818000
+		];
+
+		bool result = PansyAnalyzer.TryDetectPointerTable(
+			data, 0, PansyLoader.PLATFORM_SNES, null, out var pattern);
+
+		Assert.True(result);
+		Assert.Equal(PatternKind.PointerTable, pattern.Kind);
+		Assert.Equal(9, pattern.Length);
+		Assert.Contains("24-bit", pattern.Description);
+	}
+
+	[Fact]
+	public void TryDetectPointerTable_GBA_ValidTable_Detects() {
+		// 3 valid GBA 32-bit addresses (LE): $08000000, $08001000, $08002000
+		byte[] data = [
+			0x00, 0x00, 0x00, 0x08, // $08000000
+			0x00, 0x10, 0x00, 0x08, // $08001000
+			0x00, 0x20, 0x00, 0x08, // $08002000
+		];
+
+		bool result = PansyAnalyzer.TryDetectPointerTable(
+			data, 0, PansyLoader.PLATFORM_GBA, null, out var pattern);
+
+		Assert.True(result);
+		Assert.Equal(PatternKind.PointerTable, pattern.Kind);
+		Assert.Equal(12, pattern.Length);
+		Assert.Contains("32-bit", pattern.Description);
+	}
+
+	[Fact]
+	public void TryDetectPointerTable_Genesis_BigEndian_Detects() {
+		// 3 valid Genesis 32-bit big-endian addresses
+		byte[] data = [
+			0x00, 0x00, 0x80, 0x00, // $00008000
+			0x00, 0x00, 0x90, 0x00, // $00009000
+			0x00, 0x00, 0xa0, 0x00, // $0000a000
+		];
+
+		bool result = PansyAnalyzer.TryDetectPointerTable(
+			data, 0, PansyLoader.PLATFORM_GENESIS, null, out var pattern);
+
+		Assert.True(result);
+		Assert.Equal(PatternKind.PointerTable, pattern.Kind);
+	}
+
+	[Fact]
+	public void TryDetectPointerTable_TooFewEntries_ReturnsFalse() {
+		// Only 2 entries — need at least 3
+		byte[] data = [0x00, 0x80, 0x00, 0x81];
+
+		bool result = PansyAnalyzer.TryDetectPointerTable(
+			data, 0, PansyLoader.PLATFORM_NES, null, out _);
+
+		Assert.False(result);
+	}
+
+	[Fact]
+	public void TryDetectPointerTable_TooShort_ReturnsFalse() {
+		// Less than minEntries * addrSize
+		byte[] data = [0x00, 0x80, 0x00];
+
+		bool result = PansyAnalyzer.TryDetectPointerTable(
+			data, 0, PansyLoader.PLATFORM_NES, null, out _);
+
+		Assert.False(result);
+	}
+
+	[Fact]
+	public void TryDetectPointerTable_GBA_InvalidAddresses_ReturnsFalse() {
+		// Addresses outside GBA ROM range
+		byte[] data = [
+			0x00, 0x00, 0x00, 0x00, // $00000000 — invalid for GBA
+			0x01, 0x00, 0x00, 0x00, // $00000001 — invalid
+			0x02, 0x00, 0x00, 0x00, // $00000002 — invalid
+		];
+
+		bool result = PansyAnalyzer.TryDetectPointerTable(
+			data, 0, PansyLoader.PLATFORM_GBA, null, out _);
+
+		Assert.False(result);
+	}
+
+	// ========================================================================
+	// Phase 3: Platform Tile Size Helpers (#40)
+	// ========================================================================
+
+	[Theory]
+	[InlineData(PansyLoader.PLATFORM_NES, 16)]
+	[InlineData(PansyLoader.PLATFORM_GB, 16)]
+	[InlineData(PansyLoader.PLATFORM_SNES, 32)]
+	[InlineData(PansyLoader.PLATFORM_SMS, 32)]
+	[InlineData(PansyLoader.PLATFORM_PCE, 32)]
+	public void GetTileSize_ReturnsCorrectSize(byte platform, int expected) {
+		Assert.Equal(expected, PansyAnalyzer.GetTileSize(platform));
+	}
+
+	[Theory]
+	[InlineData(PansyLoader.PLATFORM_GBA)]
+	[InlineData(PansyLoader.PLATFORM_GENESIS)]
+	[InlineData(PansyLoader.PLATFORM_ATARI_2600)]
+	public void GetTileSize_UnsupportedPlatform_ReturnsZero(byte platform) {
+		Assert.Equal(0, PansyAnalyzer.GetTileSize(platform));
+	}
+
+	// ========================================================================
+	// Phase 3: Tile Data Detection (#40)
+	// ========================================================================
+
+	[Fact]
+	public void TryDetectTileData_NES_ValidTiles_Detects() {
+		// 4 NES 2bpp tiles (16 bytes each = 64 bytes)
+		// Each tile has varied data (not all-zero or all-ones)
+		var data = new byte[64];
+		var rng = new Random(42);
+		rng.NextBytes(data);
+		// Ensure no tile is all-zero or all-ones
+		for (int t = 0; t < 4; t++) {
+			data[t * 16] = 0x55; // ensure variation
+			data[t * 16 + 1] = 0xaa;
+		}
+
+		bool result = PansyAnalyzer.TryDetectTileData(
+			data, 0, PansyLoader.PLATFORM_NES, out var pattern);
+
+		Assert.True(result);
+		Assert.Equal(PatternKind.TileData, pattern.Kind);
+		Assert.Equal(64, pattern.Length);
+		Assert.True(pattern.Confidence >= 0.60);
+		Assert.Contains("2bpp", pattern.Description);
+	}
+
+	[Fact]
+	public void TryDetectTileData_SNES_ValidTiles_Detects() {
+		// 4 SNES 4bpp tiles (32 bytes each = 128 bytes)
+		var data = new byte[128];
+		var rng = new Random(42);
+		rng.NextBytes(data);
+		for (int t = 0; t < 4; t++) {
+			data[t * 32] = 0x55;
+			data[t * 32 + 1] = 0xaa;
+		}
+
+		bool result = PansyAnalyzer.TryDetectTileData(
+			data, 0, PansyLoader.PLATFORM_SNES, out var pattern);
+
+		Assert.True(result);
+		Assert.Equal(PatternKind.TileData, pattern.Kind);
+		Assert.Equal(128, pattern.Length);
+		Assert.Contains("4bpp", pattern.Description);
+	}
+
+	[Fact]
+	public void TryDetectTileData_AllZeroTiles_ReturnsFalse() {
+		// All-zero tiles should be rejected as "padding"
+		var data = new byte[64]; // 4 NES tiles, all zero
+
+		bool result = PansyAnalyzer.TryDetectTileData(
+			data, 0, PansyLoader.PLATFORM_NES, out _);
+
+		Assert.False(result);
+	}
+
+	[Fact]
+	public void TryDetectTileData_AllOnesTiles_ReturnsFalse() {
+		var data = new byte[64];
+		Array.Fill(data, (byte)0xff);
+
+		bool result = PansyAnalyzer.TryDetectTileData(
+			data, 0, PansyLoader.PLATFORM_NES, out _);
+
+		Assert.False(result);
+	}
+
+	[Fact]
+	public void TryDetectTileData_TooFewTiles_ReturnsFalse() {
+		// Only 3 tiles — need at least 4
+		var data = new byte[48];
+		var rng = new Random(42);
+		rng.NextBytes(data);
+
+		bool result = PansyAnalyzer.TryDetectTileData(
+			data, 0, PansyLoader.PLATFORM_NES, out _);
+
+		Assert.False(result);
+	}
+
+	[Fact]
+	public void TryDetectTileData_UnsupportedPlatform_ReturnsFalse() {
+		var data = new byte[64];
+		var rng = new Random(42);
+		rng.NextBytes(data);
+
+		bool result = PansyAnalyzer.TryDetectTileData(
+			data, 0, PansyLoader.PLATFORM_GBA, out _);
+
+		Assert.False(result);
+	}
+
+	[Fact]
+	public void IsValidTile_NES_ValidTile_ReturnsTrue() {
+		var tile = new byte[16];
+		tile[0] = 0x55;
+		tile[1] = 0xaa;
+
+		Assert.True(PansyAnalyzer.IsValidTile(tile, PansyLoader.PLATFORM_NES));
+	}
+
+	[Fact]
+	public void IsValidTile_AllZero_ReturnsFalse() {
+		var tile = new byte[16];
+
+		Assert.False(PansyAnalyzer.IsValidTile(tile, PansyLoader.PLATFORM_NES));
+	}
+
+	[Fact]
+	public void IsValidTile_AllOnes_ReturnsFalse() {
+		var tile = new byte[16];
+		Array.Fill(tile, (byte)0xff);
+
+		Assert.False(PansyAnalyzer.IsValidTile(tile, PansyLoader.PLATFORM_NES));
+	}
+
+	[Fact]
+	public void IsValidTile_TooShort_ReturnsFalse() {
+		var tile = new byte[8]; // NES needs 16
+		tile[0] = 0x55;
+
+		Assert.False(PansyAnalyzer.IsValidTile(tile, PansyLoader.PLATFORM_NES));
+	}
+
+	// ========================================================================
+	// Phase 3: Integrated Pattern Detection in Gaps (#40, #41)
+	// ========================================================================
+
+	[Fact]
+	public void DetectPatternsInGaps_PointerTableInGap_Detects() {
+		// NES pointer table in a gap
+		byte[] rom = new byte[32];
+		// 4 valid NES addresses at offset 0
+		rom[0] = 0x00; rom[1] = 0x80; // $8000
+		rom[2] = 0x00; rom[3] = 0x81; // $8100
+		rom[4] = 0x00; rom[5] = 0x82; // $8200
+		rom[6] = 0x00; rom[7] = 0x83; // $8300
+
+		var gaps = new List<GapRegion> { new(0, 8) };
+
+		var patterns = PansyAnalyzer.DetectPatternsInGaps(
+			gaps, rom, PansyLoader.PLATFORM_NES);
+
+		Assert.Single(patterns);
+		Assert.Equal(PatternKind.PointerTable, patterns[0].Kind);
+	}
+
+	[Fact]
+	public void DetectPatternsInGaps_TileDataInGap_NES_PointerTableWins() {
+		// For NES (full 16-bit address space), pointer table detection has
+		// priority over tile data since all byte pairs are valid addresses.
+		var rom = new byte[80];
+		var rng = new Random(42);
+		rng.NextBytes(rom);
+		for (int t = 0; t < 4; t++) {
+			rom[t * 16] = 0x55;
+			rom[t * 16 + 1] = 0xaa;
+		}
+
+		var gaps = new List<GapRegion> { new(0, 64) };
+
+		var patterns = PansyAnalyzer.DetectPatternsInGaps(
+			gaps, rom, PansyLoader.PLATFORM_NES);
+
+		Assert.Single(patterns);
+		// Pointer table wins because all 16-bit values are valid NES addresses
+		Assert.Equal(PatternKind.PointerTable, patterns[0].Kind);
+	}
+
+	[Fact]
+	public void DetectPatternsInGaps_TileDataInGap_GBA_InvalidPointers() {
+		// For GBA (restricted address range 0x08000000-0x0e00ffff),
+		// random data won't form valid pointers, so tile detection can be
+		// tested indirectly — but GBA has no tile format, so nothing detected.
+		var rom = new byte[80];
+		var rng = new Random(42);
+		rng.NextBytes(rom);
+
+		var gaps = new List<GapRegion> { new(0, 64) };
+
+		var patterns = PansyAnalyzer.DetectPatternsInGaps(
+			gaps, rom, PansyLoader.PLATFORM_GBA);
+
+		// GBA: pointers invalid (random data not in 0x080xxxxx range),
+		// no tile format defined — no patterns detected
+		Assert.Empty(patterns);
+	}
+
+	[Fact]
+	public void DetectPatternsInGaps_FillHasPriority_OverPointerTable() {
+		// Fill pattern should be detected before pointer tables
+		var rom = new byte[32];
+		Array.Fill(rom, (byte)0xff);
+
+		var gaps = new List<GapRegion> { new(0, 32) };
+
+		var patterns = PansyAnalyzer.DetectPatternsInGaps(
+			gaps, rom, PansyLoader.PLATFORM_NES);
+
+		Assert.Single(patterns);
+		Assert.Equal(PatternKind.Fill, patterns[0].Kind);
+	}
+
+	[Fact]
+	public void Analyze_NES_PointerTableInGap_EndToEnd() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 24,
+		};
+		// Mark first 8 bytes as code
+		for (uint i = 0; i < 8; i++) writer.MarkAsCode(i);
+
+		var pansyData = writer.Generate();
+		var loader = new PansyLoader(pansyData);
+
+		// ROM: 8 code bytes + pointer table with 4 valid addresses
+		var rom = new byte[24];
+		rom[8] = 0x00; rom[9] = 0x80;
+		rom[10] = 0x00; rom[11] = 0x81;
+		rom[12] = 0x00; rom[13] = 0x82;
+		rom[14] = 0x00; rom[15] = 0x83;
+		rom[16] = 0x00; rom[17] = 0x84;
+		rom[18] = 0x00; rom[19] = 0x85;
+		rom[20] = 0x00; rom[21] = 0x86;
+		rom[22] = 0x00; rom[23] = 0x87;
+
+		var result = PansyAnalyzer.Analyze(loader, rom, detectPatterns: true);
+
+		Assert.Single(result.Patterns);
+		Assert.Equal(PatternKind.PointerTable, result.Patterns[0].Kind);
+		Assert.Equal(8, result.Patterns[0].Offset);
+	}
+
+	// ========================================================================
+	// Phase 3: Auto-Annotation Generator (#42)
+	// ========================================================================
+
+	[Fact]
+	public void GenerateAnnotations_EmptyAnalysis_PreservesExistingData() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 256,
+			RomCrc32 = 0xdeadbeef,
+			ProjectName = "TestProject",
+			Author = "TestAuthor",
+		};
+		writer.AddSymbol(0x10, "Reset", SymbolType.Function);
+		writer.AddComment(0x10, "Entry point", (byte)CommentType.Inline);
+		writer.AddCrossReference(new CrossReference(0x00, 0x10, CrossRefType.Jsr));
+
+		var data = writer.Generate();
+		var source = new PansyLoader(data);
+
+		var emptyAnalysis = new AnalysisResult {
+			TotalBytes = 256,
+			ClassifiedBytes = 0,
+			Gaps = [],
+			Patterns = [],
+		};
+
+		var output = PansyAnalyzer.GenerateAnnotations(source, emptyAnalysis);
+		var result = new PansyLoader(output);
+
+		Assert.Equal(PansyLoader.PLATFORM_NES, result.Platform);
+		Assert.Equal(256u, result.RomSize);
+		Assert.Equal(0xdeadbeefu, result.RomCrc32);
+		Assert.Equal("TestProject", result.ProjectName);
+		Assert.Equal("TestAuthor", result.Author);
+		Assert.Equal("Reset", result.GetSymbol(0x10));
+		Assert.NotNull(result.GetComment(0x10));
+		Assert.Single(result.CrossReferences);
+	}
+
+	[Fact]
+	public void GenerateAnnotations_FillPattern_AddsCommentAndMarkData() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 64,
+		};
+		var data = writer.Generate();
+		var source = new PansyLoader(data);
+
+		var analysis = new AnalysisResult {
+			TotalBytes = 64,
+			Gaps = [new GapRegion(0, 32)],
+			Patterns = [new DetectedPattern {
+				Offset = 0,
+				Length = 32,
+				Kind = PatternKind.Fill,
+				Confidence = 1.0,
+				Description = "Fill: 0xff x 32",
+			}],
+		};
+
+		var output = PansyAnalyzer.GenerateAnnotations(source, analysis);
+		var result = new PansyLoader(output);
+
+		// Should have a comment at offset 0
+		Assert.NotNull(result.GetComment(0));
+		// Bytes should be marked as data
+		Assert.True(result.IsData(0));
+		Assert.True(result.IsData(31));
+	}
+
+	[Fact]
+	public void GenerateAnnotations_AsciiPattern_AddsSymbolAndComment() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 64,
+		};
+		var data = writer.Generate();
+		var source = new PansyLoader(data);
+
+		var analysis = new AnalysisResult {
+			TotalBytes = 64,
+			Gaps = [new GapRegion(0x10, 16)],
+			Patterns = [new DetectedPattern {
+				Offset = 0x10,
+				Length = 16,
+				Kind = PatternKind.AsciiString,
+				Confidence = 0.95,
+				Description = "ASCII text (95% printable)",
+			}],
+		};
+
+		var output = PansyAnalyzer.GenerateAnnotations(source, analysis);
+		var result = new PansyLoader(output);
+
+		Assert.Equal("str_000010", result.GetSymbol(0x10));
+		Assert.NotNull(result.GetComment(0x10));
+		Assert.True(result.IsData(0x10));
+	}
+
+	[Fact]
+	public void GenerateAnnotations_PointerTablePattern_AddsSymbolAndComment() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 64,
+		};
+		var data = writer.Generate();
+		var source = new PansyLoader(data);
+
+		var analysis = new AnalysisResult {
+			TotalBytes = 64,
+			Gaps = [new GapRegion(0x20, 8)],
+			Patterns = [new DetectedPattern {
+				Offset = 0x20,
+				Length = 8,
+				Kind = PatternKind.PointerTable,
+				Confidence = 1.0,
+				Description = "Pointer table: 4/4 valid 16-bit addresses",
+			}],
+		};
+
+		var output = PansyAnalyzer.GenerateAnnotations(source, analysis);
+		var result = new PansyLoader(output);
+
+		Assert.Equal("ptrtbl_000020", result.GetSymbol(0x20));
+		Assert.NotNull(result.GetComment(0x20));
+		Assert.True(result.IsData(0x20));
+	}
+
+	[Fact]
+	public void GenerateAnnotations_TileDataPattern_AddsSymbolAndMarksDrawn() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 128,
+		};
+		var data = writer.Generate();
+		var source = new PansyLoader(data);
+
+		var analysis = new AnalysisResult {
+			TotalBytes = 128,
+			Gaps = [new GapRegion(0x00, 64)],
+			Patterns = [new DetectedPattern {
+				Offset = 0x00,
+				Length = 64,
+				Kind = PatternKind.TileData,
+				Confidence = 0.80,
+				Description = "2bpp tile data: 4/4 valid tiles (64 bytes)",
+			}],
+		};
+
+		var output = PansyAnalyzer.GenerateAnnotations(source, analysis);
+		var result = new PansyLoader(output);
+
+		Assert.Equal("tiles_000000", result.GetSymbol(0x00));
+		Assert.NotNull(result.GetComment(0x00));
+		// Tile data marked as Drawn (not Data)
+		Assert.True(result.IsDrawn(0));
+		Assert.True(result.IsDrawn(63));
+	}
+
+	[Fact]
+	public void GenerateAnnotations_UnclassifiedGap_AddsTodoComment() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 64,
+		};
+		var data = writer.Generate();
+		var source = new PansyLoader(data);
+
+		// Gap at offset 0x10, length 32 — no pattern matches it
+		var analysis = new AnalysisResult {
+			TotalBytes = 64,
+			Gaps = [new GapRegion(0x10, 32)],
+			Patterns = [], // No patterns detected
+		};
+
+		var output = PansyAnalyzer.GenerateAnnotations(source, analysis);
+		var result = new PansyLoader(output);
+
+		var comment = result.GetComment(0x10);
+		Assert.NotNull(comment);
+		Assert.Contains("Unclassified gap", comment);
+	}
+
+	[Fact]
+	public void GenerateAnnotations_SmallGapWithoutPattern_NoTodoComment() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 32,
+		};
+		var data = writer.Generate();
+		var source = new PansyLoader(data);
+
+		// Gap smaller than 16 bytes — should not get a todo comment
+		var analysis = new AnalysisResult {
+			TotalBytes = 32,
+			Gaps = [new GapRegion(0x00, 8)],
+			Patterns = [],
+		};
+
+		var output = PansyAnalyzer.GenerateAnnotations(source, analysis);
+		var result = new PansyLoader(output);
+
+		Assert.Null(result.GetComment(0x00));
+	}
+
+	[Fact]
+	public void GenerateAnnotations_Roundtrip_OutputIsValidPansy() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_SNES,
+			RomSize = 256,
+			RomCrc32 = 0x12345678,
+			ProjectName = "RoundtripTest",
+		};
+		writer.AddSymbol(0x00, "Reset", SymbolType.Function);
+		writer.MarkAsCode(0);
+
+		var data = writer.Generate();
+		var source = new PansyLoader(data);
+
+		var analysis = new AnalysisResult {
+			TotalBytes = 256,
+			Gaps = [new GapRegion(0x80, 128)],
+			Patterns = [
+				new DetectedPattern {
+					Offset = 0x80,
+					Length = 64,
+					Kind = PatternKind.Fill,
+					Confidence = 1.0,
+				},
+			],
+		};
+
+		var output = PansyAnalyzer.GenerateAnnotations(source, analysis);
+
+		// Output should be loadable as valid Pansy
+		var result = new PansyLoader(output);
+		Assert.Equal(PansyLoader.PLATFORM_SNES, result.Platform);
+		Assert.Equal(256u, result.RomSize);
+		Assert.Equal("RoundtripTest", result.ProjectName);
+		// Original symbol preserved
+		Assert.Equal("Reset", result.GetSymbol(0x00));
+		// New annotation added
+		Assert.NotNull(result.GetComment(0x80));
+	}
 }

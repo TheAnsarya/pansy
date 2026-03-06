@@ -80,6 +80,10 @@ public enum PatternKind : byte {
 	Fill,
 	/// <summary>Printable ASCII text.</summary>
 	AsciiString,
+	/// <summary>Table of ROM/RAM addresses.</summary>
+	PointerTable,
+	/// <summary>Platform-specific graphics tile data.</summary>
+	TileData,
 	/// <summary>Unknown/unidentifiable data.</summary>
 	Unknown,
 }
@@ -214,7 +218,7 @@ public static class PansyAnalyzer {
 
 		// Pattern detection (Phase 2) — only on gaps
 		var patterns = detectPatterns
-			? DetectPatternsInGaps(gaps, romData)
+			? DetectPatternsInGaps(gaps, romData, loader.Platform, loader)
 			: [];
 
 		return new AnalysisResult {
@@ -326,7 +330,8 @@ public static class PansyAnalyzer {
 	/// Detect data patterns in unclassified gap regions.
 	/// </summary>
 	public static List<DetectedPattern> DetectPatternsInGaps(
-		IReadOnlyList<GapRegion> gaps, byte[] romData) {
+		IReadOnlyList<GapRegion> gaps, byte[] romData,
+		byte platform = 0, PansyLoader? loader = null) {
 		var patterns = new List<DetectedPattern>();
 
 		foreach (var gap in gaps) {
@@ -337,6 +342,10 @@ public static class PansyAnalyzer {
 				patterns.Add(fill);
 			} else if (TryDetectAsciiString(span, gap.Offset, out var str)) {
 				patterns.Add(str);
+			} else if (TryDetectPointerTable(span, gap.Offset, platform, loader, out var ptrs)) {
+				patterns.Add(ptrs);
+			} else if (TryDetectTileData(span, gap.Offset, platform, out var tile)) {
+				patterns.Add(tile);
 			}
 		}
 
@@ -403,5 +412,319 @@ public static class PansyAnalyzer {
 
 		pattern = default!;
 		return false;
+	}
+
+	// ========================================================================
+	// Phase 3: Platform-specific pattern detection
+	// ========================================================================
+
+	/// <summary>
+	/// Detect pointer/address tables — sequences of valid addresses for the platform.
+	/// Requires at least 3 consecutive valid addresses (6+ bytes for 16-bit platforms).
+	/// </summary>
+	public static bool TryDetectPointerTable(
+		ReadOnlySpan<byte> data, int offset, byte platform,
+		PansyLoader? loader, out DetectedPattern pattern) {
+		int addrSize = GetAddressSize(platform);
+		int minEntries = 3;
+
+		if (data.Length < addrSize * minEntries) {
+			pattern = default!;
+			return false;
+		}
+
+		int entryCount = data.Length / addrSize;
+		int validCount = 0;
+
+		for (int i = 0; i < entryCount; i++) {
+			var entry = data.Slice(i * addrSize, addrSize);
+			uint addr = ReadAddress(entry, platform);
+
+			if (IsValidAddress(addr, platform, loader)) {
+				validCount++;
+			}
+		}
+
+		double ratio = (double)validCount / entryCount;
+		if (ratio >= 0.75 && validCount >= minEntries) {
+			int tableBytes = entryCount * addrSize;
+			pattern = new DetectedPattern {
+				Offset = offset,
+				Length = tableBytes,
+				Kind = PatternKind.PointerTable,
+				Confidence = ratio,
+				Description = $"Pointer table: {validCount}/{entryCount} valid {addrSize * 8}-bit addresses",
+			};
+			return true;
+		}
+
+		pattern = default!;
+		return false;
+	}
+
+	/// <summary>
+	/// Detect platform-specific graphics tile data.
+	/// NES: 2bpp planar tiles (16 bytes/tile)
+	/// GB: 2bpp interleaved tiles (16 bytes/tile)
+	/// SNES: 2bpp/4bpp tiles (16 or 32 bytes/tile)
+	/// </summary>
+	public static bool TryDetectTileData(
+		ReadOnlySpan<byte> data, int offset, byte platform,
+		out DetectedPattern pattern) {
+		int tileSize = GetTileSize(platform);
+
+		// Need at least 4 complete tiles
+		if (tileSize == 0 || data.Length < tileSize * 4) {
+			pattern = default!;
+			return false;
+		}
+
+		int tileCount = data.Length / tileSize;
+		int validTiles = 0;
+
+		for (int i = 0; i < tileCount; i++) {
+			var tile = data.Slice(i * tileSize, tileSize);
+			if (IsValidTile(tile, platform)) {
+				validTiles++;
+			}
+		}
+
+		double ratio = (double)validTiles / tileCount;
+		if (ratio >= 0.60 && validTiles >= 4) {
+			int totalBytes = tileCount * tileSize;
+			string bpp = platform switch {
+				PansyLoader.PLATFORM_NES => "2bpp",
+				PansyLoader.PLATFORM_GB => "2bpp",
+				PansyLoader.PLATFORM_SNES => tileSize == 32 ? "4bpp" : "2bpp",
+				_ => $"{tileSize * 8 / 64}bpp",
+			};
+			pattern = new DetectedPattern {
+				Offset = offset,
+				Length = totalBytes,
+				Kind = PatternKind.TileData,
+				Confidence = ratio,
+				Description = $"{bpp} tile data: {validTiles}/{tileCount} valid tiles ({totalBytes} bytes)",
+			};
+			return true;
+		}
+
+		pattern = default!;
+		return false;
+	}
+
+	/// <summary>
+	/// Get the native address size in bytes for a platform.
+	/// </summary>
+	public static int GetAddressSize(byte platform) => platform switch {
+		PansyLoader.PLATFORM_NES => 2,
+		PansyLoader.PLATFORM_GB => 2,
+		PansyLoader.PLATFORM_ATARI_2600 => 2,
+		PansyLoader.PLATFORM_SMS => 2,
+		PansyLoader.PLATFORM_PCE => 2,
+		PansyLoader.PLATFORM_SNES => 3, // 24-bit
+		PansyLoader.PLATFORM_GBA => 4, // 32-bit ARM
+		PansyLoader.PLATFORM_GENESIS => 4, // 32-bit 68k
+		_ => 2, // default to 16-bit
+	};
+
+	/// <summary>
+	/// Read an address from a byte span in the platform's native format.
+	/// </summary>
+	public static uint ReadAddress(ReadOnlySpan<byte> data, byte platform) {
+		if (platform == PansyLoader.PLATFORM_GENESIS) {
+			// M68000: big-endian 32-bit
+			if (data.Length < 4) return 0xffffffff;
+			return ((uint)data[0] << 24) | ((uint)data[1] << 16) |
+				   ((uint)data[2] << 8) | data[3];
+		}
+		if (platform == PansyLoader.PLATFORM_GBA) {
+			// ARM7TDMI: little-endian 32-bit
+			if (data.Length < 4) return 0xffffffff;
+			return data[0] | ((uint)data[1] << 8) |
+				   ((uint)data[2] << 16) | ((uint)data[3] << 24);
+		}
+		if (platform == PansyLoader.PLATFORM_SNES) {
+			// 65816: little-endian 24-bit
+			if (data.Length < 3) return 0xffffffff;
+			return data[0] | ((uint)data[1] << 8) | ((uint)data[2] << 16);
+		}
+		// Default: little-endian 16-bit
+		if (data.Length < 2) return 0xffffffff;
+		return (uint)(data[0] | (data[1] << 8));
+	}
+
+	/// <summary>
+	/// Check if an address is valid for the platform's address space.
+	/// Optionally validates against known symbols/code in the loader.
+	/// </summary>
+	public static bool IsValidAddress(uint addr, byte platform, PansyLoader? loader) {
+		// Platform-specific address range validation
+		bool inRange = platform switch {
+			PansyLoader.PLATFORM_NES => addr is (>= 0x0000 and <= 0xffff),
+			PansyLoader.PLATFORM_GB => addr is (>= 0x0000 and <= 0xffff),
+			PansyLoader.PLATFORM_SNES => addr is (>= 0x000000 and <= 0xffffff),
+			PansyLoader.PLATFORM_GBA => addr is (>= 0x08000000 and <= 0x0e00ffff),
+			PansyLoader.PLATFORM_GENESIS => addr is (>= 0x000000 and <= 0xffffff),
+			PansyLoader.PLATFORM_ATARI_2600 => addr is (>= 0xf000 and <= 0xffff),
+			_ => addr <= 0xffff,
+		};
+
+		if (!inRange) return false;
+
+		// If loader available, check if address points to known code/data
+		if (loader != null) {
+			int intAddr = (int)addr;
+			if (loader.IsCode(intAddr) || loader.IsData(intAddr) ||
+				loader.GetSymbol(intAddr) != null) {
+				return true;
+			}
+		}
+
+		return inRange;
+	}
+
+	/// <summary>
+	/// Get the tile size in bytes for a platform's native tile format.
+	/// Returns 0 for platforms without standard tile formats.
+	/// </summary>
+	public static int GetTileSize(byte platform) => platform switch {
+		PansyLoader.PLATFORM_NES => 16,   // 2bpp planar, 8x8
+		PansyLoader.PLATFORM_GB => 16,    // 2bpp interleaved, 8x8
+		PansyLoader.PLATFORM_SNES => 32,  // 4bpp planar, 8x8 (most common)
+		PansyLoader.PLATFORM_SMS => 32,   // 4bpp planar, 8x8
+		PansyLoader.PLATFORM_PCE => 32,   // 4bpp, 8x8
+		_ => 0,
+	};
+
+	/// <summary>
+	/// Validate tile data structure for a platform.
+	/// Checks that the tile has realistic bit patterns (not all 0x00 or 0xff,
+	/// reasonable bit distribution suggesting actual graphics).
+	/// </summary>
+	public static bool IsValidTile(ReadOnlySpan<byte> tile, byte platform) {
+		int tileSize = GetTileSize(platform);
+		if (tile.Length < tileSize) return false;
+
+		// Reject tiles that are entirely zero or entirely 0xff (likely padding)
+		bool allZero = true;
+		bool allOnes = true;
+		for (int i = 0; i < tileSize; i++) {
+			if (tile[i] != 0x00) allZero = false;
+			if (tile[i] != 0xff) allOnes = false;
+			if (!allZero && !allOnes) break;
+		}
+		if (allZero || allOnes) return false;
+
+		// Check for reasonable byte variety (at least 2 distinct values)
+		int distinctValues = 0;
+		Span<bool> seen = stackalloc bool[256];
+		seen.Clear();
+		for (int i = 0; i < tileSize; i++) {
+			if (!seen[tile[i]]) {
+				seen[tile[i]] = true;
+				distinctValues++;
+				if (distinctValues >= 2) return true;
+			}
+		}
+
+		return distinctValues >= 2;
+	}
+
+	// ========================================================================
+	// Phase 3: Auto-Annotation Generator (#42)
+	// ========================================================================
+
+	/// <summary>
+	/// Generate annotations from analysis results and write an enriched Pansy file.
+	/// Adds symbols, comments, and memory regions for detected patterns.
+	/// </summary>
+	public static byte[] GenerateAnnotations(
+		PansyLoader source, AnalysisResult analysis) {
+		var writer = new PansyWriter {
+			Platform = source.Platform,
+			RomSize = source.RomSize,
+			RomCrc32 = source.RomCrc32,
+			ProjectName = source.ProjectName,
+			Author = source.Author,
+			ProjectVersion = source.ProjectVersion,
+		};
+
+		// Copy existing symbols
+		foreach (var kvp in source.AllSymbolEntries) {
+			foreach (var entry in kvp.Value) {
+				writer.AddSymbol((uint)kvp.Key, entry.Name, entry.Type);
+			}
+		}
+
+		// Copy existing comments
+		foreach (var kvp in source.AllCommentEntries) {
+			foreach (var entry in kvp.Value) {
+				writer.AddComment((uint)kvp.Key, entry.Text, (byte)entry.Type);
+			}
+		}
+
+		// Copy existing cross-references
+		foreach (var xref in source.CrossReferences) {
+			writer.AddCrossReference(xref);
+		}
+
+		// Copy existing memory regions
+		foreach (var region in source.MemoryRegions) {
+			writer.AddMemoryRegion(region);
+		}
+
+		// Add annotations from detected patterns
+		foreach (var pattern in analysis.Patterns) {
+			uint addr = (uint)pattern.Offset;
+			switch (pattern.Kind) {
+				case PatternKind.Fill:
+					writer.AddComment(addr, pattern.Description ?? $"Padding ({pattern.Length} bytes)", (byte)CommentType.Inline);
+					for (int i = 0; i < pattern.Length; i++) {
+						writer.MarkAsData((uint)(pattern.Offset + i));
+					}
+					break;
+
+				case PatternKind.AsciiString:
+					writer.AddSymbol(addr, $"str_{addr:x6}", SymbolType.Label);
+					writer.AddComment(addr, pattern.Description ?? "ASCII string", (byte)CommentType.Inline);
+					for (int i = 0; i < pattern.Length; i++) {
+						writer.MarkAsData((uint)(pattern.Offset + i));
+					}
+					break;
+
+				case PatternKind.PointerTable:
+					writer.AddSymbol(addr, $"ptrtbl_{addr:x6}", SymbolType.Label);
+					writer.AddComment(addr, pattern.Description ?? "Pointer table", (byte)CommentType.Inline);
+					for (int i = 0; i < pattern.Length; i++) {
+						writer.MarkAsData((uint)(pattern.Offset + i));
+					}
+					break;
+
+				case PatternKind.TileData:
+					writer.AddSymbol(addr, $"tiles_{addr:x6}", SymbolType.Label);
+					writer.AddComment(addr, pattern.Description ?? "Tile data", (byte)CommentType.Inline);
+					for (int i = 0; i < pattern.Length; i++) {
+						writer.MarkAsDrawn((uint)(pattern.Offset + i));
+					}
+					break;
+			}
+		}
+
+		// Add annotations for gaps without patterns
+		foreach (var gap in analysis.Gaps) {
+			bool hasPattern = false;
+			foreach (var p in analysis.Patterns) {
+				if (p.Offset == gap.Offset) {
+					hasPattern = true;
+					break;
+				}
+			}
+			if (!hasPattern && gap.Length >= 16) {
+				writer.AddComment((uint)gap.Offset,
+					$"Unclassified gap: {gap.Length} bytes", (byte)CommentType.Todo);
+			}
+		}
+
+		return writer.Generate();
 	}
 }
