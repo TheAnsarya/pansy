@@ -103,7 +103,7 @@ dotnet run --project src/Pansy.Cli -- xrefs game.pansy 32784
 dotnet run --project src/Pansy.Cli -- diff original.pansy modified.pansy
 
 # Analyze coverage and detect patterns
-dotnet run --project src/Pansy.Cli -- analyze game.pansy --rom game.nes --detect-patterns
+dotnet run --project src/Pansy.Cli -- analyze game.pansy game.nes --patterns
 
 # Merge two Pansy files (base + overlay)
 dotnet run --project src/Pansy.Cli -- merge base.pansy overlay.pansy -o merged.pansy
