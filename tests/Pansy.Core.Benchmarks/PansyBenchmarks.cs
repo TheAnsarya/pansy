@@ -341,3 +341,135 @@ public class LoaderBenchmarks {
 		return count;
 	}
 }
+
+/// <summary>
+/// Benchmarks for PansyAnalyzer — coverage analysis, pattern detection, and auto-annotation.
+/// </summary>
+[MemoryDiagnoser]
+[SimpleJob(warmupCount: 3, iterationCount: 5)]
+public class AnalyzerBenchmarks {
+	private PansyLoader _sparseLoader = null!;
+	private PansyLoader _denseLoader = null!;
+	private byte[] _sparseRom = null!;
+	private byte[] _denseRom = null!;
+	private byte[] _fillRom = null!;
+	private byte[] _pointerTableRom = null!;
+
+	[GlobalSetup]
+	public void Setup() {
+		// Sparse: ~25% coverage (gaps available for pattern detection)
+		var sparseWriter = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x8000,
+		};
+		for (uint i = 0; i < 0x2000; i++) sparseWriter.MarkAsCode(i);
+		sparseWriter.AddSymbol(0x0000, "Reset", SymbolType.Function);
+		sparseWriter.AddSymbol(0x1000, "Nmi", SymbolType.Function);
+		sparseWriter.AddCrossReference(new CrossReference(0x0000, 0x1000, CrossRefType.Jsr));
+		_sparseLoader = new PansyLoader(sparseWriter.Generate());
+		_sparseRom = new byte[0x8000];
+		// Fill the gap with 0xff padding
+		Array.Fill(_sparseRom, (byte)0xff, 0x2000, 0x6000);
+
+		// Dense: ~80% coverage (fewer gaps)
+		var denseWriter = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x8000,
+		};
+		for (uint i = 0; i < 0x6000; i++) denseWriter.MarkAsCode(i);
+		for (uint i = 0; i < 100; i++) {
+			denseWriter.AddSymbol(i * 0x100, $"Sub_{i:x2}", SymbolType.Function);
+		}
+		_denseLoader = new PansyLoader(denseWriter.Generate());
+		_denseRom = new byte[0x8000];
+
+		// ROM with pointer tables for detection benchmarks
+		_pointerTableRom = new byte[0x8000];
+		for (int i = 0x2000; i < 0x4000; i += 2) {
+			_pointerTableRom[i] = (byte)(0x8000 + i);
+			_pointerTableRom[i + 1] = 0x80;
+		}
+
+		// ROM with fill region
+		_fillRom = new byte[0x8000];
+		Array.Fill(_fillRom, (byte)0xff, 0x2000, 0x4000);
+	}
+
+	[Benchmark(Description = "AnalyzeCoverage (32KB sparse)")]
+	public AnalysisResult AnalyzeCoverageSparse() {
+		return PansyAnalyzer.AnalyzeCoverage(_sparseLoader, 0x8000);
+	}
+
+	[Benchmark(Description = "AnalyzeCoverage (32KB dense)")]
+	public AnalysisResult AnalyzeCoverageDense() {
+		return PansyAnalyzer.AnalyzeCoverage(_denseLoader, 0x8000);
+	}
+
+	[Benchmark(Description = "FullAnalyze no patterns (32KB)")]
+	public AnalysisResult FullAnalyzeNoPatterns() {
+		return PansyAnalyzer.Analyze(_sparseLoader, _sparseRom, detectPatterns: false);
+	}
+
+	[Benchmark(Description = "FullAnalyze with patterns (32KB)")]
+	public AnalysisResult FullAnalyzeWithPatterns() {
+		return PansyAnalyzer.Analyze(_sparseLoader, _sparseRom, detectPatterns: true);
+	}
+
+	[Benchmark(Description = "BuildSymbolBoundaries")]
+	public IReadOnlyList<SymbolBoundary> BuildBoundaries() {
+		return PansyAnalyzer.BuildSymbolBoundaries(_denseLoader, 0x8000);
+	}
+
+	[Benchmark(Description = "BuildCrossRefStats")]
+	public CrossRefGraphStats BuildXrefStats() {
+		return PansyAnalyzer.BuildCrossRefStats(_sparseLoader);
+	}
+
+	[Benchmark(Description = "DetectFill (24KB span)")]
+	public bool DetectFill() {
+		return PansyAnalyzer.TryDetectFill(
+			_fillRom.AsSpan(0x2000, 0x4000), 0x2000, out _);
+	}
+
+	[Benchmark(Description = "DetectPointerTable (8KB NES)")]
+	public bool DetectPointerTable() {
+		return PansyAnalyzer.TryDetectPointerTable(
+			_pointerTableRom.AsSpan(0x2000, 0x2000), 0x2000,
+			PansyLoader.PLATFORM_NES, null, out _);
+	}
+
+	[Benchmark(Description = "DetectTileData (1KB NES)")]
+	public bool DetectTileData() {
+		// 64 NES tiles = 1024 bytes
+		var data = new byte[1024];
+		var rng = new Random(42);
+		rng.NextBytes(data);
+		return PansyAnalyzer.TryDetectTileData(data, 0, PansyLoader.PLATFORM_NES, out _);
+	}
+
+	[Benchmark(Description = "GenerateAnnotations (32KB)")]
+	public byte[] GenerateAnnotations() {
+		var analysis = PansyAnalyzer.Analyze(_sparseLoader, _sparseRom, detectPatterns: true);
+		return PansyAnalyzer.GenerateAnnotations(_sparseLoader, analysis);
+	}
+
+	[Benchmark(Description = "ReadAddress NES x10000")]
+	public uint ReadAddressBench() {
+		uint sum = 0;
+		ReadOnlySpan<byte> data = [0x00, 0x80];
+		for (int i = 0; i < 10000; i++) {
+			sum += PansyAnalyzer.ReadAddress(data, PansyLoader.PLATFORM_NES);
+		}
+		return sum;
+	}
+
+	[Benchmark(Description = "IsValidAddress NES x10000")]
+	public int ValidateAddresses() {
+		int count = 0;
+		for (uint i = 0; i < 10000; i++) {
+			if (PansyAnalyzer.IsValidAddress(0x8000 + i, PansyLoader.PLATFORM_NES, null))
+				count++;
+		}
+		return count;
+	}
+}
