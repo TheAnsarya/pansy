@@ -176,6 +176,9 @@ public class PansyLoader {
 	/// </summary>
 	public bool HasCodeDataMap => _codeOffsets.Count > 0 || _dataOffsets.Count > 0;
 
+	/// <summary>Gets the raw code/data map bytes (one byte per ROM offset, using CDL flag constants).</summary>
+	public byte[]? CodeDataMapBytes => _codeDataMap;
+
 	/// <summary>Gets all ROM offsets marked as code.</summary>
 	public IReadOnlySet<int> CodeOffsets => _codeOffsets;
 
