@@ -204,11 +204,9 @@ Region Entry:
 | 7 | OPEN_BUS | Open bus / unmapped |
 | 8 | MIRROR | Mirror of another region |
 
-### DATA_TYPES (0x0005) — _Reserved_
+### DATA_TYPES (0x0005)
 
 Data structure definitions for tables, arrays, etc.
-
-> **Status:** Defined in specification, not yet implemented in Pansy.Core.
 
 ```text
 DataType Entry:
@@ -232,22 +230,22 @@ CrossRef Entry:
   Type: uint8 (jsr=1, jmp=2, branch=3, read=4, write=5)
 ```
 
-### SOURCE_MAP (0x0007) — _Reserved_
+### SOURCE_MAP (0x0007)
 
 Maps ROM addresses back to original source files.
 
-> **Status:** Defined in specification, not yet implemented in Pansy.Core.
-
 ```text
-SourceMap Entry:
+SourceFile Table:
+  FileCount: uint16
+  For each file:
+    PathLength: uint16
+    Path: char[PathLength]
+
+SourceMap Entries (follow file table):
   RomAddress: uint32
   FileIndex: uint16
   Line: uint16
   Column: uint16
-
-SourceFile Entry:
-  PathLength: uint16
-  Path: char[PathLength]
 ```
 
 ### METADATA (0x0008)
@@ -265,6 +263,20 @@ Metadata:
   CreatedTimestamp: int64
   ModifiedTimestamp: int64
 ```
+
+### BOOKMARKS (0x000a)
+
+User-defined bookmarks for quick navigation.
+
+```text
+Bookmark Entry:
+  Address: uint32
+  Color: uint8
+  NameLength: uint16
+  Name: char[NameLength]
+```
+
+**Color:** Application-defined palette index (0 = default).
 
 ## Compression
 
@@ -371,6 +383,7 @@ Each section is compressed independently — a section whose compressed size equ
 | 1.0.1 | 2026-01-24 | Added platform-specific details |
 | 1.0.2 | 2026-07-09 | Synced spec with implementation: fixed header layout (flags is uint16, section count in header at 0x18), corrected platform IDs to match PansyLoader constants, changed compression from zstd to DEFLATE, marked DATA_TYPES and SOURCE_MAP as reserved/unimplemented, removed footer (integrity checks at application level) |
 | 1.0.3 | 2026-07-12 | Added INTERRUPT_VECTOR (8) and FUNCTION (9) symbol types; typed SymbolEntry/CommentEntry records preserve full type info through roundtrip; DRAWN/READ/INDIRECT flags now fully implemented in writer and loader |
+| 1.0.4 | 2026-07-19 | DATA_TYPES and SOURCE_MAP sections now fully implemented; added BOOKMARKS section (0x000a); batch insert APIs; expanded platform table (0x0b–0x1e); 328 tests, 70 benchmarks |
 
 ## Comparison with Existing Formats
 

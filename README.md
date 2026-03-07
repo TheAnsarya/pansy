@@ -15,9 +15,10 @@
 - ✅ **Auto-Annotation** - Generate enriched Pansy files with detected pattern metadata
 - ✅ **File Merging** - Combine base + overlay Pansy files with intelligent deduplication
 - ✅ **Parallel Processing** - Parallel gap detection, section decompression, and merge operations
-- ✅ **253 Tests Passing** - Comprehensive coverage including analyzer, merger, and roundtrip tests
-- ✅ **42 Benchmarks** - Writer, loader, analyzer, and merger performance tracking
-- ✅ **Performance Optimized** - FrozenDictionary/FrozenSet for zero-allocation lookups
+- ✅ **328 Tests Passing** - Comprehensive coverage including analyzer, merger, roundtrip, batch API, format compatibility, and edge case tests
+- ✅ **70 Benchmarks** - Writer, loader, analyzer, merger, batch API, cross-ref query, graph export, and bookmark/data type performance tracking
+- ✅ **Batch APIs** - High-performance batch insert for symbols, comments, cross-references, and memory regions
+- ✅ **Performance Optimized** - FrozenDictionary/FrozenSet for zero-allocation lookups, LINQ-free hot paths
 - ✅ **Typed Metadata** - SymbolEntry/CommentEntry records with type preservation
 - ✅ **Extended Flags** - DRAWN, READ, INDIRECT code/data map flags
 - ✅ **UI Editing Complete** - Full CRUD operations for symbols, comments, and memory regions
@@ -52,7 +53,8 @@ Pansy provides a universal, efficient format to store all this metadata independ
 - `PansyMerger` - Merge base + overlay files with parallel operations
 - Modern .NET 10 / C# 14
 - Cross-platform (Windows, Linux, macOS)
-- Comprehensive xUnit test coverage (253 tests)
+- Comprehensive xUnit test coverage (328 tests)
+- Batch insert APIs for high-throughput metadata ingestion
 
 ### 🖥️ Cross-Platform UI
 
@@ -192,6 +194,7 @@ File.WriteAllBytes("merged.pansy", merged.Generate());
 - [File Format Specification](docs/FILE-FORMAT.md) - Complete format documentation with platform-specific details
 - [CLI Reference](docs/CLI-REFERENCE.md) - Comprehensive command-line tool guide
 - [Examples](docs/EXAMPLES.md) - Workflow guides and use cases
+- [CI/CD Policy](docs/CI-CD-POLICY.md) - Continuous integration and deployment guidelines
 - API examples and integration guides
 
 ## 🔗 Integration
@@ -220,6 +223,26 @@ Pansy integrates with:
 | Atari 2600 | 0x08 | ✅ Full |
 | Atari Lynx | 0x09 | ✅ Full |
 | WonderSwan | 0x0a | ✅ Full |
+| Neo Geo | 0x0b | ✅ Full |
+| SPC700 | 0x0c | ✅ Full |
+| Commodore 64 | 0x0d | ✅ Full |
+| MSX | 0x0e | ✅ Full |
+| Atari 7800 | 0x0f | ✅ Full |
+| Atari 8-bit | 0x10 | ✅ Full |
+| Apple II | 0x11 | ✅ Full |
+| ZX Spectrum | 0x12 | ✅ Full |
+| ColecoVision | 0x13 | ✅ Full |
+| Intellivision | 0x14 | ✅ Full |
+| Vectrex | 0x15 | ✅ Full |
+| Sega Game Gear | 0x16 | ✅ Full |
+| Sega 32X | 0x17 | ✅ Full |
+| Sega CD | 0x18 | ✅ Full |
+| Virtual Boy | 0x19 | ✅ Full |
+| Amstrad CPC | 0x1a | ✅ Full |
+| BBC Micro | 0x1b | ✅ Full |
+| Commodore VIC-20 | 0x1c | ✅ Full |
+| Commodore Plus/4 | 0x1d | ✅ Full |
+| Commodore 128 | 0x1e | ✅ Full |
 | Custom | 0xff | ✅ Full |
 
 ## 🏗️ Architecture
@@ -231,8 +254,8 @@ Pansy/
 │   ├── Pansy.UI/                # Avalonia desktop app
 │   └── Pansy.Cli/               # Command-line tools
 ├── tests/
-│   ├── Pansy.Core.Tests/        # xUnit tests (253 tests)
-│   └── Pansy.Core.Benchmarks/   # BenchmarkDotNet suite (42 benchmarks)
+│   ├── Pansy.Core.Tests/        # xUnit tests (328 tests)
+│   └── Pansy.Core.Benchmarks/   # BenchmarkDotNet suite (70 benchmarks)
 └── docs/                        # Documentation
 ```
 
