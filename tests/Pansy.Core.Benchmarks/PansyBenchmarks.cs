@@ -534,3 +534,334 @@ public class MergerBenchmarks {
 		return PansyMerger.Merge(_baseLarge, _baseLarge).Generate();
 	}
 }
+
+/// <summary>
+/// Benchmarks for batch API vs individual insertion performance.
+/// </summary>
+[MemoryDiagnoser]
+[SimpleJob(warmupCount: 3, iterationCount: 5)]
+public class BatchApiBenchmarks {
+	[Params(100, 1000, 5000)]
+	public int Count { get; set; }
+
+	[Benchmark(Baseline = true, Description = "AddSymbol individual")]
+	public byte[] AddSymbolIndividual() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x80000
+		};
+		for (uint i = 0; i < (uint)Count; i++) {
+			writer.AddSymbol(0x8000 + i, $"Sym_{i:x4}", SymbolType.Label);
+		}
+		return writer.Generate();
+	}
+
+	[Benchmark(Description = "AddSymbols batch")]
+	public byte[] AddSymbolsBatch() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x80000
+		};
+		var symbols = new (uint Address, string Name, SymbolType Type)[Count];
+		for (int i = 0; i < Count; i++) {
+			symbols[i] = (0x8000 + (uint)i, $"Sym_{i:x4}", SymbolType.Label);
+		}
+		writer.AddSymbols(symbols);
+		return writer.Generate();
+	}
+
+	[Benchmark(Description = "AddComment individual")]
+	public byte[] AddCommentIndividual() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x80000
+		};
+		for (uint i = 0; i < (uint)Count; i++) {
+			writer.AddComment(0x8000 + i, $"Comment {i}", CommentType.Inline);
+		}
+		return writer.Generate();
+	}
+
+	[Benchmark(Description = "AddComments batch")]
+	public byte[] AddCommentsBatch() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x80000
+		};
+		var comments = new (uint Address, string Text, CommentType Type)[Count];
+		for (int i = 0; i < Count; i++) {
+			comments[i] = (0x8000 + (uint)i, $"Comment {i}", CommentType.Inline);
+		}
+		writer.AddComments(comments);
+		return writer.Generate();
+	}
+
+	[Benchmark(Description = "AddCrossReference individual")]
+	public byte[] AddCrossRefIndividual() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x80000
+		};
+		for (uint i = 0; i < (uint)Count; i++) {
+			writer.AddCrossReference(new CrossReference(0x8000 + i, 0x9000 + i, CrossRefType.Jsr));
+		}
+		return writer.Generate();
+	}
+
+	[Benchmark(Description = "AddCrossReferences batch")]
+	public byte[] AddCrossRefsBatch() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x80000
+		};
+		var xrefs = new CrossReference[Count];
+		for (int i = 0; i < Count; i++) {
+			xrefs[i] = new CrossReference(0x8000 + (uint)i, 0x9000 + (uint)i, CrossRefType.Jsr);
+		}
+		writer.AddCrossReferences(xrefs);
+		return writer.Generate();
+	}
+}
+
+/// <summary>
+/// Benchmarks for cross-reference query operations at various scales.
+/// </summary>
+[MemoryDiagnoser]
+[SimpleJob(warmupCount: 3, iterationCount: 5)]
+public class CrossRefQueryBenchmarks {
+	private PansyLoader _smallLoader = null!;
+	private PansyLoader _largeLoader = null!;
+
+	[GlobalSetup]
+	public void Setup() {
+		_smallLoader = new PansyLoader(GenerateXrefFile(200));
+		_largeLoader = new PansyLoader(GenerateXrefFile(5000));
+	}
+
+	private static byte[] GenerateXrefFile(int count) {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x80000
+		};
+		for (uint i = 0; i < (uint)count; i++) {
+			writer.AddCrossReference(new CrossReference(
+				0x8000 + i * 3,
+				0x8000 + (i % 100) * 4,
+				(CrossRefType)(i % 5 + 1)));
+			writer.MarkAsSubroutine(0x8000 + (i % 100) * 4);
+		}
+		for (uint i = 0; i < (uint)count; i++) {
+			writer.AddSymbol(0x8000 + i * 3, $"Src_{i:x4}");
+		}
+		return writer.Generate();
+	}
+
+	[Benchmark(Description = "GetCrossRefsTo (200 xrefs)")]
+	public int QueryTo_Small() {
+		var count = 0;
+		for (uint i = 0; i < 100; i++) {
+			count += _smallLoader.GetCrossRefsTo((int)(0x8000 + i * 4)).Count;
+		}
+		return count;
+	}
+
+	[Benchmark(Description = "GetCrossRefsTo (5000 xrefs)")]
+	public int QueryTo_Large() {
+		var count = 0;
+		for (uint i = 0; i < 100; i++) {
+			count += _largeLoader.GetCrossRefsTo((int)(0x8000 + i * 4)).Count;
+		}
+		return count;
+	}
+
+	[Benchmark(Description = "GetCrossRefsFrom (200 xrefs)")]
+	public int QueryFrom_Small() {
+		var count = 0;
+		for (uint i = 0; i < 100; i++) {
+			count += _smallLoader.GetCrossRefsFrom((int)(0x8000 + i * 3)).Count;
+		}
+		return count;
+	}
+
+	[Benchmark(Description = "GetCrossRefsByType (5000 xrefs)")]
+	public int QueryByType() {
+		var count = 0;
+		count += _largeLoader.GetCrossRefsByType(CrossRefType.Jsr).Count();
+		count += _largeLoader.GetCrossRefsByType(CrossRefType.Jmp).Count();
+		count += _largeLoader.GetCrossRefsByType(CrossRefType.Branch).Count();
+		return count;
+	}
+
+	[Benchmark(Description = "GetCrossRefsFromRange (5000 xrefs)")]
+	public int QueryFromRange() {
+		return _largeLoader.GetCrossRefsFromRange(0x8000, 0x9000).Count();
+	}
+
+	[Benchmark(Description = "GetCrossRefsToRange (5000 xrefs)")]
+	public int QueryToRange() {
+		return _largeLoader.GetCrossRefsToRange(0x8000, 0x8200).Count();
+	}
+
+	[Benchmark(Description = "GetReferenceCount x100 (5000 xrefs)")]
+	public int ReferenceCount() {
+		var count = 0;
+		for (uint i = 0; i < 100; i++) {
+			count += _largeLoader.GetReferenceCount((int)(0x8000 + i * 4));
+		}
+		return count;
+	}
+
+	[Benchmark(Description = "GetUnreferencedSubroutines (5000 xrefs)")]
+	public int UnreferencedSubs() {
+		return _largeLoader.GetUnreferencedSubroutines().Count();
+	}
+
+	[Benchmark(Description = "GetMostReferenced top 10 (5000 xrefs)")]
+	public int MostReferenced() {
+		return _largeLoader.GetMostReferencedAddresses(10).Count();
+	}
+
+	[Benchmark(Description = "GetCrossRefStats (5000 xrefs)")]
+	public int XrefStats() {
+		var s = _largeLoader.GetCrossRefStats();
+		return s.TotalXrefs;
+	}
+}
+
+/// <summary>
+/// Benchmarks for graph export operations (DOT, GraphML, JSON).
+/// </summary>
+[MemoryDiagnoser]
+[SimpleJob(warmupCount: 3, iterationCount: 5)]
+public class GraphExportBenchmarks {
+	private PansyLoader _smallLoader = null!;
+	private PansyLoader _largeLoader = null!;
+
+	[GlobalSetup]
+	public void Setup() {
+		_smallLoader = new PansyLoader(GenerateGraphFile(50));
+		_largeLoader = new PansyLoader(GenerateGraphFile(500));
+	}
+
+	private static byte[] GenerateGraphFile(int count) {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x80000
+		};
+		for (uint i = 0; i < (uint)count; i++) {
+			writer.AddSymbol(0x8000 + i * 4, $"Sub_{i:x4}", SymbolType.Function);
+			writer.AddCrossReference(new CrossReference(
+				0x8000 + i * 4,
+				0x8000 + ((i + 1) % (uint)count) * 4,
+				(CrossRefType)(i % 5 + 1)));
+		}
+		return writer.Generate();
+	}
+
+	[Benchmark(Description = "ToDot small (50 nodes)")]
+	public string ToDotSmall() => PansyGraphExporter.ToDot(_smallLoader);
+
+	[Benchmark(Description = "ToDot large (500 nodes)")]
+	public string ToDotLarge() => PansyGraphExporter.ToDot(_largeLoader);
+
+	[Benchmark(Description = "ToGraphML small (50 nodes)")]
+	public string ToGraphMLSmall() => PansyGraphExporter.ToGraphML(_smallLoader);
+
+	[Benchmark(Description = "ToGraphML large (500 nodes)")]
+	public string ToGraphMLLarge() => PansyGraphExporter.ToGraphML(_largeLoader);
+
+	[Benchmark(Description = "ToJson small (50 nodes)")]
+	public string ToJsonSmall() => PansyGraphExporter.ToJson(_smallLoader);
+
+	[Benchmark(Description = "ToJson large (500 nodes)")]
+	public string ToJsonLarge() => PansyGraphExporter.ToJson(_largeLoader);
+
+	[Benchmark(Description = "ToDot filtered Jsr (500 nodes)")]
+	public string ToDotFiltered() => PansyGraphExporter.ToDot(_largeLoader, CrossRefType.Jsr);
+
+	[Benchmark(Description = "ToJson filtered Jmp (500 nodes)")]
+	public string ToJsonFiltered() => PansyGraphExporter.ToJson(_largeLoader, CrossRefType.Jmp);
+}
+
+/// <summary>
+/// Benchmarks for bookmark and data type section performance.
+/// </summary>
+[MemoryDiagnoser]
+[SimpleJob(warmupCount: 3, iterationCount: 5)]
+public class BookmarkDataTypeBenchmarks {
+	[Params(100, 1000)]
+	public int Count { get; set; }
+
+	[Benchmark(Description = "Write bookmarks")]
+	public byte[] WriteBookmarks() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x80000
+		};
+		for (uint i = 0; i < (uint)Count; i++) {
+			writer.AddBookmark(new Bookmark(0x8000 + i, $"BM_{i:x4}", (byte)(i % 8)));
+		}
+		return writer.Generate();
+	}
+
+	[Benchmark(Description = "Write data types")]
+	public byte[] WriteDataTypes() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x80000
+		};
+		for (uint i = 0; i < (uint)Count; i++) {
+			writer.AddDataType(new DataTypeEntry(
+				0x8000 + i * 0x10,
+				16, 2, 8,
+				(DataElementType)(i % 4 + 1),
+				$"Type_{i:x4}"));
+		}
+		return writer.Generate();
+	}
+
+	[Benchmark(Description = "Load bookmarks")]
+	public int LoadBookmarks() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x80000
+		};
+		for (uint i = 0; i < (uint)Count; i++) {
+			writer.AddBookmark(new Bookmark(0x8000 + i, $"BM_{i:x4}", (byte)(i % 8)));
+		}
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+		return loader.Bookmarks.Count;
+	}
+
+	[Benchmark(Description = "Load data types")]
+	public int LoadDataTypes() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x80000
+		};
+		for (uint i = 0; i < (uint)Count; i++) {
+			writer.AddDataType(new DataTypeEntry(
+				0x8000 + i * 0x10,
+				16, 2, 8,
+				(DataElementType)(i % 4 + 1),
+				$"Type_{i:x4}"));
+		}
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+		return loader.DataTypes.Count;
+	}
+
+	[Benchmark(Description = "Write source map")]
+	public byte[] WriteSourceMap() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x80000
+		};
+		var fileIdx = writer.AddSourceFile("main.pasm");
+		for (uint i = 0; i < (uint)Count; i++) {
+			writer.AddSourceMapping(new SourceMapEntry(0x8000 + i, fileIdx, (ushort)(i + 1), 0));
+		}
+		return writer.Generate();
+	}
+}
