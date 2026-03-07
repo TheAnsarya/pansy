@@ -121,6 +121,39 @@ public sealed class PansyWriter {
 		list.Add((comment, commentType));
 	}
 
+	/// <summary>Adds a typed comment at the specified address using the CommentType enum.</summary>
+	public void AddComment(uint address, string comment, CommentType commentType) {
+		AddComment(address, comment, (byte)commentType);
+	}
+
+	/// <summary>Adds multiple symbols in batch for efficient bulk insertion.</summary>
+	public void AddSymbols(IEnumerable<(uint Address, string Name, SymbolType Type)> symbols) {
+		foreach (var (address, name, type) in symbols) {
+			AddSymbol(address, name, type);
+		}
+	}
+
+	/// <summary>Adds multiple comments in batch for efficient bulk insertion.</summary>
+	public void AddComments(IEnumerable<(uint Address, string Text, CommentType Type)> comments) {
+		foreach (var (address, text, type) in comments) {
+			AddComment(address, text, (byte)type);
+		}
+	}
+
+	/// <summary>Adds multiple cross-references in batch.</summary>
+	public void AddCrossReferences(IEnumerable<CrossReference> crossRefs) {
+		foreach (var xref in crossRefs) {
+			_crossRefs.Add(xref);
+		}
+	}
+
+	/// <summary>Adds multiple memory regions in batch.</summary>
+	public void AddMemoryRegions(IEnumerable<MemoryRegion> regions) {
+		foreach (var region in regions) {
+			_memoryRegions.Add(region);
+		}
+	}
+
 	/// <summary>Marks an address as code.</summary>
 	public void MarkAsCode(uint address) {
 		_codeOffsets.Add(address);
@@ -332,16 +365,16 @@ public sealed class PansyWriter {
 			return [];
 		}
 
-		// Determine the size needed
+		// Determine the size needed — manual max avoids LINQ allocation
 		var maxOffset = 0u;
-		if (_codeOffsets.Count > 0) maxOffset = Math.Max(maxOffset, _codeOffsets.Max());
-		if (_dataOffsets.Count > 0) maxOffset = Math.Max(maxOffset, _dataOffsets.Max());
-		if (_jumpTargets.Count > 0) maxOffset = Math.Max(maxOffset, _jumpTargets.Max());
-		if (_subEntryPoints.Count > 0) maxOffset = Math.Max(maxOffset, _subEntryPoints.Max());
-		if (_opcodeOffsets.Count > 0) maxOffset = Math.Max(maxOffset, _opcodeOffsets.Max());
-		if (_drawnOffsets.Count > 0) maxOffset = Math.Max(maxOffset, _drawnOffsets.Max());
-		if (_readOffsets.Count > 0) maxOffset = Math.Max(maxOffset, _readOffsets.Max());
-		if (_indirectOffsets.Count > 0) maxOffset = Math.Max(maxOffset, _indirectOffsets.Max());
+		foreach (var o in _codeOffsets) if (o > maxOffset) maxOffset = o;
+		foreach (var o in _dataOffsets) if (o > maxOffset) maxOffset = o;
+		foreach (var o in _jumpTargets) if (o > maxOffset) maxOffset = o;
+		foreach (var o in _subEntryPoints) if (o > maxOffset) maxOffset = o;
+		foreach (var o in _opcodeOffsets) if (o > maxOffset) maxOffset = o;
+		foreach (var o in _drawnOffsets) if (o > maxOffset) maxOffset = o;
+		foreach (var o in _readOffsets) if (o > maxOffset) maxOffset = o;
+		foreach (var o in _indirectOffsets) if (o > maxOffset) maxOffset = o;
 
 		var map = new byte[maxOffset + 1];
 

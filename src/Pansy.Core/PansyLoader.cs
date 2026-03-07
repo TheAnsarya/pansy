@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.IO.Compression;
 using System.Text;
@@ -264,20 +265,21 @@ public class PansyLoader {
 		}
 
 		// Parse header
-		_version = BitConverter.ToUInt16(data, 8);
-		_flags = (PansyFlags)BitConverter.ToUInt16(data, 10);
+		var span = data.AsSpan();
+		_version = BinaryPrimitives.ReadUInt16LittleEndian(span[8..]);
+		_flags = (PansyFlags)BinaryPrimitives.ReadUInt16LittleEndian(span[10..]);
 		_platform = data[12];
-		_romSize = BitConverter.ToUInt32(data, 16);
-		_romCrc32 = BitConverter.ToUInt32(data, 20);
-		var sectionCount = BitConverter.ToUInt32(data, 24);
+		_romSize = BinaryPrimitives.ReadUInt32LittleEndian(span[16..]);
+		_romCrc32 = BinaryPrimitives.ReadUInt32LittleEndian(span[20..]);
+		var sectionCount = BinaryPrimitives.ReadUInt32LittleEndian(span[24..]);
 
 		// Parse section table
 		var tableOffset = 32;
 		for (int i = 0; i < sectionCount; i++) {
-			var type = BitConverter.ToUInt32(data, tableOffset);
-			var offset = BitConverter.ToUInt32(data, tableOffset + 4);
-			var compSize = BitConverter.ToUInt32(data, tableOffset + 8);
-			var uncompSize = BitConverter.ToUInt32(data, tableOffset + 12);
+			var type = BinaryPrimitives.ReadUInt32LittleEndian(span[tableOffset..]);
+			var offset = BinaryPrimitives.ReadUInt32LittleEndian(span[(tableOffset + 4)..]);
+			var compSize = BinaryPrimitives.ReadUInt32LittleEndian(span[(tableOffset + 8)..]);
+			var uncompSize = BinaryPrimitives.ReadUInt32LittleEndian(span[(tableOffset + 12)..]);
 			_sections.Add(new SectionInfo(type, offset, compSize, uncompSize));
 			tableOffset += 16;
 		}
@@ -508,14 +510,19 @@ public class PansyLoader {
 	/// <summary>
 	/// Gets cross-reference statistics.
 	/// </summary>
-	public (int TotalXrefs, int JsrCount, int JmpCount, int BranchCount, int ReadCount, int WriteCount) GetCrossRefStats() => (
-		_crossRefs.Count,
-		_crossRefs.Count(x => x.Type == CrossRefType.Jsr),
-		_crossRefs.Count(x => x.Type == CrossRefType.Jmp),
-		_crossRefs.Count(x => x.Type == CrossRefType.Branch),
-		_crossRefs.Count(x => x.Type == CrossRefType.Read),
-		_crossRefs.Count(x => x.Type == CrossRefType.Write)
-	);
+	public (int TotalXrefs, int JsrCount, int JmpCount, int BranchCount, int ReadCount, int WriteCount) GetCrossRefStats() {
+		int jsr = 0, jmp = 0, branch = 0, read = 0, write = 0;
+		foreach (var xref in _crossRefs) {
+			switch (xref.Type) {
+				case CrossRefType.Jsr: jsr++; break;
+				case CrossRefType.Jmp: jmp++; break;
+				case CrossRefType.Branch: branch++; break;
+				case CrossRefType.Read: read++; break;
+				case CrossRefType.Write: write++; break;
+			}
+		}
+		return (_crossRefs.Count, jsr, jmp, branch, read, write);
+	}
 
 	#endregion
 
@@ -658,12 +665,13 @@ public class PansyLoader {
 	private void ParseSymbols(byte[] data) {
 		int pos = 0;
 		int len = data.Length;
+		var span = data.AsSpan();
 
 		while (pos + 10 <= len) { // minimum record: 4+1+1+2+0+2 = 10 bytes
-			var address = (int)BitConverter.ToUInt32(data, pos);
+			var address = (int)BinaryPrimitives.ReadUInt32LittleEndian(span[pos..]);
 			var type = (SymbolType)data[pos + 4];
 			// skip flags byte at pos+5
-			var nameLength = BitConverter.ToUInt16(data, pos + 6);
+			var nameLength = BinaryPrimitives.ReadUInt16LittleEndian(span[(pos + 6)..]);
 			pos += 8;
 
 			if (pos + nameLength > len) break;
@@ -671,7 +679,7 @@ public class PansyLoader {
 			pos += nameLength;
 
 			if (pos + 2 > len) break;
-			var valueLength = BitConverter.ToUInt16(data, pos);
+			var valueLength = BinaryPrimitives.ReadUInt16LittleEndian(span[pos..]);
 			pos += 2 + valueLength;
 
 			if (!_tempSymbolEntries!.TryGetValue(address, out var list)) {
@@ -685,11 +693,12 @@ public class PansyLoader {
 	private void ParseComments(byte[] data) {
 		int pos = 0;
 		int len = data.Length;
+		var span = data.AsSpan();
 
 		while (pos + 7 <= len) { // minimum record: 4+1+2+0 = 7 bytes
-			var address = (int)BitConverter.ToUInt32(data, pos);
+			var address = (int)BinaryPrimitives.ReadUInt32LittleEndian(span[pos..]);
 			var type = data[pos + 4];
-			var length = BitConverter.ToUInt16(data, pos + 5);
+			var length = BinaryPrimitives.ReadUInt16LittleEndian(span[(pos + 5)..]);
 			pos += 7;
 
 			if (pos + length > len) break;
@@ -707,14 +716,15 @@ public class PansyLoader {
 	private void ParseMemoryRegions(byte[] data) {
 		int pos = 0;
 		int len = data.Length;
+		var span = data.AsSpan();
 
 		while (pos + 14 <= len) { // minimum: 4+4+1+1+2+2+0 = 14 bytes
-			var start = BitConverter.ToUInt32(data, pos);
-			var end = BitConverter.ToUInt32(data, pos + 4);
+			var start = BinaryPrimitives.ReadUInt32LittleEndian(span[pos..]);
+			var end = BinaryPrimitives.ReadUInt32LittleEndian(span[(pos + 4)..]);
 			var type = data[pos + 8];
 			var bank = data[pos + 9];
 			// flags at pos+10 (2 bytes) — currently unused
-			var nameLength = BitConverter.ToUInt16(data, pos + 12);
+			var nameLength = BinaryPrimitives.ReadUInt16LittleEndian(span[(pos + 12)..]);
 			pos += 14;
 
 			if (pos + nameLength > len) break;
@@ -728,10 +738,11 @@ public class PansyLoader {
 	private void ParseCrossRefs(byte[] data) {
 		int pos = 0;
 		int len = data.Length;
+		var span = data.AsSpan();
 
 		while (pos + 9 <= len) { // 4+4+1 = 9 bytes per record
-			var from = BitConverter.ToUInt32(data, pos);
-			var to = BitConverter.ToUInt32(data, pos + 4);
+			var from = BinaryPrimitives.ReadUInt32LittleEndian(span[pos..]);
+			var to = BinaryPrimitives.ReadUInt32LittleEndian(span[(pos + 4)..]);
 			var type = (CrossRefType)data[pos + 8];
 			pos += 9;
 
@@ -742,11 +753,12 @@ public class PansyLoader {
 	private void ParseBookmarks(byte[] data) {
 		int pos = 0;
 		int len = data.Length;
+		var span = data.AsSpan();
 
 		while (pos + 7 <= len) { // minimum: 4+1+2+0 = 7 bytes
-			var address = BitConverter.ToUInt32(data, pos);
+			var address = BinaryPrimitives.ReadUInt32LittleEndian(span[pos..]);
 			var color = data[pos + 4];
-			var nameLength = BitConverter.ToUInt16(data, pos + 5);
+			var nameLength = BinaryPrimitives.ReadUInt16LittleEndian(span[(pos + 5)..]);
 			pos += 7;
 
 			if (pos + nameLength > len) break;
@@ -760,14 +772,15 @@ public class PansyLoader {
 	private void ParseDataTypes(byte[] data) {
 		int pos = 0;
 		int len = data.Length;
+		var span = data.AsSpan();
 
 		while (pos + 15 <= len) { // minimum: 4+4+2+2+1+2+0 = 15 bytes
-			var address = BitConverter.ToUInt32(data, pos);
-			var length = BitConverter.ToUInt32(data, pos + 4);
-			var elementSize = BitConverter.ToUInt16(data, pos + 8);
-			var elementCount = BitConverter.ToUInt16(data, pos + 10);
+			var address = BinaryPrimitives.ReadUInt32LittleEndian(span[pos..]);
+			var length = BinaryPrimitives.ReadUInt32LittleEndian(span[(pos + 4)..]);
+			var elementSize = BinaryPrimitives.ReadUInt16LittleEndian(span[(pos + 8)..]);
+			var elementCount = BinaryPrimitives.ReadUInt16LittleEndian(span[(pos + 10)..]);
 			var type = (DataElementType)data[pos + 12];
-			var nameLength = BitConverter.ToUInt16(data, pos + 13);
+			var nameLength = BinaryPrimitives.ReadUInt16LittleEndian(span[(pos + 13)..]);
 			pos += 15;
 
 			if (pos + nameLength > len) break;
@@ -781,16 +794,17 @@ public class PansyLoader {
 	private void ParseSourceMap(byte[] data) {
 		int pos = 0;
 		int len = data.Length;
+		var span = data.AsSpan();
 
 		if (pos + 2 > len) return;
 
 		// Read source file table
-		var fileCount = BitConverter.ToUInt16(data, pos);
+		var fileCount = BinaryPrimitives.ReadUInt16LittleEndian(span[pos..]);
 		pos += 2;
 
 		for (int i = 0; i < fileCount; i++) {
 			if (pos + 2 > len) return;
-			var pathLength = BitConverter.ToUInt16(data, pos);
+			var pathLength = BinaryPrimitives.ReadUInt16LittleEndian(span[pos..]);
 			pos += 2;
 
 			if (pos + pathLength > len) return;
@@ -801,10 +815,10 @@ public class PansyLoader {
 
 		// Read source map entries (10 bytes each: 4+2+2+2)
 		while (pos + 10 <= len) {
-			var romAddress = BitConverter.ToUInt32(data, pos);
-			var fileIndex = BitConverter.ToUInt16(data, pos + 4);
-			var line = BitConverter.ToUInt16(data, pos + 6);
-			var column = BitConverter.ToUInt16(data, pos + 8);
+			var romAddress = BinaryPrimitives.ReadUInt32LittleEndian(span[pos..]);
+			var fileIndex = BinaryPrimitives.ReadUInt16LittleEndian(span[(pos + 4)..]);
+			var line = BinaryPrimitives.ReadUInt16LittleEndian(span[(pos + 6)..]);
+			var column = BinaryPrimitives.ReadUInt16LittleEndian(span[(pos + 8)..]);
 			pos += 10;
 
 			_sourceMapEntries.Add(new SourceMapEntry(romAddress, fileIndex, line, column));
@@ -814,23 +828,24 @@ public class PansyLoader {
 	private void ParseMetadata(byte[] data) {
 		int pos = 0;
 		int len = data.Length;
+		var span = data.AsSpan();
 
 		if (pos + 2 > len) return;
-		var nameLength = BitConverter.ToUInt16(data, pos);
+		var nameLength = BinaryPrimitives.ReadUInt16LittleEndian(span[pos..]);
 		pos += 2;
 		if (pos + nameLength > len) return;
 		_projectName = Encoding.UTF8.GetString(data.AsSpan(pos, nameLength));
 		pos += nameLength;
 
 		if (pos + 2 > len) return;
-		var authorLength = BitConverter.ToUInt16(data, pos);
+		var authorLength = BinaryPrimitives.ReadUInt16LittleEndian(span[pos..]);
 		pos += 2;
 		if (pos + authorLength > len) return;
 		_author = Encoding.UTF8.GetString(data.AsSpan(pos, authorLength));
 		pos += authorLength;
 
 		if (pos + 2 > len) return;
-		var versionLength = BitConverter.ToUInt16(data, pos);
+		var versionLength = BinaryPrimitives.ReadUInt16LittleEndian(span[pos..]);
 		pos += 2;
 		if (pos + versionLength > len) return;
 		_projectVersion = Encoding.UTF8.GetString(data.AsSpan(pos, versionLength));
