@@ -6,8 +6,8 @@
 
 ## 📢 Status
 
-**Version:** 1.0  
-**Status:** Beta - Format stable, core functionality complete
+**Version:** 1.0.0  
+**Status:** Stable - Format finalized, core functionality complete, NuGet package available
 
 ### Recent Updates
 
@@ -16,6 +16,8 @@
 - ✅ **File Merging** - Combine base + overlay Pansy files with intelligent deduplication
 - ✅ **Parallel Processing** - Parallel gap detection, section decompression, and merge operations
 - ✅ **328 Tests Passing** - Comprehensive coverage including analyzer, merger, roundtrip, batch API, format compatibility, and edge case tests
+- ✅ **Label Intelligence** - LabelMergeEngine, LabelDataCache, ILabelSuggester, auto-label generation from CDL + hardware registers
+- ✅ **433 Total Tests** - Including Label Intelligence, platform defaults, and integration tests
 - ✅ **70 Benchmarks** - Writer, loader, analyzer, merger, batch API, cross-ref query, graph export, and bookmark/data type performance tracking
 - ✅ **Batch APIs** - High-performance batch insert for symbols, comments, cross-references, and memory regions
 - ✅ **Performance Optimized** - FrozenDictionary/FrozenSet for zero-allocation lookups, LINQ-free hot paths
