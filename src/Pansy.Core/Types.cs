@@ -244,3 +244,34 @@ public record MergedLabel(
 /// <param name="Winner">The label that won the conflict (higher priority).</param>
 /// <param name="Loser">The label that was discarded.</param>
 public record MergeConflict(uint Address, MergedLabel Winner, MergedLabel Loser);
+
+/// <summary>
+/// A suggested label name from an AI/LLM source.
+/// </summary>
+/// <param name="Address">The address this suggestion applies to.</param>
+/// <param name="SuggestedName">The suggested label name.</param>
+/// <param name="Confidence">Confidence score from 0.0 (low) to 1.0 (high).</param>
+/// <param name="Reasoning">Brief explanation of why this name was suggested.</param>
+public record LabelSuggestion(uint Address, string SuggestedName, double Confidence, string? Reasoning = null);
+
+/// <summary>
+/// Context provided to an AI label suggester for generating name suggestions.
+/// </summary>
+/// <param name="Platform">Pansy platform ID.</param>
+/// <param name="RomData">The raw ROM data.</param>
+/// <param name="Metadata">Loaded Pansy metadata with existing labels and CDL data.</param>
+/// <param name="TargetAddresses">Addresses to generate suggestions for.</param>
+public record SuggestionContext(byte Platform, byte[] RomData, PansyLoader Metadata, IReadOnlyList<uint> TargetAddresses);
+
+/// <summary>
+/// Interface for AI-powered label name suggestion providers.
+/// Implementations may use local models (Ollama), cloud APIs, or pattern matching.
+/// </summary>
+public interface ILabelSuggester {
+	/// <summary>
+	/// Suggest label names for the specified target addresses.
+	/// </summary>
+	Task<List<LabelSuggestion>> SuggestLabelsAsync(
+		SuggestionContext context,
+		CancellationToken ct = default);
+}
