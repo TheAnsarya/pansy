@@ -207,17 +207,42 @@ Region Entry:
 
 ### DATA_TYPES (0x0005)
 
-Data structure definitions for tables, arrays, etc.
+Data structure definitions for tables, arrays, and other typed data regions.
+
+**Entry layout** (variable size, minimum 15 bytes):
+
+| Offset | Size | Type | Description |
+|--------|------|------|-------------|
+| +0 | 4 | uint32 | Address (ROM offset where data starts) |
+| +4 | 4 | uint32 | Length (total byte count of data region) |
+| +8 | 2 | uint16 | ElementSize (size of each element in bytes) |
+| +10 | 2 | uint16 | ElementCount (number of elements) |
+| +12 | 1 | uint8 | Type (see Data Element Types below) |
+| +13 | 2 | uint16 | NameLength (byte count, UTF-8) |
+| +15 | N | char[] | Name (UTF-8, no null terminator) |
+
+**Parsing:** No entry count header — entries repeat until section data is exhausted.
+
+**Data Element Types:**
+
+| Value | Type | Description |
+|-------|------|-------------|
+| 1 | BYTE | Single byte (uint8) |
+| 2 | WORD | 16-bit word (uint16, little-endian) |
+| 3 | LONG | 32-bit long (uint32, little-endian) |
+| 4 | POINTER | Address/pointer (uint32, platform endianness) |
+| 5 | STRING | Text/string data (variable length) |
+
+**Example:** A 256-byte lookup table of uint16 values at `$c000`:
 
 ```text
-DataType Entry:
-  Address: uint32
-  Length: uint32
-  ElementSize: uint16
-  ElementCount: uint16
-  Type: uint8 (byte=1, word=2, long=3, ptr=4, string=5)
-  NameLength: uint16
-  Name: char[NameLength]
+Address:      00 c0 00 00       ($c000)
+Length:        00 02 00 00       (512 bytes total)
+ElementSize:  02 00             (2 bytes per element)
+ElementCount: 00 01             (256 elements)
+Type:         02                (WORD)
+NameLength:   0c 00             (12 bytes)
+Name:         "SinLookupTbl"   (UTF-8)
 ```
 
 ### CROSS_REFS (0x0006)
@@ -233,21 +258,53 @@ CrossRef Entry:
 
 ### SOURCE_MAP (0x0007)
 
-Maps ROM addresses back to original source files.
+Maps ROM addresses to original source file locations. The section contains two parts:
+a file path table followed by per-address mapping entries.
+
+**Part 1 — Source File Table** (must come first):
+
+| Offset | Size | Type | Description |
+|--------|------|------|-------------|
+| +0 | 2 | uint16 | FileCount (number of source files) |
+
+For each file (repeated `FileCount` times):
+
+| Offset | Size | Type | Description |
+|--------|------|------|-------------|
+| +0 | 2 | uint16 | PathLength (byte count, UTF-8) |
+| +2 | N | char[] | Path (UTF-8, no null terminator) |
+
+**Part 2 — Source Map Entries** (follow file table, fixed 10 bytes each):
+
+| Offset | Size | Type | Description |
+|--------|------|------|-------------|
+| +0 | 4 | uint32 | RomAddress (ROM byte offset) |
+| +4 | 2 | uint16 | FileIndex (0-based index into file table) |
+| +6 | 2 | uint16 | Line (1-based line number) |
+| +8 | 2 | uint16 | Column (1-based column number) |
+
+**Parsing:** Entries repeat after the file table until section data is exhausted.
+
+**Example:** Two source files, one mapping entry:
 
 ```text
-SourceFile Table:
-  FileCount: uint16
-  For each file:
-    PathLength: uint16
-    Path: char[PathLength]
+File table:
+  FileCount:    02 00                     (2 files)
+  PathLength:   08 00                     (8 bytes)
+  Path:         "main.pasm"
+  PathLength:   0e 00                     (14 bytes)
+  Path:         "includes/io.pasm"
 
-SourceMap Entries (follow file table):
-  RomAddress: uint32
-  FileIndex: uint16
-  Line: uint16
-  Column: uint16
+Mapping entry:
+  RomAddress:   00 80 00 00               ($8000)
+  FileIndex:    00 00                     (file 0 = main.pasm)
+  Line:         0a 00                     (line 10)
+  Column:       01 00                     (column 1)
 ```
+
+**Usage:** Poppy generates source map entries during assembly. Peony can consume them
+to annotate disassembly with original source locations. Useful for debugging rebuilt
+ROMs — jump from a ROM address back to the `.pasm` source line that produced it.
 
 ### METADATA (0x0008)
 
@@ -474,7 +531,11 @@ peony disasm game.nes \
 2. Unknown section types should be preserved but ignored
 3. CRC32 uses IEEE polynomial (same as PNG/ZIP)
 4. All multi-byte values are little-endian
-5. Strings are UTF-8 encoded without null terminator
+5. Strings are length-prefixed (uint16 byte count) followed by UTF-8 data, no null terminator
+6. String length fields represent **byte count**, not character count
+7. Empty strings are valid (length = 0, no data bytes follow)
+8. Sections with no entry count header parse entries until the section data is exhausted
+9. Maximum string length: 65,535 bytes (uint16 max)
 
 ## Future Enhancements
 
