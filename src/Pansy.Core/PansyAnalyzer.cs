@@ -659,15 +659,141 @@ public static class PansyAnalyzer {
 	}
 
 	// ========================================================================
-	// Phase 3: Auto-Annotation Generator (#42)
+	// Phase 3: Auto-Annotation Generator (#42) + Auto-Label Generation (#70)
 	// ========================================================================
+
+	/// <summary>
+	/// Generate auto-labels from CDL data, cross-references, and platform defaults.
+	/// Returns symbols for subroutine entries, jump targets, interrupt vector targets,
+	/// and hardware registers that don't already have user-defined labels.
+	/// </summary>
+	/// <param name="loader">A loaded Pansy file with metadata.</param>
+	/// <param name="romData">The raw ROM data bytes (for reading vector targets).</param>
+	/// <returns>List of generated labels (address, name, type).</returns>
+	public static List<(uint Address, string Name, SymbolType Type)> GenerateAutoLabels(
+		PansyLoader loader, byte[] romData) {
+		var result = new List<(uint Address, string Name, SymbolType Type)>();
+		var existingSymbols = loader.AllSymbolEntries;
+
+		// 1. Hardware register labels from PlatformDefaults
+		var hwRegisters = PlatformDefaults.GetDefaultSymbolEntries(loader.Platform);
+		foreach (var (addr, symbol) in hwRegisters) {
+			if (!existingSymbols.ContainsKey((int)addr)) {
+				result.Add((addr, symbol.Name, symbol.Type));
+			}
+		}
+
+		// 2. Subroutine entry points → sub_XXXX
+		foreach (int addr in loader.SubEntryPoints) {
+			if (addr >= 0 && !existingSymbols.ContainsKey(addr) &&
+				!hwRegisters.ContainsKey((uint)addr)) {
+				result.Add(((uint)addr, $"sub_{addr:x4}", SymbolType.Function));
+			}
+		}
+
+		// 3. Jump targets → loc_XXXX (only those not already sub entries)
+		foreach (int addr in loader.JumpTargets) {
+			if (addr >= 0 && !existingSymbols.ContainsKey(addr) &&
+				!hwRegisters.ContainsKey((uint)addr) &&
+				!loader.SubEntryPoints.Contains(addr)) {
+				result.Add(((uint)addr, $"loc_{addr:x4}", SymbolType.Label));
+			}
+		}
+
+		// 4. Interrupt vector targets (read from ROM data)
+		var vectorLabels = GetInterruptVectorLabels(loader.Platform, romData);
+		foreach (var (addr, name, type) in vectorLabels) {
+			if (!existingSymbols.ContainsKey((int)addr) &&
+				!hwRegisters.ContainsKey(addr)) {
+				result.Add((addr, name, type));
+			}
+		}
+
+		// 5. Most-referenced addresses without labels → ref_XXXX
+		var mostReferenced = loader.GetMostReferencedAddresses(50);
+		foreach (var (addr, count) in mostReferenced) {
+			if (count >= 3 && !existingSymbols.ContainsKey(addr) &&
+				!hwRegisters.ContainsKey((uint)addr) &&
+				!loader.SubEntryPoints.Contains(addr) &&
+				!loader.JumpTargets.Contains(addr)) {
+				result.Add(((uint)addr, $"ref_{addr:x4}", SymbolType.Label));
+			}
+		}
+
+		return result;
+	}
+
+	/// <summary>
+	/// Read interrupt vector target addresses from ROM data and generate labels.
+	/// </summary>
+	public static List<(uint Address, string Name, SymbolType Type)> GetInterruptVectorLabels(
+		byte platform, byte[] romData) {
+		var result = new List<(uint Address, string Name, SymbolType Type)>();
+
+		switch (platform) {
+			case PansyLoader.PLATFORM_NES:
+			case PansyLoader.PLATFORM_ATARI_2600:
+			case PansyLoader.PLATFORM_LYNX: {
+				// 6502-family: NMI=$FFFA, RESET=$FFFC, IRQ=$FFFE (little-endian 16-bit)
+				TryAddVectorTarget(romData, 0xfffa, "nmi_handler", result);
+				TryAddVectorTarget(romData, 0xfffc, "reset", result);
+				TryAddVectorTarget(romData, 0xfffe, "irq_handler", result);
+				break;
+			}
+			case PansyLoader.PLATFORM_SNES: {
+				// 65816 native mode vectors
+				TryAddVectorTarget(romData, 0xffea, "native_nmi_handler", result);
+				TryAddVectorTarget(romData, 0xffec, "native_reset", result);
+				TryAddVectorTarget(romData, 0xffee, "native_irq_handler", result);
+				// 65816 emulation mode vectors
+				TryAddVectorTarget(romData, 0xfffa, "emu_nmi_handler", result);
+				TryAddVectorTarget(romData, 0xfffc, "emu_reset", result);
+				TryAddVectorTarget(romData, 0xfffe, "emu_irq_handler", result);
+				break;
+			}
+			case PansyLoader.PLATFORM_GB: {
+				// Game Boy RST vectors and interrupt handlers
+				TryAddVectorTarget16(romData, 0x0040, "vblank_handler", result);
+				TryAddVectorTarget16(romData, 0x0048, "stat_handler", result);
+				TryAddVectorTarget16(romData, 0x0050, "timer_handler", result);
+				TryAddVectorTarget16(romData, 0x0058, "serial_handler", result);
+				TryAddVectorTarget16(romData, 0x0060, "joypad_handler", result);
+				// Entry point
+				if (romData.Length >= 0x0101) {
+					result.Add((0x0100, "entry_point", SymbolType.Function));
+				}
+				break;
+			}
+		}
+
+		return result;
+	}
+
+	private static void TryAddVectorTarget(byte[] romData, int vectorAddr,
+		string labelName, List<(uint Address, string Name, SymbolType Type)> result) {
+		if (vectorAddr + 1 < romData.Length) {
+			uint target = (uint)(romData[vectorAddr] | (romData[vectorAddr + 1] << 8));
+			if (target > 0 && target < romData.Length) {
+				result.Add((target, labelName, SymbolType.Function));
+			}
+		}
+	}
+
+	private static void TryAddVectorTarget16(byte[] romData, int addr,
+		string labelName, List<(uint Address, string Name, SymbolType Type)> result) {
+		// For GB: the address IS the handler, not a pointer to read
+		if (addr < romData.Length) {
+			result.Add(((uint)addr, labelName, SymbolType.Function));
+		}
+	}
 
 	/// <summary>
 	/// Generate annotations from analysis results and write an enriched Pansy file.
 	/// Adds symbols, comments, and memory regions for detected patterns.
+	/// Also injects auto-generated labels from CDL data and hardware registers.
 	/// </summary>
 	public static byte[] GenerateAnnotations(
-		PansyLoader source, AnalysisResult analysis) {
+		PansyLoader source, AnalysisResult analysis, byte[]? romData = null) {
 		var writer = new PansyWriter {
 			Platform = source.Platform,
 			RomSize = source.RomSize,
@@ -699,6 +825,12 @@ public static class PansyAnalyzer {
 		// Copy existing memory regions
 		foreach (var region in source.MemoryRegions) {
 			writer.AddMemoryRegion(region);
+		}
+
+		// Inject auto-generated labels from CDL data and hardware registers
+		if (romData != null) {
+			var autoLabels = GenerateAutoLabels(source, romData);
+			writer.AddSymbols(autoLabels);
 		}
 
 		// Add annotations from detected patterns

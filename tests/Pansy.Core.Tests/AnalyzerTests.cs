@@ -1,3 +1,4 @@
+using System.Linq;
 using Xunit;
 
 namespace Pansy.Core.Tests;
@@ -1269,5 +1270,395 @@ public class AnalyzerTests {
 		Assert.Equal("Reset", result.GetSymbol(0x00));
 		// New annotation added
 		Assert.NotNull(result.GetComment(0x80));
+	}
+
+	// ========================================================================
+	// Auto-Label Generation (#70)
+	// ========================================================================
+
+	[Fact]
+	public void GenerateAutoLabels_SubEntryPoints_LabeledAsSub() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 256,
+		};
+		writer.MarkAsSubroutine(0x10);
+		writer.MarkAsSubroutine(0x20);
+		writer.MarkAsCode(0x10);
+		writer.MarkAsCode(0x20);
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+		var romData = new byte[256];
+
+		var labels = PansyAnalyzer.GenerateAutoLabels(loader, romData);
+
+		Assert.Contains(labels, l => l.Name == "sub_0010" && l.Address == 0x10 && l.Type == SymbolType.Function);
+		Assert.Contains(labels, l => l.Name == "sub_0020" && l.Address == 0x20 && l.Type == SymbolType.Function);
+	}
+
+	[Fact]
+	public void GenerateAutoLabels_JumpTargets_LabeledAsLoc() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 256,
+		};
+		writer.MarkAsJumpTarget(0x30);
+		writer.MarkAsCode(0x30);
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+		var romData = new byte[256];
+
+		var labels = PansyAnalyzer.GenerateAutoLabels(loader, romData);
+
+		Assert.Contains(labels, l => l.Name == "loc_0030" && l.Address == 0x30 && l.Type == SymbolType.Label);
+	}
+
+	[Fact]
+	public void GenerateAutoLabels_ExistingSymbols_NotOverwritten() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 256,
+		};
+		writer.MarkAsSubroutine(0x10);
+		writer.MarkAsCode(0x10);
+		writer.AddSymbol(0x10, "MyRoutine", SymbolType.Function);
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+		var romData = new byte[256];
+
+		var labels = PansyAnalyzer.GenerateAutoLabels(loader, romData);
+
+		Assert.DoesNotContain(labels, l => l.Address == 0x10);
+	}
+
+	[Fact]
+	public void GenerateAutoLabels_NesHardwareRegisters_Included() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 256,
+		};
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+		var romData = new byte[256];
+
+		var labels = PansyAnalyzer.GenerateAutoLabels(loader, romData);
+
+		Assert.Contains(labels, l => l.Name == "PPUCTRL" && l.Address == 0x2000);
+		Assert.Contains(labels, l => l.Name == "PPUMASK" && l.Address == 0x2001);
+		Assert.Contains(labels, l => l.Name == "OAMDMA" && l.Address == 0x4014);
+	}
+
+	[Fact]
+	public void GenerateAutoLabels_SnesHardwareRegisters_Included() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_SNES,
+			RomSize = 256,
+		};
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+		var romData = new byte[256];
+
+		var labels = PansyAnalyzer.GenerateAutoLabels(loader, romData);
+
+		Assert.Contains(labels, l => l.Name == "INIDISP" && l.Address == 0x2100);
+		Assert.Contains(labels, l => l.Name == "VMADDL" && l.Address == 0x2116);
+	}
+
+	[Fact]
+	public void GenerateAutoLabels_GbHardwareRegisters_Included() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_GB,
+			RomSize = 256,
+		};
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+		var romData = new byte[256];
+
+		var labels = PansyAnalyzer.GenerateAutoLabels(loader, romData);
+
+		Assert.Contains(labels, l => l.Name == "LCDC" && l.Address == 0xff40);
+		Assert.Contains(labels, l => l.Name == "IF" && l.Address == 0xff0f);
+	}
+
+	[Fact]
+	public void GenerateAutoLabels_HwRegisterNotOverriddenByUserSymbol() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 256,
+		};
+		// User already named $2000 something else
+		writer.AddSymbol(0x2000, "MyPPUCtrl", SymbolType.Label);
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+		var romData = new byte[256];
+
+		var labels = PansyAnalyzer.GenerateAutoLabels(loader, romData);
+
+		Assert.DoesNotContain(labels, l => l.Address == 0x2000);
+	}
+
+	[Fact]
+	public void GenerateAutoLabels_JumpTargetOverlappingHwRegister_NotDuplicated() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 256,
+		};
+		// Jump target at a hardware register address
+		writer.MarkAsJumpTarget(0x2000);
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+		var romData = new byte[256];
+
+		var labels = PansyAnalyzer.GenerateAutoLabels(loader, romData);
+
+		// Should have the hw register name, not loc_2000
+		var at2000 = labels.Where(l => l.Address == 0x2000).ToList();
+		Assert.Single(at2000);
+		Assert.Equal("PPUCTRL", at2000[0].Name);
+	}
+
+	[Fact]
+	public void GetInterruptVectorLabels_Nes_ReadsVectors() {
+		// Create NES-sized ROM with vectors at $FFFA-$FFFF
+		var romData = new byte[0x10000];
+		// NMI = $8000
+		romData[0xfffa] = 0x00;
+		romData[0xfffb] = 0x80;
+		// RESET = $C000
+		romData[0xfffc] = 0x00;
+		romData[0xfffd] = 0xc0;
+		// IRQ = $E000
+		romData[0xfffe] = 0x00;
+		romData[0xffff] = 0xe0;
+
+		var labels = PansyAnalyzer.GetInterruptVectorLabels(PansyLoader.PLATFORM_NES, romData);
+
+		Assert.Contains(labels, l => l.Name == "nmi_handler" && l.Address == 0x8000 && l.Type == SymbolType.Function);
+		Assert.Contains(labels, l => l.Name == "reset" && l.Address == 0xc000 && l.Type == SymbolType.Function);
+		Assert.Contains(labels, l => l.Name == "irq_handler" && l.Address == 0xe000 && l.Type == SymbolType.Function);
+	}
+
+	[Fact]
+	public void GetInterruptVectorLabels_Snes_ReadsNativeAndEmuVectors() {
+		var romData = new byte[0x10000];
+		// Native NMI = $0180
+		romData[0xffea] = 0x80;
+		romData[0xffeb] = 0x01;
+		// Emulation RESET = $8000
+		romData[0xfffc] = 0x00;
+		romData[0xfffd] = 0x80;
+
+		var labels = PansyAnalyzer.GetInterruptVectorLabels(PansyLoader.PLATFORM_SNES, romData);
+
+		Assert.Contains(labels, l => l.Name == "native_nmi_handler" && l.Address == 0x0180);
+		Assert.Contains(labels, l => l.Name == "emu_reset" && l.Address == 0x8000);
+	}
+
+	[Fact]
+	public void GetInterruptVectorLabels_Gb_ReadsHandlersAndEntry() {
+		var romData = new byte[0x200];
+
+		var labels = PansyAnalyzer.GetInterruptVectorLabels(PansyLoader.PLATFORM_GB, romData);
+
+		Assert.Contains(labels, l => l.Name == "vblank_handler" && l.Address == 0x0040);
+		Assert.Contains(labels, l => l.Name == "stat_handler" && l.Address == 0x0048);
+		Assert.Contains(labels, l => l.Name == "timer_handler" && l.Address == 0x0050);
+		Assert.Contains(labels, l => l.Name == "serial_handler" && l.Address == 0x0058);
+		Assert.Contains(labels, l => l.Name == "joypad_handler" && l.Address == 0x0060);
+		Assert.Contains(labels, l => l.Name == "entry_point" && l.Address == 0x0100);
+	}
+
+	[Fact]
+	public void GetInterruptVectorLabels_ZeroTarget_Skipped() {
+		var romData = new byte[0x10000];
+		// NMI points to $0000 — should be skipped
+		romData[0xfffa] = 0x00;
+		romData[0xfffb] = 0x00;
+		// RESET = $C000 — should be included
+		romData[0xfffc] = 0x00;
+		romData[0xfffd] = 0xc0;
+
+		var labels = PansyAnalyzer.GetInterruptVectorLabels(PansyLoader.PLATFORM_NES, romData);
+
+		Assert.DoesNotContain(labels, l => l.Name == "nmi_handler");
+		Assert.Contains(labels, l => l.Name == "reset" && l.Address == 0xc000);
+	}
+
+	[Fact]
+	public void GetInterruptVectorLabels_UnknownPlatform_ReturnsEmpty() {
+		var romData = new byte[0x10000];
+		var labels = PansyAnalyzer.GetInterruptVectorLabels(0xfe, romData);
+		Assert.Empty(labels);
+	}
+
+	[Fact]
+	public void GenerateAutoLabels_VectorTargets_IncludedForNes() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x10000,
+		};
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		var romData = new byte[0x10000];
+		romData[0xfffc] = 0x00;
+		romData[0xfffd] = 0xc0;
+
+		var labels = PansyAnalyzer.GenerateAutoLabels(loader, romData);
+
+		Assert.Contains(labels, l => l.Name == "reset" && l.Address == 0xc000);
+	}
+
+	[Fact]
+	public void GenerateAutoLabels_VectorTarget_SkippedIfUserSymbolExists() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x10000,
+		};
+		writer.AddSymbol(0xc000, "MainEntry", SymbolType.Function);
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		var romData = new byte[0x10000];
+		romData[0xfffc] = 0x00;
+		romData[0xfffd] = 0xc0;
+
+		var labels = PansyAnalyzer.GenerateAutoLabels(loader, romData);
+
+		Assert.DoesNotContain(labels, l => l.Address == 0xc000);
+	}
+
+	[Fact]
+	public void GenerateAnnotations_WithRomData_InjectsAutoLabels() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x10000,
+		};
+		writer.MarkAsSubroutine(0x10);
+		writer.MarkAsCode(0x10);
+		var data = writer.Generate();
+		var source = new PansyLoader(data);
+
+		var analysis = new AnalysisResult {
+			TotalBytes = 0x10000,
+			Gaps = [],
+			Patterns = [],
+		};
+
+		var romData = new byte[0x10000];
+		romData[0xfffc] = 0x00;
+		romData[0xfffd] = 0xc0;
+
+		var output = PansyAnalyzer.GenerateAnnotations(source, analysis, romData);
+		var result = new PansyLoader(output);
+
+		// Auto-generated sub label
+		Assert.Equal("sub_0010", result.GetSymbol(0x10));
+		// Vector target label
+		Assert.Equal("reset", result.GetSymbol(0xc000));
+		// Hardware register label
+		Assert.Equal("PPUCTRL", result.GetSymbol(0x2000));
+	}
+
+	[Fact]
+	public void GenerateAnnotations_WithoutRomData_NoAutoLabels() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 256,
+		};
+		writer.MarkAsSubroutine(0x10);
+		writer.MarkAsCode(0x10);
+		var data = writer.Generate();
+		var source = new PansyLoader(data);
+
+		var analysis = new AnalysisResult {
+			TotalBytes = 256,
+			Gaps = [],
+			Patterns = [],
+		};
+
+		// No romData argument → no auto-labels
+		var output = PansyAnalyzer.GenerateAnnotations(source, analysis);
+		var result = new PansyLoader(output);
+
+		Assert.Null(result.GetSymbol(0x10));
+		Assert.Null(result.GetSymbol(0x2000));
+	}
+
+	[Fact]
+	public void GenerateAutoLabels_GbaHardwareRegisters_Included() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_GBA,
+			RomSize = 256,
+		};
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+		var romData = new byte[256];
+
+		var labels = PansyAnalyzer.GenerateAutoLabels(loader, romData);
+
+		Assert.Contains(labels, l => l.Name == "DISPCNT" && l.Address == 0x04000000);
+		Assert.Contains(labels, l => l.Name == "IE" && l.Address == 0x04000200);
+	}
+
+	[Fact]
+	public void GenerateAutoLabels_Atari2600HardwareRegisters_Included() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_ATARI_2600,
+			RomSize = 256,
+		};
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+		var romData = new byte[256];
+
+		var labels = PansyAnalyzer.GenerateAutoLabels(loader, romData);
+
+		Assert.Contains(labels, l => l.Name == "VSYNC");
+		Assert.Contains(labels, l => l.Name == "VBLANK");
+	}
+
+	[Fact]
+	public void GenerateAutoLabels_PceHardwareRegisters_Included() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_PCE,
+			RomSize = 256,
+		};
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+		var romData = new byte[256];
+
+		var labels = PansyAnalyzer.GenerateAutoLabels(loader, romData);
+
+		Assert.Contains(labels, l => l.Name == "VDC_AR");
+	}
+
+	[Fact]
+	public void GenerateAutoLabels_SmsMasterSystem_Included() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_SMS,
+			RomSize = 256,
+		};
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+		var romData = new byte[256];
+
+		var labels = PansyAnalyzer.GenerateAutoLabels(loader, romData);
+
+		Assert.Contains(labels, l => l.Name == "VDP_DATA");
+	}
+
+	[Fact]
+	public void GenerateAutoLabels_WonderSwanRegisters_Included() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_WONDERSWAN,
+			RomSize = 256,
+		};
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+		var romData = new byte[256];
+
+		var labels = PansyAnalyzer.GenerateAutoLabels(loader, romData);
+
+		Assert.Contains(labels, l => l.Name == "DISPLAY_CTRL");
 	}
 }
