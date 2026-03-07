@@ -273,9 +273,25 @@ This is free and unencumbered software released into the public domain. See [LIC
 - Built with love for the ROM hacking and retro gaming community
 - Special thanks to contributors and testers
 
+## 🌷 Integrated Pipeline
+
+Pansy is the metadata backbone of the **Flower Toolchain** — an integrated pipeline for playing, debugging, disassembling, editing, and rebuilding retro games:
+
+| Stage | Tool | Pansy Role |
+|-------|------|------------|
+| 1. Play & Debug | [Nexen](https://github.com/TheAnsarya/Nexen) | Export CDL, symbols, CPU state |
+| 2. Disassemble | [Peony](https://github.com/TheAnsarya/peony) | Import hints, export analysis |
+| 3. Edit & Document | Editor + Pansy UI | View/edit all metadata |
+| 4. Build | [Poppy](https://github.com/TheAnsarya/poppy) | Import symbols, export CDL |
+| 5. Verify | [Game Garden](https://github.com/TheAnsarya/game-garden) | Roundtrip validation |
+
+See the [Integrated Pipeline Master Plan](~Plans/integrated-pipeline-master-plan.md) for architecture details.
+
 ## 🔗 Related Projects
 
+- **[Nexen](https://github.com/TheAnsarya/Nexen)** - Multi-system emulator & debugger
 - **[Peony](https://github.com/TheAnsarya/peony)** - Multi-system disassembler
 - **[Poppy](https://github.com/TheAnsarya/poppy)** - Multi-system assembler
+- **[Game Garden](https://github.com/TheAnsarya/game-garden)** - Games disassembly & recompilation
 - **[GameInfo](https://github.com/TheAnsarya/GameInfo)** - ROM hacking toolkit
 - **[BPS-Patch](https://github.com/TheAnsarya/bps-patch)** - Binary patching system
