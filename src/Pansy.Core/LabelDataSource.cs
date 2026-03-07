@@ -77,6 +77,10 @@ public class LabelDataCache {
 		Converters = { new JsonStringEnumConverter() },
 	};
 
+	/// <summary>
+	/// Creates a new label data cache using the specified directory.
+	/// </summary>
+	/// <param name="cacheDirectory">Path to the cache directory for label databases.</param>
 	public LabelDataCache(string cacheDirectory) {
 		_cacheDirectory = cacheDirectory;
 	}
