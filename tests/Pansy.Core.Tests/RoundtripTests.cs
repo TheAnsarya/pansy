@@ -149,4 +149,105 @@ public class RoundtripTests {
 		Assert.True(loader.IsCode(0));
 		Assert.True(loader.IsCode(9999));
 	}
+
+	[Fact]
+	public void RoundTrip_CpuState_PreservesSnesMode() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_SNES,
+			RomSize = 0x40000,
+		};
+
+		// SNES with 8-bit accumulator, 16-bit index
+		writer.AddCpuState(new CpuStateEntry(0x8000, 0x02, 0x80, 0x0000, CpuMode.Native65816));
+		// 8-bit both
+		writer.AddCpuState(new CpuStateEntry(0x8100, 0x03, 0x80, 0x1000, CpuMode.Native65816));
+		// Emulation mode
+		writer.AddCpuState(new CpuStateEntry(0x9000, 0x00, 0x00, 0x0000, CpuMode.Emulation6502));
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		Assert.True(loader.Flags.HasFlag(PansyFlags.HasCpuState));
+		Assert.Equal(3, loader.CpuStateEntries.Count);
+
+		var entry0 = loader.CpuStateEntries[0];
+		Assert.Equal(0x8000u, entry0.Address);
+		Assert.Equal(0x02, entry0.Flags); // MFlag set
+		Assert.Equal(0x80, entry0.DataBank);
+		Assert.Equal((ushort)0x0000, entry0.DirectPage);
+		Assert.Equal(CpuMode.Native65816, entry0.Mode);
+
+		var entry1 = loader.CpuStateEntries[1];
+		Assert.Equal(0x8100u, entry1.Address);
+		Assert.Equal(0x03, entry1.Flags); // Both XFlag and MFlag
+		Assert.Equal((ushort)0x1000, entry1.DirectPage);
+
+		var entry2 = loader.CpuStateEntries[2];
+		Assert.Equal(0x9000u, entry2.Address);
+		Assert.Equal(CpuMode.Emulation6502, entry2.Mode);
+	}
+
+	[Fact]
+	public void RoundTrip_CpuState_ArmThumb() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_GBA,
+			RomSize = 0x200000,
+		};
+
+		writer.AddCpuState(new CpuStateEntry(0x08000000, 0x00, 0x00, 0x0000, CpuMode.ARM));
+		writer.AddCpuState(new CpuStateEntry(0x08001000, 0x00, 0x00, 0x0000, CpuMode.THUMB));
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		Assert.Equal(2, loader.CpuStateEntries.Count);
+		Assert.Equal(CpuMode.ARM, loader.CpuStateEntries[0].Mode);
+		Assert.Equal(CpuMode.THUMB, loader.CpuStateEntries[1].Mode);
+	}
+
+	[Fact]
+	public void RoundTrip_CpuState_WithCompression() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_SNES,
+			RomSize = 0x40000,
+			EnableCompression = true,
+		};
+
+		// Add enough entries to make compression worthwhile
+		for (uint i = 0; i < 100; i++) {
+			writer.AddCpuState(new CpuStateEntry(0x8000 + i * 16, 0x03, 0x80, 0x0000, CpuMode.Native65816));
+		}
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		Assert.True(loader.Flags.HasFlag(PansyFlags.Compressed));
+		Assert.True(loader.Flags.HasFlag(PansyFlags.HasCpuState));
+		Assert.Equal(100, loader.CpuStateEntries.Count);
+
+		// Verify first and last entries survived compression
+		Assert.Equal(0x8000u, loader.CpuStateEntries[0].Address);
+		Assert.Equal(0x8000u + 99 * 16, loader.CpuStateEntries[99].Address);
+	}
+
+	[Fact]
+	public void RoundTrip_CpuState_BatchAdd() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_SNES,
+			RomSize = 0x10000,
+		};
+
+		var entries = new List<CpuStateEntry> {
+			new(0x8000, 0x01, 0x00, 0x0000, CpuMode.Native65816),
+			new(0x8010, 0x02, 0x80, 0x2000, CpuMode.Native65816),
+		};
+		writer.AddCpuStates(entries);
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		Assert.Equal(2, loader.CpuStateEntries.Count);
+		Assert.Equal(0x01, loader.CpuStateEntries[0].Flags);
+		Assert.Equal(0x02, loader.CpuStateEntries[1].Flags);
+	}
 }

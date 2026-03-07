@@ -113,7 +113,8 @@
 | 1 | HAS_SOURCE_MAP | Includes source file mapping |
 | 2 | HAS_CROSS_REFS | Contains cross-references section |
 | 3 | DETAILED_CDL | Has detailed CDL data |
-| 4-15 | Reserved | Must be 0 |
+| 4 | HAS_CPU_STATE | Contains CPU state section (0x0009) |
+| 5-15 | Reserved | Must be 0 |
 
 ## Section Types
 
@@ -278,6 +279,29 @@ Bookmark Entry:
 
 **Color:** Application-defined palette index (0 = default).
 
+### CPU_STATE (0x0009)
+
+Per-address CPU state snapshots for architectures with mode-dependent instruction decoding.
+Essential for SNES (65816) where the M and X flags change instruction widths, and GBA where ARM/THUMB mode changes the instruction set.
+
+```text
+CPU State Entry (9 bytes, repeating):
+  Address:    uint32  — CPU address where this state applies
+  Flags:      uint8   — Bit 0: XFlag (1 = 8-bit index registers)
+                        Bit 1: MFlag (1 = 8-bit accumulator)
+                        Bits 2–7: reserved (0)
+  DataBank:   uint8   — Data bank register (DBR, 65816-specific, 0 for other CPUs)
+  DirectPage: uint16  — Direct page offset (65816-specific, 0 for other CPUs)
+  CpuMode:    uint8   — 0 = Native65816, 1 = Emulation6502, 2 = ARM, 3 = THUMB
+```
+
+**Usage notes:**
+
+- Only addresses where CPU state differs from the default need entries
+- SNES: M/X flags determine whether `lda`, `ldx`, etc. read 1 or 2 bytes of immediate data
+- GBA: ARM mode uses 32-bit instructions, THUMB uses 16-bit instructions
+- Entries should be sorted by address for efficient lookup
+
 ## Compression
 
 Section data is compressed using **DEFLATE** (System.IO.Compression.DeflateStream) with `CompressionLevel.Optimal`.
@@ -384,6 +408,7 @@ Each section is compressed independently — a section whose compressed size equ
 | 1.0.2 | 2026-07-09 | Synced spec with implementation: fixed header layout (flags is uint16, section count in header at 0x18), corrected platform IDs to match PansyLoader constants, changed compression from zstd to DEFLATE, marked DATA_TYPES and SOURCE_MAP as reserved/unimplemented, removed footer (integrity checks at application level) |
 | 1.0.3 | 2026-07-12 | Added INTERRUPT_VECTOR (8) and FUNCTION (9) symbol types; typed SymbolEntry/CommentEntry records preserve full type info through roundtrip; DRAWN/READ/INDIRECT flags now fully implemented in writer and loader |
 | 1.0.4 | 2026-07-19 | DATA_TYPES and SOURCE_MAP sections now fully implemented; added BOOKMARKS section (0x000a); batch insert APIs; expanded platform table (0x0b–0x1e); 328 tests, 70 benchmarks |
+| 1.0.5 | 2026-07-20 | Added CPU_STATE section (0x0009) for per-address processor state (M/X flags, data bank, direct page, CPU mode); HAS_CPU_STATE header flag (bit 4); supports SNES 65816 mode tracking and GBA ARM/THUMB switching; 332 tests |
 
 ## Comparison with Existing Formats
 
@@ -397,6 +422,8 @@ Each section is compressed independently — a section whose compressed size equ
 | Source mapping | ❌ | ❌ | ✅ |
 | Cross-references | ❌ | ❌ | ✅ |
 | Data types | ❌ | Limited | ✅ |
+| CPU state (M/X, DBR) | ❌ | ✅ | ✅ |
+| Bookmarks | ❌ | ❌ | ✅ |
 | Multi-system | Limited | SNES only | ✅ |
 | Compression | ❌ | gzip | DEFLATE |
 | Binary format | ✅ | JSON | ✅ |

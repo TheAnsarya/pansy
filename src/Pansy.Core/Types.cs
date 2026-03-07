@@ -151,6 +151,33 @@ public record DataTypeEntry(uint Address, uint Length, ushort ElementSize, ushor
 public record SourceMapEntry(uint RomAddress, ushort FileIndex, ushort Line, ushort Column);
 
 /// <summary>
+/// CPU execution mode for per-address state tracking.
+/// Captures the processor mode at each address for correct disassembly.
+/// </summary>
+public enum CpuMode : byte {
+	/// <summary>65816 native mode (16-bit capable).</summary>
+	Native65816 = 0,
+	/// <summary>65816 emulation mode (6502-compatible).</summary>
+	Emulation6502 = 1,
+	/// <summary>ARM mode (32-bit instructions).</summary>
+	ARM = 2,
+	/// <summary>THUMB mode (16-bit instructions).</summary>
+	THUMB = 3,
+}
+
+/// <summary>
+/// Per-address CPU state entry for accurate disassembly.
+/// Captures processor register state at specific addresses, particularly
+/// important for SNES 65816 where instruction lengths depend on mode flags.
+/// </summary>
+/// <param name="Address">The CPU address.</param>
+/// <param name="Flags">Bit flags: bit 0 = XFlag (8-bit index), bit 1 = MFlag (8-bit accumulator).</param>
+/// <param name="DataBank">Data bank register (DBR) value.</param>
+/// <param name="DirectPage">Direct page offset.</param>
+/// <param name="Mode">CPU execution mode.</param>
+public record CpuStateEntry(uint Address, byte Flags, byte DataBank, ushort DirectPage, CpuMode Mode);
+
+/// <summary>
 /// Pansy file flags.
 /// </summary>
 [Flags]
@@ -165,4 +192,6 @@ public enum PansyFlags : ushort {
 	HasCrossRefs = 1 << 2,
 	/// <summary>File has detailed CDL data.</summary>
 	DetailedCdl = 1 << 3,
+	/// <summary>File contains CPU state section.</summary>
+	HasCpuState = 1 << 4,
 }

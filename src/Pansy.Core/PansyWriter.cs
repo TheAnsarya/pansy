@@ -28,6 +28,7 @@ public sealed class PansyWriter {
 	private readonly List<DataTypeEntry> _dataTypes = [];
 	private readonly List<string> _sourceFiles = [];
 	private readonly List<SourceMapEntry> _sourceMapEntries = [];
+	private readonly List<CpuStateEntry> _cpuStateEntries = [];
 	private byte _platform = PansyLoader.PLATFORM_CUSTOM;
 	private uint _romSize;
 	private uint _romCrc32;
@@ -228,6 +229,18 @@ public sealed class PansyWriter {
 		_sourceMapEntries.Add(entry);
 	}
 
+	/// <summary>Adds a CPU state entry for per-address processor state tracking.</summary>
+	public void AddCpuState(CpuStateEntry entry) {
+		_cpuStateEntries.Add(entry);
+	}
+
+	/// <summary>Adds multiple CPU state entries in batch.</summary>
+	public void AddCpuStates(IEnumerable<CpuStateEntry> entries) {
+		foreach (var entry in entries) {
+			_cpuStateEntries.Add(entry);
+		}
+	}
+
 	/// <summary>Generates the Pansy file as a byte array.</summary>
 	public byte[] Generate() {
 		// Build sections first to get their data and sizes
@@ -274,6 +287,11 @@ public sealed class PansyWriter {
 			sectionData.Add((0x000au, BuildBookmarksSection()));
 		}
 
+		// CPU state section
+		if (_cpuStateEntries.Count > 0) {
+			sectionData.Add((0x0009u, BuildCpuStateSection()));
+		}
+
 		// Metadata section
 		if (!string.IsNullOrEmpty(_projectName) || !string.IsNullOrEmpty(_author) || !string.IsNullOrEmpty(_projectVersion)) {
 			sectionData.Add((0x0008u, BuildMetadataSection()));
@@ -297,6 +315,9 @@ public sealed class PansyWriter {
 		}
 		if (_crossRefs.Count > 0) {
 			flags |= PansyFlags.HasCrossRefs;
+		}
+		if (_cpuStateEntries.Count > 0) {
+			flags |= PansyFlags.HasCpuState;
 		}
 		writer.Write((ushort)flags); // 2 bytes (offset 10)
 
@@ -522,6 +543,19 @@ public sealed class PansyWriter {
 			writer.Write(entry.Column);
 		}
 
+		return ms.ToArray();
+	}
+
+	private byte[] BuildCpuStateSection() {
+		using var ms = new MemoryStream(_cpuStateEntries.Count * 9);
+		using var writer = new BinaryWriter(ms);
+		foreach (var entry in _cpuStateEntries) {
+			writer.Write(entry.Address); // Address (uint32)
+			writer.Write(entry.Flags); // Flags (byte) - bit 0 = XFlag, bit 1 = MFlag
+			writer.Write(entry.DataBank); // DataBank (byte)
+			writer.Write(entry.DirectPage); // DirectPage (uint16)
+			writer.Write((byte)entry.Mode); // CpuMode (byte)
+		}
 		return ms.ToArray();
 	}
 

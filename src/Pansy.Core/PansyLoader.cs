@@ -37,6 +37,7 @@ public class PansyLoader {
 	private readonly List<DataTypeEntry> _dataTypes = [];
 	private readonly List<string> _sourceFiles = [];
 	private readonly List<SourceMapEntry> _sourceMapEntries = [];
+	private readonly List<CpuStateEntry> _cpuStateEntries = [];
 	private string _projectName = "";
 	private string _author = "";
 	private string _projectVersion = "";
@@ -137,6 +138,7 @@ public class PansyLoader {
 	private const uint SECTION_CROSS_REFS = 0x0006;
 	private const uint SECTION_SOURCE_MAP = 0x0007;
 	private const uint SECTION_METADATA = 0x0008;
+	private const uint SECTION_CPU_STATE = 0x0009;
 	private const uint SECTION_BOOKMARKS = 0x000a;
 
 	// Byte flags
@@ -242,6 +244,9 @@ public class PansyLoader {
 
 	/// <summary>Gets source map entries linking ROM addresses to source locations.</summary>
 	public IReadOnlyList<SourceMapEntry> SourceMapEntries => _sourceMapEntries;
+
+	/// <summary>Gets CPU state entries for per-address processor state.</summary>
+	public IReadOnlyList<CpuStateEntry> CpuStateEntries => _cpuStateEntries;
 
 	/// <summary>Gets the project name.</summary>
 	public string ProjectName => _projectName;
@@ -625,6 +630,9 @@ public class PansyLoader {
 			case SECTION_SOURCE_MAP:
 				ParseSourceMap(data);
 				break;
+			case SECTION_CPU_STATE:
+				ParseCpuState(data);
+				break;
 			case SECTION_METADATA:
 				ParseMetadata(data);
 				break;
@@ -825,6 +833,23 @@ public class PansyLoader {
 			pos += 10;
 
 			_sourceMapEntries.Add(new SourceMapEntry(romAddress, fileIndex, line, column));
+		}
+	}
+
+	private void ParseCpuState(byte[] data) {
+		int pos = 0;
+		int len = data.Length;
+		var span = data.AsSpan();
+
+		while (pos + 9 <= len) { // 4+1+1+2+1 = 9 bytes per record
+			var address = BinaryPrimitives.ReadUInt32LittleEndian(span[pos..]);
+			var flags = data[pos + 4];
+			var dataBank = data[pos + 5];
+			var directPage = BinaryPrimitives.ReadUInt16LittleEndian(span[(pos + 6)..]);
+			var mode = (CpuMode)data[pos + 8];
+			pos += 9;
+
+			_cpuStateEntries.Add(new CpuStateEntry(address, flags, dataBank, directPage, mode));
 		}
 	}
 
