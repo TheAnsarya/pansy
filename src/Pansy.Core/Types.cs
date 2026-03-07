@@ -195,3 +195,12 @@ public enum PansyFlags : ushort {
 	/// <summary>File contains CPU state section.</summary>
 	HasCpuState = 1 << 4,
 }
+
+/// <summary>
+/// A default hardware register symbol with name, description, and type metadata.
+/// Used by <see cref="PlatformDefaults"/> for platform-specific register databases.
+/// </summary>
+/// <param name="Name">Register name (e.g., "PPUCTRL", "INIDISP").</param>
+/// <param name="Description">Human-readable description of the register's purpose.</param>
+/// <param name="Type">Symbol type classification.</param>
+public record DefaultSymbol(string Name, string Description, SymbolType Type);

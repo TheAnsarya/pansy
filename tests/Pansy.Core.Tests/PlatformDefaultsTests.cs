@@ -81,23 +81,20 @@ public class PlatformDefaultsTests {
 	}
 
 	// ========================================================================
-	// GetDefaultSymbols Tests
+	// GetDefaultSymbols Tests (backward compat wrapper)
 	// ========================================================================
 
 	[Fact]
-	public void GetDefaultSymbols_Lynx_ReturnsExpectedSymbols() {
+	public void GetDefaultSymbols_Lynx_ReturnsNames() {
 		var symbols = PlatformDefaults.GetDefaultSymbols(PansyLoader.PLATFORM_LYNX);
 
 		Assert.NotNull(symbols);
 		Assert.True(symbols.Count >= 10, $"Expected at least 10 Lynx symbols, got {symbols.Count}");
 
-		// Test Suzy registers (dictionary is address -> name)
-		Assert.True(symbols.ContainsKey(0xfc80), "Expected SPRCTL0 at $fc80");
-		Assert.Equal("SPRCTL0", symbols[0xfc80]);
-		Assert.True(symbols.ContainsKey(0xfc92), "Expected SPRSYS at $fc92");
-		Assert.Equal("SPRSYS", symbols[0xfc92]);
-		Assert.True(symbols.ContainsKey(0xfcb0), "Expected JOYSTICK at $fcb0");
-		Assert.Equal("JOYSTICK", symbols[0xfcb0]);
+		Assert.True(symbols.ContainsKey(0xfc90), "Expected SPRCTL0 at $fc90");
+		Assert.Equal("SPRCTL0", symbols[0xfc90]);
+		Assert.True(symbols.ContainsKey(0xfcc0), "Expected JOYSTICK at $fcc0");
+		Assert.Equal("JOYSTICK", symbols[0xfcc0]);
 	}
 
 	[Fact]
@@ -106,6 +103,229 @@ public class PlatformDefaultsTests {
 
 		Assert.NotNull(symbols);
 		Assert.Empty(symbols);
+	}
+
+	// ========================================================================
+	// GetDefaultSymbolEntries Tests — All Platforms
+	// ========================================================================
+
+	[Theory]
+	[InlineData(PansyLoader.PLATFORM_NES)]
+	[InlineData(PansyLoader.PLATFORM_SNES)]
+	[InlineData(PansyLoader.PLATFORM_GB)]
+	[InlineData(PansyLoader.PLATFORM_GBA)]
+	[InlineData(PansyLoader.PLATFORM_PCE)]
+	[InlineData(PansyLoader.PLATFORM_SMS)]
+	[InlineData(PansyLoader.PLATFORM_WONDERSWAN)]
+	[InlineData(PansyLoader.PLATFORM_LYNX)]
+	[InlineData(PansyLoader.PLATFORM_ATARI_2600)]
+	[InlineData(PansyLoader.PLATFORM_SPC700)]
+	public void GetDefaultSymbolEntries_AllPlatforms_ReturnNonEmpty(byte platformId) {
+		var entries = PlatformDefaults.GetDefaultSymbolEntries(platformId);
+
+		Assert.NotNull(entries);
+		Assert.NotEmpty(entries);
+	}
+
+	[Fact]
+	public void GetDefaultSymbolEntries_Unknown_ReturnsEmpty() {
+		var entries = PlatformDefaults.GetDefaultSymbolEntries(0x99);
+
+		Assert.NotNull(entries);
+		Assert.Empty(entries);
+	}
+
+	[Theory]
+	[InlineData(PansyLoader.PLATFORM_NES)]
+	[InlineData(PansyLoader.PLATFORM_SNES)]
+	[InlineData(PansyLoader.PLATFORM_GB)]
+	[InlineData(PansyLoader.PLATFORM_GBA)]
+	[InlineData(PansyLoader.PLATFORM_PCE)]
+	[InlineData(PansyLoader.PLATFORM_SMS)]
+	[InlineData(PansyLoader.PLATFORM_WONDERSWAN)]
+	[InlineData(PansyLoader.PLATFORM_LYNX)]
+	[InlineData(PansyLoader.PLATFORM_ATARI_2600)]
+	[InlineData(PansyLoader.PLATFORM_SPC700)]
+	public void GetDefaultSymbolEntries_AllSymbols_HaveNonEmptyNames(byte platformId) {
+		var entries = PlatformDefaults.GetDefaultSymbolEntries(platformId);
+
+		foreach (var (address, symbol) in entries) {
+			Assert.False(string.IsNullOrWhiteSpace(symbol.Name),
+				$"Platform 0x{platformId:x2}: Symbol at 0x{address:x4} has empty name");
+			Assert.False(string.IsNullOrWhiteSpace(symbol.Description),
+				$"Platform 0x{platformId:x2}: Symbol at 0x{address:x4} has empty description");
+		}
+	}
+
+	[Theory]
+	[InlineData(PansyLoader.PLATFORM_NES)]
+	[InlineData(PansyLoader.PLATFORM_SNES)]
+	[InlineData(PansyLoader.PLATFORM_GB)]
+	[InlineData(PansyLoader.PLATFORM_GBA)]
+	[InlineData(PansyLoader.PLATFORM_PCE)]
+	[InlineData(PansyLoader.PLATFORM_SMS)]
+	[InlineData(PansyLoader.PLATFORM_WONDERSWAN)]
+	[InlineData(PansyLoader.PLATFORM_LYNX)]
+	[InlineData(PansyLoader.PLATFORM_ATARI_2600)]
+	[InlineData(PansyLoader.PLATFORM_SPC700)]
+	public void GetDefaultSymbolEntries_ConsistentWithGetDefaultSymbols(byte platformId) {
+		var entries = PlatformDefaults.GetDefaultSymbolEntries(platformId);
+		var symbols = PlatformDefaults.GetDefaultSymbols(platformId);
+
+		Assert.Equal(entries.Count, symbols.Count);
+		foreach (var (address, symbol) in entries) {
+			Assert.True(symbols.ContainsKey(address),
+				$"Platform 0x{platformId:x2}: Address 0x{address:x4} in entries but not in symbols");
+			Assert.Equal(symbol.Name, symbols[address]);
+		}
+	}
+
+	// NES-specific key registers
+	[Fact]
+	public void GetDefaultSymbolEntries_NES_HasKeyRegisters() {
+		var entries = PlatformDefaults.GetDefaultSymbolEntries(PansyLoader.PLATFORM_NES);
+
+		Assert.True(entries.ContainsKey(0x2000), "NES: Missing PPUCTRL at $2000");
+		Assert.Equal("PPUCTRL", entries[0x2000].Name);
+
+		Assert.True(entries.ContainsKey(0x2001), "NES: Missing PPUMASK at $2001");
+		Assert.Equal("PPUMASK", entries[0x2001].Name);
+
+		Assert.True(entries.ContainsKey(0x2002), "NES: Missing PPUSTATUS at $2002");
+		Assert.True(entries.ContainsKey(0x4014), "NES: Missing OAMDMA at $4014");
+		Assert.True(entries.ContainsKey(0x4015), "NES: Missing SND_CHN at $4015");
+		Assert.True(entries.ContainsKey(0x4016), "NES: Missing JOY1 at $4016");
+
+		// Interrupt vectors
+		Assert.True(entries.ContainsKey(0xfffa), "NES: Missing NMI vector");
+		Assert.Equal(SymbolType.InterruptVector, entries[0xfffa].Type);
+		Assert.True(entries.ContainsKey(0xfffc), "NES: Missing RESET vector");
+		Assert.True(entries.ContainsKey(0xfffe), "NES: Missing IRQ vector");
+	}
+
+	// SNES-specific key registers
+	[Fact]
+	public void GetDefaultSymbolEntries_SNES_HasKeyRegisters() {
+		var entries = PlatformDefaults.GetDefaultSymbolEntries(PansyLoader.PLATFORM_SNES);
+
+		Assert.True(entries.ContainsKey(0x2100), "SNES: Missing INIDISP at $2100");
+		Assert.Equal("INIDISP", entries[0x2100].Name);
+
+		Assert.True(entries.ContainsKey(0x2105), "SNES: Missing BGMODE at $2105");
+		Assert.True(entries.ContainsKey(0x2140), "SNES: Missing APUIO0 at $2140");
+		Assert.True(entries.ContainsKey(0x4200), "SNES: Missing NMITIMEN at $4200");
+		Assert.True(entries.ContainsKey(0x420b), "SNES: Missing MDMAEN at $420b");
+
+		// DMA channels (8 channels)
+		for (uint ch = 0; ch < 8; ch++) {
+			uint dmaBase = 0x4300 + (ch * 0x10);
+			Assert.True(entries.ContainsKey(dmaBase),
+				$"SNES: Missing DMA channel {ch} control at ${dmaBase:x4}");
+		}
+	}
+
+	// GB-specific key registers
+	[Fact]
+	public void GetDefaultSymbolEntries_GB_HasKeyRegisters() {
+		var entries = PlatformDefaults.GetDefaultSymbolEntries(PansyLoader.PLATFORM_GB);
+
+		Assert.True(entries.ContainsKey(0xff40), "GB: Missing LCDC at $ff40");
+		Assert.Equal("LCDC", entries[0xff40].Name);
+
+		Assert.True(entries.ContainsKey(0xff00), "GB: Missing JOYP at $ff00");
+		Assert.True(entries.ContainsKey(0xff0f), "GB: Missing IF at $ff0f");
+		Assert.True(entries.ContainsKey(0xffff), "GB: Missing IE at $ffff");
+		Assert.True(entries.ContainsKey(0xff10), "GB: Missing NR10 at $ff10");
+	}
+
+	// GBA-specific key registers
+	[Fact]
+	public void GetDefaultSymbolEntries_GBA_HasKeyRegisters() {
+		var entries = PlatformDefaults.GetDefaultSymbolEntries(PansyLoader.PLATFORM_GBA);
+
+		Assert.True(entries.ContainsKey(0x04000000), "GBA: Missing DISPCNT at $04000000");
+		Assert.Equal("DISPCNT", entries[0x04000000].Name);
+
+		Assert.True(entries.ContainsKey(0x04000130), "GBA: Missing KEYINPUT at $04000130");
+		Assert.True(entries.ContainsKey(0x04000200), "GBA: Missing IE at $04000200");
+		Assert.True(entries.ContainsKey(0x04000208), "GBA: Missing IME at $04000208");
+	}
+
+	// SPC700-specific key registers
+	[Fact]
+	public void GetDefaultSymbolEntries_SPC700_HasKeyRegisters() {
+		var entries = PlatformDefaults.GetDefaultSymbolEntries(PansyLoader.PLATFORM_SPC700);
+
+		Assert.True(entries.ContainsKey(0xf0), "SPC700: Missing TEST at $f0");
+		Assert.True(entries.ContainsKey(0xf1), "SPC700: Missing CONTROL at $f1");
+		Assert.True(entries.ContainsKey(0xf2), "SPC700: Missing DSPADDR at $f2");
+		Assert.True(entries.ContainsKey(0xf4), "SPC700: Missing CPUIO0 at $f4");
+		Assert.Equal(16, entries.Count);
+	}
+
+	// Atari 2600 key registers
+	[Fact]
+	public void GetDefaultSymbolEntries_Atari2600_HasKeyRegisters() {
+		var entries = PlatformDefaults.GetDefaultSymbolEntries(PansyLoader.PLATFORM_ATARI_2600);
+
+		Assert.True(entries.ContainsKey(0x00), "A2600: Missing VSYNC at $00");
+		Assert.Equal("VSYNC", entries[0x00].Name);
+		Assert.True(entries.ContainsKey(0x02), "A2600: Missing WSYNC at $02");
+		Assert.True(entries.ContainsKey(0x0280), "A2600: Missing SWCHA at $0280");
+		Assert.True(entries.ContainsKey(0x0284), "A2600: Missing INTIM at $0284");
+
+		// Interrupt vectors
+		Assert.True(entries.ContainsKey(0xfffc), "A2600: Missing RESET vector");
+		Assert.Equal(SymbolType.InterruptVector, entries[0xfffc].Type);
+	}
+
+	// Lynx updated key registers
+	[Fact]
+	public void GetDefaultSymbolEntries_Lynx_HasKeyRegisters() {
+		var entries = PlatformDefaults.GetDefaultSymbolEntries(PansyLoader.PLATFORM_LYNX);
+
+		Assert.True(entries.ContainsKey(0xfc90), "Lynx: Missing SPRCTL0 at $fc90");
+		Assert.Equal("SPRCTL0", entries[0xfc90].Name);
+
+		Assert.True(entries.ContainsKey(0xfcc0), "Lynx: Missing JOYSTICK at $fcc0");
+		Assert.True(entries.ContainsKey(0xfd00), "Lynx: Missing TIM0BKUP at $fd00");
+		Assert.True(entries.ContainsKey(0xfd80), "Lynx: Missing INTRST at $fd80");
+		Assert.True(entries.ContainsKey(0xfd92), "Lynx: Missing DISPCTL at $fd92");
+
+		// Vectors
+		Assert.True(entries.ContainsKey(0xfffa), "Lynx: Missing NMI vector");
+		Assert.Equal(SymbolType.InterruptVector, entries[0xfffa].Type);
+	}
+
+	// PCE key registers
+	[Fact]
+	public void GetDefaultSymbolEntries_PCE_HasKeyRegisters() {
+		var entries = PlatformDefaults.GetDefaultSymbolEntries(PansyLoader.PLATFORM_PCE);
+
+		Assert.True(entries.ContainsKey(0x0000), "PCE: Missing VDC_AR at $0000");
+		Assert.True(entries.ContainsKey(0x0800), "PCE: Missing PSG_CHANSELECT at $0800");
+		Assert.True(entries.ContainsKey(0x1000), "PCE: Missing JOYPAD at $1000");
+	}
+
+	// SMS key registers
+	[Fact]
+	public void GetDefaultSymbolEntries_SMS_HasKeyRegisters() {
+		var entries = PlatformDefaults.GetDefaultSymbolEntries(PansyLoader.PLATFORM_SMS);
+
+		Assert.Equal(8, entries.Count);
+		Assert.True(entries.ContainsKey(0xbe), "SMS: Missing VDP_DATA at $be");
+		Assert.True(entries.ContainsKey(0xbf), "SMS: Missing VDP_CMD_STATUS at $bf");
+	}
+
+	// WonderSwan key registers
+	[Fact]
+	public void GetDefaultSymbolEntries_WS_HasKeyRegisters() {
+		var entries = PlatformDefaults.GetDefaultSymbolEntries(PansyLoader.PLATFORM_WONDERSWAN);
+
+		Assert.True(entries.Count >= 80, $"WS: Expected at least 80 registers, got {entries.Count}");
+		Assert.True(entries.ContainsKey(0x00), "WS: Missing DISPLAY_CTRL at $00");
+		Assert.True(entries.ContainsKey(0x80), "WS: Missing SND_FREQ_CH1 at $80");
+		Assert.True(entries.ContainsKey(0xb2), "WS: Missing HWINT_ENABLE at $b2");
 	}
 
 	// ========================================================================
