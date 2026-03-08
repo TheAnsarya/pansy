@@ -10,7 +10,7 @@ namespace Pansy.Core;
 /// Pansy files contain code/data maps, symbols, comments, cross-references, and more,
 /// providing complete roundtrip support between Poppy (assembler) and Peony (disassembler).
 /// </summary>
-public class PansyLoader {
+public sealed class PansyLoader {
 	private readonly byte[] _data;
 	private readonly ushort _version;
 	private readonly PansyFlags _flags;
