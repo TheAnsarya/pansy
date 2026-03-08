@@ -197,7 +197,12 @@ File.WriteAllBytes("merged.pansy", merged.Generate());
 - [CLI Reference](docs/CLI-REFERENCE.md) - Comprehensive command-line tool guide
 - [Examples](docs/EXAMPLES.md) - Workflow guides and use cases
 - [CI/CD Policy](docs/CI-CD-POLICY.md) - Continuous integration and deployment guidelines
-- API examples and integration guides
+- [Contributing Guide](CONTRIBUTING.md) - Contribution guidelines and development workflow
+
+### Internal Documentation
+
+- [Development Docs](~docs/) - Integration summaries, session logs, and chat logs
+- [Planning](~Plans/) - Technical plans, roadmaps, and research documents
 
 ## 🔗 Integration
 
