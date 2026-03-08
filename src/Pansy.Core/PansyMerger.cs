@@ -106,8 +106,12 @@ public static class PansyMerger {
 			}
 
 			if (overlayEntries != null) {
+				var baseSet = baseEntries != null
+					? new HashSet<(string Name, SymbolType Type)>(baseEntries.Select(b => (b.Name, b.Type)))
+					: [];
+
 				foreach (var entry in overlayEntries) {
-					if (baseEntries != null && baseEntries.Any(b => b.Name == entry.Name && b.Type == entry.Type)) {
+					if (baseSet.Contains((entry.Name, entry.Type))) {
 						continue;
 					}
 					writer.AddSymbol((uint)address, entry.Name, entry.Type);
@@ -131,8 +135,12 @@ public static class PansyMerger {
 			}
 
 			if (overlayEntries != null) {
+				var baseSet = baseEntries != null
+					? new HashSet<(string Text, CommentType Type)>(baseEntries.Select(b => (b.Text, b.Type)))
+					: [];
+
 				foreach (var entry in overlayEntries) {
-					if (baseEntries != null && baseEntries.Any(b => b.Text == entry.Text && b.Type == entry.Type)) {
+					if (baseSet.Contains((entry.Text, entry.Type))) {
 						continue;
 					}
 					writer.AddComment((uint)address, entry.Text, (byte)entry.Type);
@@ -144,29 +152,23 @@ public static class PansyMerger {
 	private static void CollectCodeDataFlags(
 		ConcurrentBag<(uint Offset, byte FlagType)> bag,
 		PansyLoader basePansy, PansyLoader overlayPansy) {
-		foreach (var offset in basePansy.CodeOffsets.Concat(overlayPansy.CodeOffsets).Distinct()) {
-			bag.Add(((uint)offset, 1));
-		}
-		foreach (var offset in basePansy.DataOffsets.Concat(overlayPansy.DataOffsets).Distinct()) {
-			bag.Add(((uint)offset, 2));
-		}
-		foreach (var offset in basePansy.JumpTargets.Concat(overlayPansy.JumpTargets).Distinct()) {
-			bag.Add(((uint)offset, 3));
-		}
-		foreach (var offset in basePansy.SubEntryPoints.Concat(overlayPansy.SubEntryPoints).Distinct()) {
-			bag.Add(((uint)offset, 4));
-		}
-		foreach (var offset in basePansy.OpcodeOffsets.Concat(overlayPansy.OpcodeOffsets).Distinct()) {
-			bag.Add(((uint)offset, 5));
-		}
-		foreach (var offset in basePansy.DrawnOffsets.Concat(overlayPansy.DrawnOffsets).Distinct()) {
-			bag.Add(((uint)offset, 6));
-		}
-		foreach (var offset in basePansy.ReadOffsets.Concat(overlayPansy.ReadOffsets).Distinct()) {
-			bag.Add(((uint)offset, 7));
-		}
-		foreach (var offset in basePansy.IndirectOffsets.Concat(overlayPansy.IndirectOffsets).Distinct()) {
-			bag.Add(((uint)offset, 8));
+		AddMergedOffsets(bag, basePansy.CodeOffsets, overlayPansy.CodeOffsets, 1);
+		AddMergedOffsets(bag, basePansy.DataOffsets, overlayPansy.DataOffsets, 2);
+		AddMergedOffsets(bag, basePansy.JumpTargets, overlayPansy.JumpTargets, 3);
+		AddMergedOffsets(bag, basePansy.SubEntryPoints, overlayPansy.SubEntryPoints, 4);
+		AddMergedOffsets(bag, basePansy.OpcodeOffsets, overlayPansy.OpcodeOffsets, 5);
+		AddMergedOffsets(bag, basePansy.DrawnOffsets, overlayPansy.DrawnOffsets, 6);
+		AddMergedOffsets(bag, basePansy.ReadOffsets, overlayPansy.ReadOffsets, 7);
+		AddMergedOffsets(bag, basePansy.IndirectOffsets, overlayPansy.IndirectOffsets, 8);
+	}
+
+	private static void AddMergedOffsets(
+		ConcurrentBag<(uint Offset, byte FlagType)> bag,
+		IReadOnlySet<int> baseOffsets, IReadOnlySet<int> overlayOffsets, byte flagType) {
+		var merged = new HashSet<int>(baseOffsets);
+		merged.UnionWith(overlayOffsets);
+		foreach (var offset in merged) {
+			bag.Add(((uint)offset, flagType));
 		}
 	}
 
