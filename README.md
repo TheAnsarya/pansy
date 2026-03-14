@@ -15,9 +15,8 @@
 - ✅ **Auto-Annotation** - Generate enriched Pansy files with detected pattern metadata
 - ✅ **File Merging** - Combine base + overlay Pansy files with intelligent deduplication
 - ✅ **Parallel Processing** - Parallel gap detection, section decompression, and merge operations
-- ✅ **328 Tests Passing** - Comprehensive coverage including analyzer, merger, roundtrip, batch API, format compatibility, and edge case tests
+- ✅ **433 Tests Passing** - Comprehensive coverage including analyzer, merger, roundtrip, batch API, format compatibility, Label Intelligence, platform defaults, and integration tests
 - ✅ **Label Intelligence** - LabelMergeEngine, LabelDataCache, ILabelSuggester, auto-label generation from CDL + hardware registers
-- ✅ **433 Total Tests** - Including Label Intelligence, platform defaults, and integration tests
 - ✅ **70 Benchmarks** - Writer, loader, analyzer, merger, batch API, cross-ref query, graph export, and bookmark/data type performance tracking
 - ✅ **Batch APIs** - High-performance batch insert for symbols, comments, cross-references, and memory regions
 - ✅ **Performance Optimized** - FrozenDictionary/FrozenSet for zero-allocation lookups, LINQ-free hot paths
@@ -55,7 +54,7 @@ Pansy provides a universal, efficient format to store all this metadata independ
 - `PansyMerger` - Merge base + overlay files with parallel operations
 - Modern .NET 10 / C# 14
 - Cross-platform (Windows, Linux, macOS)
-- Comprehensive xUnit test coverage (328 tests)
+- Comprehensive xUnit test coverage (433 tests)
 - Batch insert APIs for high-throughput metadata ingestion
 
 ### 🖥️ Cross-Platform UI
@@ -261,7 +260,7 @@ Pansy/
 │   ├── Pansy.UI/                # Avalonia desktop app
 │   └── Pansy.Cli/               # Command-line tools
 ├── tests/
-│   ├── Pansy.Core.Tests/        # xUnit tests (328 tests)
+│   ├── Pansy.Core.Tests/        # xUnit tests (433 tests)
 │   └── Pansy.Core.Benchmarks/   # BenchmarkDotNet suite (70 benchmarks)
 └── docs/                        # Documentation
 ```
