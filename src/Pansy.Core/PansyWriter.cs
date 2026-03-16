@@ -27,6 +27,7 @@ public sealed class PansyWriter {
 	private readonly List<Bookmark> _bookmarks = [];
 	private readonly List<DataTypeEntry> _dataTypes = [];
 	private readonly List<string> _sourceFiles = [];
+	private readonly Dictionary<string, ushort> _sourceFileIndex = [];
 	private readonly List<SourceMapEntry> _sourceMapEntries = [];
 	private readonly List<CpuStateEntry> _cpuStateEntries = [];
 	private byte _platform = PansyLoader.PLATFORM_CUSTOM;
@@ -217,11 +218,12 @@ public sealed class PansyWriter {
 
 	/// <summary>Adds a source file path and returns its index.</summary>
 	public ushort AddSourceFile(string path) {
-		var index = _sourceFiles.IndexOf(path);
-		if (index >= 0)
-			return (ushort)index;
+		if (_sourceFileIndex.TryGetValue(path, out var existing))
+			return existing;
+		var index = (ushort)_sourceFiles.Count;
+		_sourceFileIndex[path] = index;
 		_sourceFiles.Add(path);
-		return (ushort)(_sourceFiles.Count - 1);
+		return index;
 	}
 
 	/// <summary>Adds a source map entry linking a ROM address to source location.</summary>
