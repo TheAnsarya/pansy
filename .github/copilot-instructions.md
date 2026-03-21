@@ -2,17 +2,6 @@
 
 > **Pansy** - Program ANalysis SYstem format for comprehensive assembly metadata exchange
 
-## ⚠️ MANDATORY: Timestamps on All Messages
-
-**Every message from the AI must include a timestamp.** This is non-negotiable.
-
-- **First message**: Start with `**[YYYY-MM-DD HH:MM — start]**` (24-hour local time)
-- **Every subsequent message**: Start with `**[YYYY-MM-DD HH:MM]**`
-- **Long-running commands**: Include timestamps before and after to reveal hangs
-- **Session end**: End with `**[YYYY-MM-DD HH:MM — end]**`
-
-This applies to ALL responses — answers, tool results summaries, progress updates, everything.
-
 ## Project Overview
 
 **🌼 Pansy** is a universal disassembly metadata format and toolkit. It provides a standardized way to store, share, and edit disassembly analysis data across different platforms and tools.
