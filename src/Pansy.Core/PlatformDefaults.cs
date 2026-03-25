@@ -862,6 +862,26 @@ public static class PlatformDefaults {
 		{ 0x2b, new("HMCLR", "Clear Horizontal Move Registers", SymbolType.Constant) },
 		{ 0x2c, new("CXCLR", "Clear Collision Latches", SymbolType.Constant) },
 
+		// TIA Read Registers (Collision & Input)
+		// Read registers share addresses 0x00-0x0d with write registers; the TIA
+		// distinguishes read vs write internally.  Following the DASM vcs.h convention,
+		// we place them at mirror addresses 0x30-0x3d (A5=1, A4=1) to avoid symbol
+		// collisions in the dictionary.
+		{ 0x30, new("CXM0P", "Collision M0-P1, M0-P0", SymbolType.Constant) },
+		{ 0x31, new("CXM1P", "Collision M1-P0, M1-P1", SymbolType.Constant) },
+		{ 0x32, new("CXP0FB", "Collision P0-PF, P0-BL", SymbolType.Constant) },
+		{ 0x33, new("CXP1FB", "Collision P1-PF, P1-BL", SymbolType.Constant) },
+		{ 0x34, new("CXM0FB", "Collision M0-PF, M0-BL", SymbolType.Constant) },
+		{ 0x35, new("CXM1FB", "Collision M1-PF, M1-BL", SymbolType.Constant) },
+		{ 0x36, new("CXBLPF", "Collision BL-PF", SymbolType.Constant) },
+		{ 0x37, new("CXPPMM", "Collision P0-P1, M0-M1", SymbolType.Constant) },
+		{ 0x38, new("INPT0", "Read Pot Port 0", SymbolType.Constant) },
+		{ 0x39, new("INPT1", "Read Pot Port 1", SymbolType.Constant) },
+		{ 0x3a, new("INPT2", "Read Pot Port 2", SymbolType.Constant) },
+		{ 0x3b, new("INPT3", "Read Pot Port 3", SymbolType.Constant) },
+		{ 0x3c, new("INPT4", "Read Input (Trigger) 0", SymbolType.Constant) },
+		{ 0x3d, new("INPT5", "Read Input (Trigger) 1", SymbolType.Constant) },
+
 		// RIOT Registers
 		{ 0x0280, new("SWCHA", "Port A Data", SymbolType.Constant) },
 		{ 0x0281, new("SWACNT", "Port A Data Direction", SymbolType.Constant) },
