@@ -290,4 +290,115 @@ public class Atari2600PlatformDefaultsTests {
 			Assert.Equal(symbol.Name, symbols[address]);
 		}
 	}
+
+	// ========================================================================
+	// Bit Field Metadata Tests
+	// ========================================================================
+
+	[Fact]
+	public void VBLANK_HasBitFields() {
+		var symbol = _entries[0x01];
+		Assert.NotNull(symbol.BitFields);
+		Assert.Equal(3, symbol.BitFields.Length);
+		Assert.Contains(symbol.BitFields, bf => bf.Bit == 1 && bf.Width == 1 && bf.Name == "VBLANK");
+		Assert.Contains(symbol.BitFields, bf => bf.Bit == 6 && bf.Width == 1 && bf.Name == "I4I5_LATCH");
+		Assert.Contains(symbol.BitFields, bf => bf.Bit == 7 && bf.Width == 1 && bf.Name == "I0I3_DUMP");
+	}
+
+	[Fact]
+	public void NUSIZ0_HasBitFields() {
+		var symbol = _entries[0x04];
+		Assert.NotNull(symbol.BitFields);
+		Assert.Equal(2, symbol.BitFields.Length);
+		Assert.Contains(symbol.BitFields, bf => bf.Bit == 0 && bf.Width == 3 && bf.Name == "PLAYER_SIZE");
+		Assert.Contains(symbol.BitFields, bf => bf.Bit == 4 && bf.Width == 2 && bf.Name == "MISSILE_SIZE");
+	}
+
+	[Fact]
+	public void NUSIZ1_HasBitFields() {
+		var symbol = _entries[0x05];
+		Assert.NotNull(symbol.BitFields);
+		Assert.Equal(2, symbol.BitFields.Length);
+		Assert.Contains(symbol.BitFields, bf => bf.Bit == 0 && bf.Width == 3 && bf.Name == "PLAYER_SIZE");
+		Assert.Contains(symbol.BitFields, bf => bf.Bit == 4 && bf.Width == 2 && bf.Name == "MISSILE_SIZE");
+	}
+
+	[Fact]
+	public void CTRLPF_HasBitFields() {
+		var symbol = _entries[0x0a];
+		Assert.NotNull(symbol.BitFields);
+		Assert.Equal(4, symbol.BitFields.Length);
+		Assert.Contains(symbol.BitFields, bf => bf.Bit == 0 && bf.Width == 1 && bf.Name == "REFLECT");
+		Assert.Contains(symbol.BitFields, bf => bf.Bit == 1 && bf.Width == 1 && bf.Name == "SCORE");
+		Assert.Contains(symbol.BitFields, bf => bf.Bit == 2 && bf.Width == 1 && bf.Name == "PRIORITY");
+		Assert.Contains(symbol.BitFields, bf => bf.Bit == 4 && bf.Width == 2 && bf.Name == "BALL_SIZE");
+	}
+
+	[Fact]
+	public void PF0_HasBitFields() {
+		var symbol = _entries[0x0d];
+		Assert.NotNull(symbol.BitFields);
+		Assert.Single(symbol.BitFields);
+		Assert.Equal(4, symbol.BitFields[0].Bit);
+		Assert.Equal(4, symbol.BitFields[0].Width);
+	}
+
+	[Fact]
+	public void PF1_HasBitFields() {
+		var symbol = _entries[0x0e];
+		Assert.NotNull(symbol.BitFields);
+		Assert.Single(symbol.BitFields);
+		Assert.Equal(0, symbol.BitFields[0].Bit);
+		Assert.Equal(8, symbol.BitFields[0].Width);
+	}
+
+	[Fact]
+	public void PF2_HasBitFields() {
+		var symbol = _entries[0x0f];
+		Assert.NotNull(symbol.BitFields);
+		Assert.Single(symbol.BitFields);
+		Assert.Equal(0, symbol.BitFields[0].Bit);
+		Assert.Equal(8, symbol.BitFields[0].Width);
+	}
+
+	[Fact]
+	public void SWCHB_HasBitFields() {
+		var symbol = _entries[0x0282];
+		Assert.NotNull(symbol.BitFields);
+		Assert.Equal(5, symbol.BitFields.Length);
+		Assert.Contains(symbol.BitFields, bf => bf.Bit == 0 && bf.Name == "RESET");
+		Assert.Contains(symbol.BitFields, bf => bf.Bit == 1 && bf.Name == "SELECT");
+		Assert.Contains(symbol.BitFields, bf => bf.Bit == 3 && bf.Name == "BW");
+		Assert.Contains(symbol.BitFields, bf => bf.Bit == 6 && bf.Name == "P0_DIFF");
+		Assert.Contains(symbol.BitFields, bf => bf.Bit == 7 && bf.Name == "P1_DIFF");
+	}
+
+	[Fact]
+	public void RegistersWithoutBitFields_HaveNullBitFields() {
+		// VSYNC has no bit fields defined
+		Assert.Null(_entries[0x00].BitFields);
+		// WSYNC has no bit fields
+		Assert.Null(_entries[0x02].BitFields);
+		// TIA read registers have no bit fields
+		Assert.Null(_entries[0x30].BitFields);
+		// RIOT SWCHA has no bit fields
+		Assert.Null(_entries[0x0280].BitFields);
+	}
+
+	[Fact]
+	public void AllBitFields_HaveNonEmptyNamesAndDescriptions() {
+		foreach (var (address, symbol) in _entries) {
+			if (symbol.BitFields is null) continue;
+			foreach (var bf in symbol.BitFields) {
+				Assert.False(string.IsNullOrWhiteSpace(bf.Name),
+					$"BitField at ${address:x4} has empty name");
+				Assert.False(string.IsNullOrWhiteSpace(bf.Description),
+					$"BitField {bf.Name} at ${address:x4} has empty description");
+				Assert.True(bf.Bit >= 0 && bf.Bit <= 7,
+					$"BitField {bf.Name} at ${address:x4} has invalid bit position {bf.Bit}");
+				Assert.True(bf.Width >= 1 && bf.Width <= 8,
+					$"BitField {bf.Name} at ${address:x4} has invalid width {bf.Width}");
+			}
+		}
+	}
 }

@@ -203,7 +203,17 @@ public enum PansyFlags : ushort {
 /// <param name="Name">Register name (e.g., "PPUCTRL", "INIDISP").</param>
 /// <param name="Description">Human-readable description of the register's purpose.</param>
 /// <param name="Type">Symbol type classification.</param>
-public record DefaultSymbol(string Name, string Description, SymbolType Type);
+/// <param name="BitFields">Optional bit field descriptions for the register.</param>
+public record DefaultSymbol(string Name, string Description, SymbolType Type, BitField[]? BitFields = null);
+
+/// <summary>
+/// Describes a single bit field within a hardware register.
+/// </summary>
+/// <param name="Bit">The starting bit position (0 = LSB).</param>
+/// <param name="Width">The number of bits in this field.</param>
+/// <param name="Name">Short name for the bit field.</param>
+/// <param name="Description">Human-readable description of the field's purpose.</param>
+public record BitField(int Bit, int Width, string Name, string Description);
 
 /// <summary>
 /// Source of a label, used by <see cref="LabelMergeEngine"/> for priority resolution.

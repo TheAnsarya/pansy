@@ -817,21 +817,42 @@ public static class PlatformDefaults {
 	public static Dictionary<uint, DefaultSymbol> GetAtari2600DefaultSymbolEntries() => new() {
 		// TIA Write Registers
 		{ 0x00, new("VSYNC", "Vertical Sync", SymbolType.Constant) },
-		{ 0x01, new("VBLANK", "Vertical Blank", SymbolType.Constant) },
+		{ 0x01, new("VBLANK", "Vertical Blank", SymbolType.Constant, [
+			new(1, 1, "VBLANK", "VBLANK enable (1=blank)"),
+			new(6, 1, "I4I5_LATCH", "Latch I4/I5 input enable"),
+			new(7, 1, "I0I3_DUMP", "Dump I0-I3 ports to ground"),
+		]) },
 		{ 0x02, new("WSYNC", "Wait for Sync", SymbolType.Constant) },
 		{ 0x03, new("RSYNC", "Reset Sync", SymbolType.Constant) },
-		{ 0x04, new("NUSIZ0", "Number-Size Player 0", SymbolType.Constant) },
-		{ 0x05, new("NUSIZ1", "Number-Size Player 1", SymbolType.Constant) },
+		{ 0x04, new("NUSIZ0", "Number-Size Player 0", SymbolType.Constant, [
+			new(0, 3, "PLAYER_SIZE", "Player number-size (000=1 copy, 001=2 close, 010=2 med, 011=3 close, 100=2 wide, 101=double, 110=3 med, 111=quad)"),
+			new(4, 2, "MISSILE_SIZE", "Missile size (00=1, 01=2, 10=4, 11=8)"),
+		]) },
+		{ 0x05, new("NUSIZ1", "Number-Size Player 1", SymbolType.Constant, [
+			new(0, 3, "PLAYER_SIZE", "Player number-size (000=1 copy, 001=2 close, 010=2 med, 011=3 close, 100=2 wide, 101=double, 110=3 med, 111=quad)"),
+			new(4, 2, "MISSILE_SIZE", "Missile size (00=1, 01=2, 10=4, 11=8)"),
+		]) },
 		{ 0x06, new("COLUP0", "Color-Luminance Player 0", SymbolType.Constant) },
 		{ 0x07, new("COLUP1", "Color-Luminance Player 1", SymbolType.Constant) },
 		{ 0x08, new("COLUPF", "Color-Luminance Playfield", SymbolType.Constant) },
 		{ 0x09, new("COLUBK", "Color-Luminance Background", SymbolType.Constant) },
-		{ 0x0a, new("CTRLPF", "Control Playfield", SymbolType.Constant) },
+		{ 0x0a, new("CTRLPF", "Control Playfield", SymbolType.Constant, [
+			new(0, 1, "REFLECT", "Reflect playfield (1=mirror)"),
+			new(1, 1, "SCORE", "Score mode (1=left uses P0 color, right P1)"),
+			new(2, 1, "PRIORITY", "Playfield priority (1=PF over players)"),
+			new(4, 2, "BALL_SIZE", "Ball size (00=1, 01=2, 10=4, 11=8)"),
+		]) },
 		{ 0x0b, new("REFP0", "Reflect Player 0", SymbolType.Constant) },
 		{ 0x0c, new("REFP1", "Reflect Player 1", SymbolType.Constant) },
-		{ 0x0d, new("PF0", "Playfield 0", SymbolType.Constant) },
-		{ 0x0e, new("PF1", "Playfield 1", SymbolType.Constant) },
-		{ 0x0f, new("PF2", "Playfield 2", SymbolType.Constant) },
+		{ 0x0d, new("PF0", "Playfield 0", SymbolType.Constant, [
+			new(4, 4, "PF", "Playfield bits D4-D7 (displayed right-to-left)"),
+		]) },
+		{ 0x0e, new("PF1", "Playfield 1", SymbolType.Constant, [
+			new(0, 8, "PF", "Playfield bits D7-D0 (displayed left-to-right)"),
+		]) },
+		{ 0x0f, new("PF2", "Playfield 2", SymbolType.Constant, [
+			new(0, 8, "PF", "Playfield bits D0-D7 (displayed right-to-left)"),
+		]) },
 		{ 0x10, new("RESP0", "Reset Player 0", SymbolType.Constant) },
 		{ 0x11, new("RESP1", "Reset Player 1", SymbolType.Constant) },
 		{ 0x12, new("RESM0", "Reset Missile 0", SymbolType.Constant) },
@@ -885,7 +906,13 @@ public static class PlatformDefaults {
 		// RIOT Registers
 		{ 0x0280, new("SWCHA", "Port A Data", SymbolType.Constant) },
 		{ 0x0281, new("SWACNT", "Port A Data Direction", SymbolType.Constant) },
-		{ 0x0282, new("SWCHB", "Port B Data (Console Switches)", SymbolType.Constant) },
+		{ 0x0282, new("SWCHB", "Port B Data (Console Switches)", SymbolType.Constant, [
+			new(0, 1, "RESET", "Game reset switch (active low)"),
+			new(1, 1, "SELECT", "Game select switch (active low)"),
+			new(3, 1, "BW", "Color/B&W switch (0=B&W, 1=Color)"),
+			new(6, 1, "P0_DIFF", "P0 difficulty (0=expert/B, 1=amateur/A)"),
+			new(7, 1, "P1_DIFF", "P1 difficulty (0=expert/B, 1=amateur/A)"),
+		]) },
 		{ 0x0283, new("SWBCNT", "Port B Data Direction", SymbolType.Constant) },
 		{ 0x0284, new("INTIM", "Timer Output", SymbolType.Constant) },
 		{ 0x0285, new("INSTAT", "Timer Status", SymbolType.Constant) },
