@@ -238,6 +238,27 @@ The pipeline enables a **continuous refinement loop** where each iteration enric
 | ID | Gap | Impact | Priority |
 |----|-----|--------|----------|
 | D1 | No Pansy input (read) capability | Can't import symbols/hints from existing analysis | Medium |
+
+---
+
+## Channel F Integration Update (2026-03-26)
+
+This session added Fairchild Channel F as a first-class platform identity in Pansy core so Nexen and Poppy can share a stable metadata target.
+
+- Platform id added: `0x1f` (`PLATFORM_CHANNEL_F`)
+- Platform name mapping added: `Fairchild Channel F`
+- Default memory regions added:
+  - Cartridge ROM (`$0000-$17ff`)
+  - System RAM (`$2800-$2fff`)
+  - Video RAM (`$3000-$37ff`)
+  - I/O registers (`$3800-$38ff`)
+- Default Channel F symbol entries added (baseline I/O and reset vector)
+- Test coverage extended in:
+  - `PansyLoaderTests`
+  - `PlatformDefaultsTests`
+  - `BugFixTests`
+
+This closes the immediate platform-id gap for pipeline stage handoff between Nexen export and Pansy ingestion.
 | D2 | No Source Map generation | Can't trace assembled bytes back to source lines | Medium |
 
 ### E. Cross-Project Gaps (tracked in game-garden repo)

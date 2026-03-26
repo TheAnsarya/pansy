@@ -73,6 +73,18 @@ public class PlatformDefaultsTests {
 	}
 
 	[Fact]
+	public void GetDefaultRegions_ChannelF_ReturnsExpectedRegions() {
+		var regions = PlatformDefaults.GetDefaultRegions(PansyLoader.PLATFORM_CHANNEL_F);
+
+		Assert.NotNull(regions);
+		Assert.Equal(4, regions.Length);
+		Assert.Contains(regions, r => r.Name == "Cartridge ROM" && r.Start == 0x0000 && r.End == 0x17ff);
+		Assert.Contains(regions, r => r.Name == "System RAM" && r.Start == 0x2800 && r.End == 0x2fff);
+		Assert.Contains(regions, r => r.Name == "Video RAM" && r.Start == 0x3000 && r.End == 0x37ff);
+		Assert.Contains(regions, r => r.Name == "I/O Registers" && r.Start == 0x3800 && r.End == 0x38ff);
+	}
+
+	[Fact]
 	public void GetDefaultRegions_Unknown_ReturnsEmptyArray() {
 		var regions = PlatformDefaults.GetDefaultRegions(0x99);
 
@@ -119,6 +131,7 @@ public class PlatformDefaultsTests {
 	[InlineData(PansyLoader.PLATFORM_WONDERSWAN)]
 	[InlineData(PansyLoader.PLATFORM_LYNX)]
 	[InlineData(PansyLoader.PLATFORM_ATARI_2600)]
+	[InlineData(PansyLoader.PLATFORM_CHANNEL_F)]
 	[InlineData(PansyLoader.PLATFORM_SPC700)]
 	public void GetDefaultSymbolEntries_AllPlatforms_ReturnNonEmpty(byte platformId) {
 		var entries = PlatformDefaults.GetDefaultSymbolEntries(platformId);
@@ -145,6 +158,7 @@ public class PlatformDefaultsTests {
 	[InlineData(PansyLoader.PLATFORM_WONDERSWAN)]
 	[InlineData(PansyLoader.PLATFORM_LYNX)]
 	[InlineData(PansyLoader.PLATFORM_ATARI_2600)]
+	[InlineData(PansyLoader.PLATFORM_CHANNEL_F)]
 	[InlineData(PansyLoader.PLATFORM_SPC700)]
 	public void GetDefaultSymbolEntries_AllSymbols_HaveNonEmptyNames(byte platformId) {
 		var entries = PlatformDefaults.GetDefaultSymbolEntries(platformId);
@@ -167,6 +181,7 @@ public class PlatformDefaultsTests {
 	[InlineData(PansyLoader.PLATFORM_WONDERSWAN)]
 	[InlineData(PansyLoader.PLATFORM_LYNX)]
 	[InlineData(PansyLoader.PLATFORM_ATARI_2600)]
+	[InlineData(PansyLoader.PLATFORM_CHANNEL_F)]
 	[InlineData(PansyLoader.PLATFORM_SPC700)]
 	public void GetDefaultSymbolEntries_ConsistentWithGetDefaultSymbols(byte platformId) {
 		var entries = PlatformDefaults.GetDefaultSymbolEntries(platformId);
@@ -277,6 +292,17 @@ public class PlatformDefaultsTests {
 		// Interrupt vectors
 		Assert.True(entries.ContainsKey(0xfffc), "A2600: Missing RESET vector");
 		Assert.Equal(SymbolType.InterruptVector, entries[0xfffc].Type);
+	}
+
+	[Fact]
+	public void GetDefaultSymbolEntries_ChannelF_HasKeyRegisters() {
+		var entries = PlatformDefaults.GetDefaultSymbolEntries(PansyLoader.PLATFORM_CHANNEL_F);
+
+		Assert.True(entries.ContainsKey(0x3800), "Channel F: Missing CH_F_PORT0 at $3800");
+		Assert.Equal("CH_F_PORT0", entries[0x3800].Name);
+		Assert.True(entries.ContainsKey(0x3803), "Channel F: Missing CH_F_PORT3 at $3803");
+		Assert.True(entries.ContainsKey(0x3fff), "Channel F: Missing RESET_VECTOR at $3fff");
+		Assert.Equal(SymbolType.InterruptVector, entries[0x3fff].Type);
 	}
 
 	// Lynx updated key registers

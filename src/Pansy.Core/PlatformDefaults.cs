@@ -21,9 +21,20 @@ public static class PlatformDefaults {
 			PansyLoader.PLATFORM_GB => GetGbDefaultRegions(),
 			PansyLoader.PLATFORM_LYNX => GetLynxDefaultRegions(),
 			PansyLoader.PLATFORM_ATARI_2600 => GetAtari2600DefaultRegions(),
+			PansyLoader.PLATFORM_CHANNEL_F => GetChannelFDefaultRegions(),
 			_ => []
 		};
 	}
+
+	/// <summary>
+	/// Gets default memory regions for Fairchild Channel F.
+	/// </summary>
+	public static MemoryRegion[] GetChannelFDefaultRegions() => [
+		new MemoryRegion(0x0000, 0x17ff, (byte)MemoryRegionType.ROM, 0, "Cartridge ROM"),
+		new MemoryRegion(0x2800, 0x2fff, (byte)MemoryRegionType.RAM, 0, "System RAM"),
+		new MemoryRegion(0x3000, 0x37ff, (byte)MemoryRegionType.VRAM, 0, "Video RAM"),
+		new MemoryRegion(0x3800, 0x38ff, (byte)MemoryRegionType.IO, 0, "I/O Registers"),
+	];
 
 	/// <summary>
 	/// Gets default memory regions for Atari Lynx.
@@ -115,6 +126,7 @@ public static class PlatformDefaults {
 			PansyLoader.PLATFORM_WONDERSWAN => GetWsDefaultSymbolEntries(),
 			PansyLoader.PLATFORM_LYNX => GetLynxDefaultSymbolEntries(),
 			PansyLoader.PLATFORM_ATARI_2600 => GetAtari2600DefaultSymbolEntries(),
+			PansyLoader.PLATFORM_CHANNEL_F => GetChannelFDefaultSymbolEntries(),
 			PansyLoader.PLATFORM_SPC700 => GetSpc700DefaultSymbolEntries(),
 			_ => []
 		};
@@ -925,6 +937,21 @@ public static class PlatformDefaults {
 		{ 0xfffa, new("NMI_VECTOR", "NMI Vector", SymbolType.InterruptVector) },
 		{ 0xfffc, new("RESET_VECTOR", "Reset Vector", SymbolType.InterruptVector) },
 		{ 0xfffe, new("IRQ_VECTOR", "IRQ/BRK Vector", SymbolType.InterruptVector) },
+	};
+
+	// ========================================================================
+	// Fairchild Channel F Hardware Registers
+	// ========================================================================
+
+	/// <summary>
+	/// Gets default symbols for Fairchild Channel F I/O and vector locations.
+	/// </summary>
+	public static Dictionary<uint, DefaultSymbol> GetChannelFDefaultSymbolEntries() => new() {
+		{ 0x3800, new("CH_F_PORT0", "I/O Port 0", SymbolType.Constant) },
+		{ 0x3801, new("CH_F_PORT1", "I/O Port 1", SymbolType.Constant) },
+		{ 0x3802, new("CH_F_PORT2", "I/O Port 2", SymbolType.Constant) },
+		{ 0x3803, new("CH_F_PORT3", "I/O Port 3", SymbolType.Constant) },
+		{ 0x3fff, new("RESET_VECTOR", "Reset/Entry Vector", SymbolType.InterruptVector) },
 	};
 
 	// ========================================================================

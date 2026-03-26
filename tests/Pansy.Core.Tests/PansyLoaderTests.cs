@@ -27,6 +27,7 @@ public class PansyLoaderTests {
 		Assert.Equal(0x03, PansyLoader.PLATFORM_GB);
 		Assert.Equal(0x04, PansyLoader.PLATFORM_GBA);
 		Assert.Equal(0x05, PansyLoader.PLATFORM_GENESIS);
+		Assert.Equal(0x1f, PansyLoader.PLATFORM_CHANNEL_F);
 		Assert.Equal(0xff, PansyLoader.PLATFORM_CUSTOM);
 	}
 }

@@ -502,6 +502,7 @@ public class BugFixTests {
 			PansyLoader.PLATFORM_LYNX, PansyLoader.PLATFORM_WONDERSWAN,
 			PansyLoader.PLATFORM_NEOGEO, PansyLoader.PLATFORM_SPC700,
 			PansyLoader.PLATFORM_C64, PansyLoader.PLATFORM_MSX,
+			PansyLoader.PLATFORM_CHANNEL_F,
 			PansyLoader.PLATFORM_CUSTOM
 		];
 

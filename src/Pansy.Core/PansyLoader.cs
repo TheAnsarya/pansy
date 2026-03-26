@@ -126,6 +126,8 @@ public sealed class PansyLoader {
 	public const byte PLATFORM_PLUS4 = 0x1d;
 	/// <summary>Platform ID for Commodore 128.</summary>
 	public const byte PLATFORM_C128 = 0x1e;
+	/// <summary>Platform ID for Fairchild Channel F.</summary>
+	public const byte PLATFORM_CHANNEL_F = 0x1f;
 	/// <summary>Platform ID for custom/unknown platform.</summary>
 	public const byte PLATFORM_CUSTOM = 0xff;
 
@@ -568,6 +570,7 @@ public sealed class PansyLoader {
 		PLATFORM_VIC20 => "Commodore VIC-20",
 		PLATFORM_PLUS4 => "Commodore Plus/4",
 		PLATFORM_C128 => "Commodore 128",
+		PLATFORM_CHANNEL_F => "Fairchild Channel F",
 		PLATFORM_CUSTOM => "Custom",
 		_ => "Unknown"
 	};
