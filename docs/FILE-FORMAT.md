@@ -101,6 +101,7 @@
 | 0x1c | Commodore VIC-20 | 6502 | |
 | 0x1d | Commodore Plus/4 | 7501 | |
 | 0x1e | Commodore 128 | 8502 | |
+| 0x1f | Fairchild Channel F | F8 | Video Entertainment System |
 | 0xff | Custom | Varies | User-defined platform |
 
 ## Flags

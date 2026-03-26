@@ -30,4 +30,18 @@ public class PansyLoaderTests {
 		Assert.Equal(0x1f, PansyLoader.PLATFORM_CHANNEL_F);
 		Assert.Equal(0xff, PansyLoader.PLATFORM_CUSTOM);
 	}
+
+	[Fact]
+	public void Load_ChannelFPlatform_RoundtripsPlatformId() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_CHANNEL_F,
+			RomSize = 0x2000
+		};
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		Assert.Equal(PansyLoader.PLATFORM_CHANNEL_F, loader.Platform);
+		Assert.Equal("Fairchild Channel F", PansyLoader.GetPlatformName(loader.Platform));
+	}
 }
