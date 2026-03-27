@@ -196,4 +196,120 @@ public class PansyLoaderTests {
 		Assert.NotEmpty(loader.CrossReferences);
 		Assert.NotEmpty(loader.MemoryRegions);
 	}
+
+	[Fact]
+	public void Load_ChannelFPlatform_CompressedRoundtrip() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_CHANNEL_F,
+			RomSize = 0x1800,
+			RomCrc32 = 0xcafe1234,
+			EnableCompression = true
+		};
+
+		// Add enough data to exercise compression across sections
+		for (uint addr = 0x0000; addr < 0x0100; addr++) {
+			writer.MarkAsCode(addr);
+			writer.MarkAsOpcode(addr);
+		}
+		for (uint addr = 0x1000; addr < 0x1080; addr++) {
+			writer.MarkAsData(addr);
+		}
+		writer.AddSymbol(0x0000, "entry", SymbolType.Function);
+		writer.AddSymbol(0x0100, "data_table", SymbolType.Label);
+		writer.AddSymbol(0x3fff, "RESET_VECTOR", SymbolType.InterruptVector);
+		writer.AddComment(0x0000, "Program start", CommentType.Block);
+		writer.AddComment(0x0100, "Lookup table", CommentType.Inline);
+		writer.AddCrossReference(new CrossReference(0x0010, 0x0100, CrossRefType.Jsr));
+		writer.AddCrossReference(new CrossReference(0x0020, 0x0100, CrossRefType.Jmp));
+		writer.AddMemoryRegion(new MemoryRegion(0x0000, 0x17ff, (byte)MemoryRegionType.ROM, 0, "Cartridge ROM"));
+		writer.AddMemoryRegion(new MemoryRegion(0x2800, 0x2fff, (byte)MemoryRegionType.RAM, 0, "System RAM"));
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		Assert.Equal(PansyLoader.PLATFORM_CHANNEL_F, loader.Platform);
+		Assert.Equal(0x1800u, loader.RomSize);
+		Assert.Equal(0xcafe1234u, loader.RomCrc32);
+		Assert.True(loader.HasCodeDataMap);
+
+		// Verify CDL flags survived compression
+		Assert.Contains(0x0000, loader.CodeOffsets);
+		Assert.Contains(0x0050, loader.OpcodeOffsets);
+		Assert.Contains(0x1000, loader.DataOffsets);
+
+		// Verify symbols survived compression
+		Assert.Equal(3, loader.Symbols.Count);
+		Assert.Contains(loader.Symbols, kvp => kvp.Key == 0x0000 && kvp.Value == "entry");
+		Assert.Contains(loader.Symbols, kvp => kvp.Key == 0x3fff && kvp.Value == "RESET_VECTOR");
+
+		// Verify comments survived compression
+		Assert.Equal(2, loader.Comments.Count);
+
+		// Verify cross-refs survived compression
+		Assert.Equal(2, loader.CrossReferences.Count);
+		Assert.Contains(loader.CrossReferences, x => x.From == 0x0010 && x.To == 0x0100 && x.Type == CrossRefType.Jsr);
+		Assert.Contains(loader.CrossReferences, x => x.From == 0x0020 && x.To == 0x0100 && x.Type == CrossRefType.Jmp);
+
+		// Verify memory regions survived compression
+		Assert.Equal(2, loader.MemoryRegions.Count);
+	}
+
+	[Fact]
+	public void Load_ChannelFPlatform_MetadataSectionRoundtrip() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_CHANNEL_F,
+			RomSize = 0x1800,
+			RomCrc32 = 0xabcd0000,
+			ProjectName = "Channel F Homebrew",
+			Author = "RetroBuilder",
+			ProjectVersion = "2.3.1"
+		};
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		Assert.Equal(PansyLoader.PLATFORM_CHANNEL_F, loader.Platform);
+		Assert.Equal(0x1800u, loader.RomSize);
+		Assert.Equal(0xabcd0000u, loader.RomCrc32);
+		Assert.Equal("Channel F Homebrew", loader.ProjectName);
+		Assert.Equal("RetroBuilder", loader.Author);
+		Assert.Equal("2.3.1", loader.ProjectVersion);
+	}
+
+	[Fact]
+	public void Load_ChannelFPlatform_CompressedMetadataRoundtrip() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_CHANNEL_F,
+			RomSize = 0x1800,
+			RomCrc32 = 0x12345678,
+			ProjectName = "Channel F Compressed Demo",
+			Author = "TestAuthor",
+			ProjectVersion = "0.1.0",
+			EnableCompression = true
+		};
+
+		// Add representative content across all sections
+		writer.MarkAsCode(0x0000);
+		writer.MarkAsSubroutine(0x0000);
+		writer.AddSymbol(0x0000, "main", SymbolType.Function);
+		writer.AddComment(0x0000, "Entry point", CommentType.Block);
+		writer.AddCrossReference(new CrossReference(0x0010, 0x0000, CrossRefType.Jsr));
+		writer.AddMemoryRegion(new MemoryRegion(0x0000, 0x17ff, (byte)MemoryRegionType.ROM, 0, "ROM"));
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		// Verify metadata survives compression
+		Assert.Equal("Channel F Compressed Demo", loader.ProjectName);
+		Assert.Equal("TestAuthor", loader.Author);
+		Assert.Equal("0.1.0", loader.ProjectVersion);
+		Assert.Equal(PansyLoader.PLATFORM_CHANNEL_F, loader.Platform);
+
+		// Verify all sections present after compression
+		Assert.True(loader.HasCodeDataMap);
+		Assert.NotEmpty(loader.Symbols);
+		Assert.NotEmpty(loader.Comments);
+		Assert.NotEmpty(loader.CrossReferences);
+		Assert.NotEmpty(loader.MemoryRegions);
+	}
 }
