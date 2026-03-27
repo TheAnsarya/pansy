@@ -193,6 +193,7 @@ File.WriteAllBytes("merged.pansy", merged.Generate());
 ## 📖 Documentation
 
 - [File Format Specification](docs/FILE-FORMAT.md) - Complete format documentation with platform-specific details
+- [Channel F Metadata Conventions](docs/CHANNELF-CONVENTIONS.md) - Practical Channel F platform-id, region, symbol, and xref conventions
 - [CLI Reference](docs/CLI-REFERENCE.md) - Comprehensive command-line tool guide
 - [Examples](docs/EXAMPLES.md) - Workflow guides and use cases
 - [CI/CD Policy](docs/CI-CD-POLICY.md) - Continuous integration and deployment guidelines
