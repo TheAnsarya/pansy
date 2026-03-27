@@ -312,4 +312,108 @@ public class PansyLoaderTests {
 		Assert.NotEmpty(loader.CrossReferences);
 		Assert.NotEmpty(loader.MemoryRegions);
 	}
+
+	[Fact]
+	public void Load_ChannelFPlatform_BookmarkRoundtrip() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_CHANNEL_F,
+			RomSize = 0x1800,
+			RomCrc32 = 0xbead0001
+		};
+
+		writer.AddBookmark(new Bookmark(0x0000, "entry_point", 0));
+		writer.AddBookmark(new Bookmark(0x0800, "cart_start", 1));
+		writer.AddBookmark(new Bookmark(0x3fff, "reset_vector", 3));
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		Assert.Equal(PansyLoader.PLATFORM_CHANNEL_F, loader.Platform);
+		Assert.Equal(3, loader.Bookmarks.Count);
+		Assert.Contains(loader.Bookmarks, b => b.Address == 0x0000 && b.Name == "entry_point" && b.Color == 0);
+		Assert.Contains(loader.Bookmarks, b => b.Address == 0x0800 && b.Name == "cart_start" && b.Color == 1);
+		Assert.Contains(loader.Bookmarks, b => b.Address == 0x3fff && b.Name == "reset_vector" && b.Color == 3);
+	}
+
+	[Fact]
+	public void Load_ChannelFPlatform_CpuStateRoundtrip() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_CHANNEL_F,
+			RomSize = 0x1800,
+			RomCrc32 = 0xbead0002
+		};
+
+		writer.AddCpuState(new CpuStateEntry(0x0000, 0x00, 0x00, 0x0000, CpuMode.Emulation6502));
+		writer.AddCpuState(new CpuStateEntry(0x0800, 0x01, 0x00, 0x2800, CpuMode.Emulation6502));
+		writer.AddCpuState(new CpuStateEntry(0x1000, 0x03, 0x08, 0x0000, CpuMode.Emulation6502));
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		Assert.Equal(PansyLoader.PLATFORM_CHANNEL_F, loader.Platform);
+		Assert.Equal(3, loader.CpuStateEntries.Count);
+
+		var entry0 = loader.CpuStateEntries.First(e => e.Address == 0x0000);
+		Assert.Equal((byte)0x00, entry0.Flags);
+		Assert.Equal((byte)0x00, entry0.DataBank);
+		Assert.Equal((ushort)0x0000, entry0.DirectPage);
+		Assert.Equal(CpuMode.Emulation6502, entry0.Mode);
+
+		var entry1 = loader.CpuStateEntries.First(e => e.Address == 0x0800);
+		Assert.Equal((byte)0x01, entry1.Flags);
+		Assert.Equal((ushort)0x2800, entry1.DirectPage);
+
+		var entry2 = loader.CpuStateEntries.First(e => e.Address == 0x1000);
+		Assert.Equal((byte)0x03, entry2.Flags);
+		Assert.Equal((byte)0x08, entry2.DataBank);
+	}
+
+	[Fact]
+	public void Load_ChannelFPlatform_CompressedBookmarkAndCpuStateRoundtrip() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_CHANNEL_F,
+			RomSize = 0x1800,
+			RomCrc32 = 0xbead0003,
+			ProjectName = "Channel F Bookmark+State Test",
+			Author = "TestBot",
+			ProjectVersion = "3.0.0",
+			EnableCompression = true
+		};
+
+		// Add content across multiple sections
+		writer.MarkAsCode(0x0000);
+		writer.MarkAsOpcode(0x0000);
+		writer.AddSymbol(0x0000, "start", SymbolType.Function);
+		writer.AddComment(0x0000, "Boot entry", CommentType.Block);
+		writer.AddBookmark(new Bookmark(0x0000, "boot", 0));
+		writer.AddBookmark(new Bookmark(0x1000, "data_region", 2));
+		writer.AddCpuState(new CpuStateEntry(0x0000, 0x00, 0x00, 0x0000, CpuMode.Emulation6502));
+		writer.AddCpuState(new CpuStateEntry(0x0800, 0x01, 0x00, 0x0000, CpuMode.Emulation6502));
+		writer.AddMemoryRegion(new MemoryRegion(0x0000, 0x17ff, (byte)MemoryRegionType.ROM, 0, "ROM"));
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		// Verify metadata
+		Assert.Equal("Channel F Bookmark+State Test", loader.ProjectName);
+		Assert.Equal("TestBot", loader.Author);
+		Assert.Equal("3.0.0", loader.ProjectVersion);
+		Assert.Equal(PansyLoader.PLATFORM_CHANNEL_F, loader.Platform);
+
+		// Verify bookmarks survived compression
+		Assert.Equal(2, loader.Bookmarks.Count);
+		Assert.Contains(loader.Bookmarks, b => b.Address == 0x0000 && b.Name == "boot");
+		Assert.Contains(loader.Bookmarks, b => b.Address == 0x1000 && b.Name == "data_region" && b.Color == 2);
+
+		// Verify CPU state survived compression
+		Assert.Equal(2, loader.CpuStateEntries.Count);
+		Assert.Contains(loader.CpuStateEntries, e => e.Address == 0x0000 && e.Mode == CpuMode.Emulation6502);
+		Assert.Contains(loader.CpuStateEntries, e => e.Address == 0x0800 && e.Flags == 0x01);
+
+		// Verify other sections also present after compression
+		Assert.True(loader.HasCodeDataMap);
+		Assert.NotEmpty(loader.Symbols);
+		Assert.NotEmpty(loader.Comments);
+		Assert.NotEmpty(loader.MemoryRegions);
+	}
 }
