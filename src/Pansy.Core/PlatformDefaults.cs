@@ -19,6 +19,11 @@ public static class PlatformDefaults {
 			PansyLoader.PLATFORM_NES => GetNesDefaultRegions(),
 			PansyLoader.PLATFORM_SNES => GetSnesDefaultRegions(),
 			PansyLoader.PLATFORM_GB => GetGbDefaultRegions(),
+			PansyLoader.PLATFORM_GBA => GetGbaDefaultRegions(),
+			PansyLoader.PLATFORM_GENESIS => GetGenesisDefaultRegions(),
+			PansyLoader.PLATFORM_SMS => GetSmsDefaultRegions(),
+			PansyLoader.PLATFORM_PCE => GetPceDefaultRegions(),
+			PansyLoader.PLATFORM_WONDERSWAN => GetWsDefaultRegions(),
 			PansyLoader.PLATFORM_LYNX => GetLynxDefaultRegions(),
 			PansyLoader.PLATFORM_ATARI_2600 => GetAtari2600DefaultRegions(),
 			PansyLoader.PLATFORM_CHANNEL_F => GetChannelFDefaultRegions(),
@@ -128,6 +133,7 @@ public static class PlatformDefaults {
 			PansyLoader.PLATFORM_ATARI_2600 => GetAtari2600DefaultSymbolEntries(),
 			PansyLoader.PLATFORM_CHANNEL_F => GetChannelFDefaultSymbolEntries(),
 			PansyLoader.PLATFORM_SPC700 => GetSpc700DefaultSymbolEntries(),
+			PansyLoader.PLATFORM_GENESIS => GetGenesisDefaultSymbolEntries(),
 			_ => []
 		};
 	}
@@ -979,6 +985,93 @@ public static class PlatformDefaults {
 		{ 0xfd, new("T0OUT", "Timer 0 Output", SymbolType.Constant) },
 		{ 0xfe, new("T1OUT", "Timer 1 Output", SymbolType.Constant) },
 		{ 0xff, new("T2OUT", "Timer 2 Output", SymbolType.Constant) },
+	};
+
+	// ========================================================================
+	// Genesis / Mega Drive Hardware Registers
+	// ========================================================================
+
+	/// <summary>
+	/// Gets default memory regions for Sega Genesis / Mega Drive.
+	/// </summary>
+	public static MemoryRegion[] GetGenesisDefaultRegions() => [
+		new MemoryRegion(0x000000, 0x3fffff, (byte)MemoryRegionType.ROM, 0, "ROM"),
+		new MemoryRegion(0xa00000, 0xa0ffff, (byte)MemoryRegionType.RAM, 0, "Z80 Address Space"),
+		new MemoryRegion(0xa10000, 0xa1001f, (byte)MemoryRegionType.IO, 0, "I/O Registers"),
+		new MemoryRegion(0xc00000, 0xc0001f, (byte)MemoryRegionType.IO, 0, "VDP Registers"),
+		new MemoryRegion(0xff0000, 0xffffff, (byte)MemoryRegionType.WRAM, 0, "Work RAM"),
+	];
+
+	/// <summary>
+	/// Gets default memory regions for GBA.
+	/// </summary>
+	public static MemoryRegion[] GetGbaDefaultRegions() => [
+		new MemoryRegion(0x00000000, 0x00003fff, (byte)MemoryRegionType.ROM, 0, "BIOS"),
+		new MemoryRegion(0x02000000, 0x0203ffff, (byte)MemoryRegionType.WRAM, 0, "EWRAM"),
+		new MemoryRegion(0x03000000, 0x03007fff, (byte)MemoryRegionType.WRAM, 0, "IWRAM"),
+		new MemoryRegion(0x04000000, 0x040003ff, (byte)MemoryRegionType.IO, 0, "I/O Registers"),
+		new MemoryRegion(0x05000000, 0x050003ff, (byte)MemoryRegionType.RAM, 0, "Palette RAM"),
+		new MemoryRegion(0x06000000, 0x06017fff, (byte)MemoryRegionType.VRAM, 0, "VRAM"),
+		new MemoryRegion(0x07000000, 0x070003ff, (byte)MemoryRegionType.RAM, 0, "OAM"),
+		new MemoryRegion(0x08000000, 0x09ffffff, (byte)MemoryRegionType.ROM, 0, "ROM"),
+		new MemoryRegion(0x0e000000, 0x0e00ffff, (byte)MemoryRegionType.SRAM, 0, "SRAM"),
+	];
+
+	/// <summary>
+	/// Gets default memory regions for Sega Master System.
+	/// </summary>
+	public static MemoryRegion[] GetSmsDefaultRegions() => [
+		new MemoryRegion(0x0000, 0xbfff, (byte)MemoryRegionType.ROM, 0, "ROM"),
+		new MemoryRegion(0xc000, 0xdfff, (byte)MemoryRegionType.RAM, 0, "RAM"),
+	];
+
+	/// <summary>
+	/// Gets default memory regions for PC Engine / TurboGrafx-16.
+	/// </summary>
+	public static MemoryRegion[] GetPceDefaultRegions() => [
+		new MemoryRegion(0x0000, 0x1fff, (byte)MemoryRegionType.RAM, 0, "RAM"),
+		new MemoryRegion(0x1fe000, 0x1fffff, (byte)MemoryRegionType.IO, 0, "Hardware Registers"),
+	];
+
+	/// <summary>
+	/// Gets default memory regions for WonderSwan.
+	/// </summary>
+	public static MemoryRegion[] GetWsDefaultRegions() => [
+		new MemoryRegion(0x00000, 0x03fff, (byte)MemoryRegionType.RAM, 0, "RAM"),
+		new MemoryRegion(0x20000, 0xfffff, (byte)MemoryRegionType.ROM, 0, "ROM"),
+	];
+
+	/// <summary>
+	/// Gets default symbols for Sega Genesis / Mega Drive hardware registers.
+	/// Includes VDP, I/O, and Z80 bus control registers.
+	/// </summary>
+	public static Dictionary<uint, DefaultSymbol> GetGenesisDefaultSymbolEntries() => new() {
+		// I/O Registers
+		{ 0xa10001, new("VERSION", "Version Register", SymbolType.Constant) },
+		{ 0xa10003, new("DATA1", "Controller 1 Data", SymbolType.Constant) },
+		{ 0xa10005, new("DATA2", "Controller 2 Data", SymbolType.Constant) },
+		{ 0xa10007, new("DATA3", "Expansion Port Data", SymbolType.Constant) },
+		{ 0xa10009, new("CTRL1", "Controller 1 Control", SymbolType.Constant) },
+		{ 0xa1000b, new("CTRL2", "Controller 2 Control", SymbolType.Constant) },
+		{ 0xa1000d, new("CTRL3", "Expansion Port Control", SymbolType.Constant) },
+
+		// Z80 Bus Control
+		{ 0xa11100, new("Z80_BUSREQ", "Z80 Bus Request", SymbolType.Constant) },
+		{ 0xa11200, new("Z80_RESET", "Z80 Reset", SymbolType.Constant) },
+
+		// VDP Registers
+		{ 0xc00000, new("VDP_DATA", "VDP Data Port", SymbolType.Constant) },
+		{ 0xc00004, new("VDP_CTRL", "VDP Control Port", SymbolType.Constant) },
+		{ 0xc00008, new("VDP_HV", "VDP H/V Counter", SymbolType.Constant) },
+
+		// PSG
+		{ 0xc00011, new("PSG", "PSG Output", SymbolType.Constant) },
+
+		// Vectors
+		{ 0x000000, new("SSP", "Initial Stack Pointer", SymbolType.InterruptVector) },
+		{ 0x000004, new("RESET_VECTOR", "Reset Vector", SymbolType.InterruptVector) },
+		{ 0x000068, new("LEVEL4_VECTOR", "H-Blank Interrupt Vector", SymbolType.InterruptVector) },
+		{ 0x000070, new("LEVEL6_VECTOR", "V-Blank Interrupt Vector", SymbolType.InterruptVector) },
 	};
 }
 
