@@ -133,6 +133,12 @@ public class PlatformDefaultsTests {
 	[InlineData(PansyLoader.PLATFORM_ATARI_2600)]
 	[InlineData(PansyLoader.PLATFORM_CHANNEL_F)]
 	[InlineData(PansyLoader.PLATFORM_SPC700)]
+	[InlineData(PansyLoader.PLATFORM_GAMEGEAR)]
+	[InlineData(PansyLoader.PLATFORM_NEOGEO)]
+	[InlineData(PansyLoader.PLATFORM_C64)]
+	[InlineData(PansyLoader.PLATFORM_ATARI_7800)]
+	[InlineData(PansyLoader.PLATFORM_VECTREX)]
+	[InlineData(PansyLoader.PLATFORM_VIRTUALBOY)]
 	public void GetDefaultSymbolEntries_AllPlatforms_ReturnNonEmpty(byte platformId) {
 		var entries = PlatformDefaults.GetDefaultSymbolEntries(platformId);
 
@@ -160,6 +166,12 @@ public class PlatformDefaultsTests {
 	[InlineData(PansyLoader.PLATFORM_ATARI_2600)]
 	[InlineData(PansyLoader.PLATFORM_CHANNEL_F)]
 	[InlineData(PansyLoader.PLATFORM_SPC700)]
+	[InlineData(PansyLoader.PLATFORM_GAMEGEAR)]
+	[InlineData(PansyLoader.PLATFORM_NEOGEO)]
+	[InlineData(PansyLoader.PLATFORM_C64)]
+	[InlineData(PansyLoader.PLATFORM_ATARI_7800)]
+	[InlineData(PansyLoader.PLATFORM_VECTREX)]
+	[InlineData(PansyLoader.PLATFORM_VIRTUALBOY)]
 	public void GetDefaultSymbolEntries_AllSymbols_HaveNonEmptyNames(byte platformId) {
 		var entries = PlatformDefaults.GetDefaultSymbolEntries(platformId);
 
@@ -183,6 +195,12 @@ public class PlatformDefaultsTests {
 	[InlineData(PansyLoader.PLATFORM_ATARI_2600)]
 	[InlineData(PansyLoader.PLATFORM_CHANNEL_F)]
 	[InlineData(PansyLoader.PLATFORM_SPC700)]
+	[InlineData(PansyLoader.PLATFORM_GAMEGEAR)]
+	[InlineData(PansyLoader.PLATFORM_NEOGEO)]
+	[InlineData(PansyLoader.PLATFORM_C64)]
+	[InlineData(PansyLoader.PLATFORM_ATARI_7800)]
+	[InlineData(PansyLoader.PLATFORM_VECTREX)]
+	[InlineData(PansyLoader.PLATFORM_VIRTUALBOY)]
 	public void GetDefaultSymbolEntries_ConsistentWithGetDefaultSymbols(byte platformId) {
 		var entries = PlatformDefaults.GetDefaultSymbolEntries(platformId);
 		var symbols = PlatformDefaults.GetDefaultSymbols(platformId);
@@ -395,5 +413,333 @@ public class PlatformDefaultsTests {
 
 		var romRegion = regions.First(r => r.Name == "ROM");
 		Assert.Equal((byte)MemoryRegionType.ROM, romRegion.Type);
+	}
+
+	// ========================================================================
+	// Game Gear Platform Tests
+	// ========================================================================
+
+	[Fact]
+	public void GetDefaultRegions_GameGear_ReturnsExpectedRegions() {
+		var regions = PlatformDefaults.GetDefaultRegions(PansyLoader.PLATFORM_GAMEGEAR);
+
+		Assert.NotNull(regions);
+		Assert.Equal(2, regions.Length);
+		Assert.Contains(regions, r => r.Name == "ROM" && r.Start == 0x0000 && r.End == 0xbfff);
+		Assert.Contains(regions, r => r.Name == "RAM" && r.Start == 0xc000 && r.End == 0xdfff);
+	}
+
+	[Fact]
+	public void GetDefaultSymbolEntries_GameGear_HasKeyRegisters() {
+		var entries = PlatformDefaults.GetDefaultSymbolEntries(PansyLoader.PLATFORM_GAMEGEAR);
+
+		Assert.Equal(3, entries.Count);
+		Assert.True(entries.ContainsKey(0x0000), "GG: Missing GG_START_PORT at $0000");
+		Assert.Equal("GG_START_PORT", entries[0x0000].Name);
+		Assert.True(entries.ContainsKey(0x0038), "GG: Missing IRQ_HANDLER at $0038");
+		Assert.Equal(SymbolType.InterruptVector, entries[0x0038].Type);
+		Assert.True(entries.ContainsKey(0x0066), "GG: Missing NMI_HANDLER at $0066");
+		Assert.Equal(SymbolType.InterruptVector, entries[0x0066].Type);
+	}
+
+	[Fact]
+	public void GameGearRegions_HaveCorrectTypes() {
+		var regions = PlatformDefaults.GetDefaultRegions(PansyLoader.PLATFORM_GAMEGEAR);
+
+		var romRegion = regions.First(r => r.Name == "ROM");
+		Assert.Equal((byte)MemoryRegionType.ROM, romRegion.Type);
+
+		var ramRegion = regions.First(r => r.Name == "RAM");
+		Assert.Equal((byte)MemoryRegionType.RAM, ramRegion.Type);
+	}
+
+	// ========================================================================
+	// Neo Geo Platform Tests
+	// ========================================================================
+
+	[Fact]
+	public void GetDefaultRegions_NeoGeo_ReturnsExpectedRegions() {
+		var regions = PlatformDefaults.GetDefaultRegions(PansyLoader.PLATFORM_NEOGEO);
+
+		Assert.NotNull(regions);
+		Assert.Equal(5, regions.Length);
+		Assert.Contains(regions, r => r.Name == "P-ROM (Program)" && r.Start == 0x000000 && r.End == 0x0fffff);
+		Assert.Contains(regions, r => r.Name == "Work RAM" && r.Start == 0x100000 && r.End == 0x10ffff);
+		Assert.Contains(regions, r => r.Name == "P-ROM Bank" && r.Start == 0x200000 && r.End == 0x2fffff);
+		Assert.Contains(regions, r => r.Name == "I/O Registers" && r.Start == 0x300000 && r.End == 0x31ffff);
+		Assert.Contains(regions, r => r.Name == "Palette RAM" && r.Start == 0x400000 && r.End == 0x401fff);
+	}
+
+	[Fact]
+	public void GetDefaultSymbolEntries_NeoGeo_HasKeyRegisters() {
+		var entries = PlatformDefaults.GetDefaultSymbolEntries(PansyLoader.PLATFORM_NEOGEO);
+
+		Assert.Equal(9, entries.Count);
+		Assert.True(entries.ContainsKey(0x300000), "NeoGeo: Missing REG_P1CNT at $300000");
+		Assert.Equal("REG_P1CNT", entries[0x300000].Name);
+		Assert.True(entries.ContainsKey(0x320000), "NeoGeo: Missing REG_SOUND at $320000");
+		Assert.True(entries.ContainsKey(0x380000), "NeoGeo: Missing REG_WATCHDOG at $380000");
+		Assert.True(entries.ContainsKey(0x3c0000), "NeoGeo: Missing REG_VRAMADDR at $3c0000");
+
+		// Vectors
+		Assert.True(entries.ContainsKey(0x000000), "NeoGeo: Missing SSP at $000000");
+		Assert.Equal(SymbolType.InterruptVector, entries[0x000000].Type);
+		Assert.True(entries.ContainsKey(0x000004), "NeoGeo: Missing RESET_VECTOR at $000004");
+		Assert.Equal(SymbolType.InterruptVector, entries[0x000004].Type);
+	}
+
+	[Fact]
+	public void NeoGeoRegions_HaveCorrectTypes() {
+		var regions = PlatformDefaults.GetDefaultRegions(PansyLoader.PLATFORM_NEOGEO);
+
+		var promRegion = regions.First(r => r.Name == "P-ROM (Program)");
+		Assert.Equal((byte)MemoryRegionType.ROM, promRegion.Type);
+
+		var workRam = regions.First(r => r.Name == "Work RAM");
+		Assert.Equal((byte)MemoryRegionType.WRAM, workRam.Type);
+
+		var ioRegion = regions.First(r => r.Name == "I/O Registers");
+		Assert.Equal((byte)MemoryRegionType.IO, ioRegion.Type);
+
+		var paletteRam = regions.First(r => r.Name == "Palette RAM");
+		Assert.Equal((byte)MemoryRegionType.RAM, paletteRam.Type);
+	}
+
+	// ========================================================================
+	// Commodore 64 Platform Tests
+	// ========================================================================
+
+	[Fact]
+	public void GetDefaultRegions_C64_ReturnsExpectedRegions() {
+		var regions = PlatformDefaults.GetDefaultRegions(PansyLoader.PLATFORM_C64);
+
+		Assert.NotNull(regions);
+		Assert.Equal(11, regions.Length);
+		Assert.Contains(regions, r => r.Name == "Zero Page" && r.Start == 0x0000 && r.End == 0x00ff);
+		Assert.Contains(regions, r => r.Name == "Stack" && r.Start == 0x0100 && r.End == 0x01ff);
+		Assert.Contains(regions, r => r.Name == "BASIC/User RAM" && r.Start == 0x0200 && r.End == 0x9fff);
+		Assert.Contains(regions, r => r.Name == "BASIC ROM" && r.Start == 0xa000 && r.End == 0xbfff);
+		Assert.Contains(regions, r => r.Name == "VIC-II Registers" && r.Start == 0xd000 && r.End == 0xd3ff);
+		Assert.Contains(regions, r => r.Name == "SID Registers" && r.Start == 0xd400 && r.End == 0xd7ff);
+		Assert.Contains(regions, r => r.Name == "CIA 1" && r.Start == 0xdc00 && r.End == 0xdcff);
+		Assert.Contains(regions, r => r.Name == "CIA 2" && r.Start == 0xdd00 && r.End == 0xddff);
+		Assert.Contains(regions, r => r.Name == "Kernal ROM" && r.Start == 0xe000 && r.End == 0xffff);
+	}
+
+	[Fact]
+	public void GetDefaultSymbolEntries_C64_HasKeyRegisters() {
+		var entries = PlatformDefaults.GetDefaultSymbolEntries(PansyLoader.PLATFORM_C64);
+
+		Assert.Equal(24, entries.Count);
+
+		// VIC-II
+		Assert.True(entries.ContainsKey(0xd011), "C64: Missing VIC_SCROLY at $d011");
+		Assert.Equal("VIC_SCROLY", entries[0xd011].Name);
+		Assert.True(entries.ContainsKey(0xd020), "C64: Missing VIC_EXTCOL at $d020");
+		Assert.True(entries.ContainsKey(0xd021), "C64: Missing VIC_BGCOL0 at $d021");
+
+		// SID
+		Assert.True(entries.ContainsKey(0xd400), "C64: Missing SID_V1FREQLO at $d400");
+		Assert.True(entries.ContainsKey(0xd418), "C64: Missing SID_SIGVOL at $d418");
+
+		// CIA
+		Assert.True(entries.ContainsKey(0xdc00), "C64: Missing CIA1_PRA at $dc00");
+		Assert.True(entries.ContainsKey(0xdd00), "C64: Missing CIA2_PRA at $dd00");
+
+		// Vectors
+		Assert.True(entries.ContainsKey(0xfffa), "C64: Missing NMI_VECTOR");
+		Assert.Equal(SymbolType.InterruptVector, entries[0xfffa].Type);
+		Assert.True(entries.ContainsKey(0xfffc), "C64: Missing RESET_VECTOR");
+		Assert.True(entries.ContainsKey(0xfffe), "C64: Missing IRQ_VECTOR");
+	}
+
+	[Fact]
+	public void C64Regions_HaveCorrectTypes() {
+		var regions = PlatformDefaults.GetDefaultRegions(PansyLoader.PLATFORM_C64);
+
+		var zp = regions.First(r => r.Name == "Zero Page");
+		Assert.Equal((byte)MemoryRegionType.RAM, zp.Type);
+
+		var vicII = regions.First(r => r.Name == "VIC-II Registers");
+		Assert.Equal((byte)MemoryRegionType.IO, vicII.Type);
+
+		var sid = regions.First(r => r.Name == "SID Registers");
+		Assert.Equal((byte)MemoryRegionType.IO, sid.Type);
+
+		var cia1 = regions.First(r => r.Name == "CIA 1");
+		Assert.Equal((byte)MemoryRegionType.IO, cia1.Type);
+
+		var basicRom = regions.First(r => r.Name == "BASIC ROM");
+		Assert.Equal((byte)MemoryRegionType.ROM, basicRom.Type);
+
+		var kernalRom = regions.First(r => r.Name == "Kernal ROM");
+		Assert.Equal((byte)MemoryRegionType.ROM, kernalRom.Type);
+	}
+
+	// ========================================================================
+	// Atari 7800 Platform Tests
+	// ========================================================================
+
+	[Fact]
+	public void GetDefaultRegions_Atari7800_ReturnsExpectedRegions() {
+		var regions = PlatformDefaults.GetDefaultRegions(PansyLoader.PLATFORM_ATARI_7800);
+
+		Assert.NotNull(regions);
+		Assert.Equal(6, regions.Length);
+		Assert.Contains(regions, r => r.Name == "TIA Registers" && r.Start == 0x0000 && r.End == 0x001f);
+		Assert.Contains(regions, r => r.Name == "MARIA Registers" && r.Start == 0x0020 && r.End == 0x003f);
+		Assert.Contains(regions, r => r.Name == "Zero Page RAM" && r.Start == 0x0040 && r.End == 0x00ff);
+		Assert.Contains(regions, r => r.Name == "Stack" && r.Start == 0x0100 && r.End == 0x01ff);
+		Assert.Contains(regions, r => r.Name == "RAM" && r.Start == 0x1800 && r.End == 0x27ff);
+		Assert.Contains(regions, r => r.Name == "ROM" && r.Start == 0x4000 && r.End == 0xffff);
+	}
+
+	[Fact]
+	public void GetDefaultSymbolEntries_Atari7800_HasKeyRegisters() {
+		var entries = PlatformDefaults.GetDefaultSymbolEntries(PansyLoader.PLATFORM_ATARI_7800);
+
+		Assert.Equal(9, entries.Count);
+
+		// MARIA
+		Assert.True(entries.ContainsKey(0x0020), "7800: Missing BACKGRND at $0020");
+		Assert.Equal("BACKGRND", entries[0x0020].Name);
+		Assert.True(entries.ContainsKey(0x003c), "7800: Missing CTRL at $003c");
+		Assert.True(entries.ContainsKey(0x002c), "7800: Missing DPPH at $002c");
+		Assert.True(entries.ContainsKey(0x0030), "7800: Missing DPPL at $0030");
+
+		// Vectors
+		Assert.True(entries.ContainsKey(0xfffa), "7800: Missing NMI_VECTOR");
+		Assert.Equal(SymbolType.InterruptVector, entries[0xfffa].Type);
+		Assert.True(entries.ContainsKey(0xfffc), "7800: Missing RESET_VECTOR");
+		Assert.True(entries.ContainsKey(0xfffe), "7800: Missing IRQ_VECTOR");
+	}
+
+	[Fact]
+	public void Atari7800Regions_HaveCorrectTypes() {
+		var regions = PlatformDefaults.GetDefaultRegions(PansyLoader.PLATFORM_ATARI_7800);
+
+		var tia = regions.First(r => r.Name == "TIA Registers");
+		Assert.Equal((byte)MemoryRegionType.IO, tia.Type);
+
+		var maria = regions.First(r => r.Name == "MARIA Registers");
+		Assert.Equal((byte)MemoryRegionType.IO, maria.Type);
+
+		var zpRam = regions.First(r => r.Name == "Zero Page RAM");
+		Assert.Equal((byte)MemoryRegionType.RAM, zpRam.Type);
+
+		var rom = regions.First(r => r.Name == "ROM");
+		Assert.Equal((byte)MemoryRegionType.ROM, rom.Type);
+	}
+
+	// ========================================================================
+	// Vectrex Platform Tests
+	// ========================================================================
+
+	[Fact]
+	public void GetDefaultRegions_Vectrex_ReturnsExpectedRegions() {
+		var regions = PlatformDefaults.GetDefaultRegions(PansyLoader.PLATFORM_VECTREX);
+
+		Assert.NotNull(regions);
+		Assert.Equal(4, regions.Length);
+		Assert.Contains(regions, r => r.Name == "Cart ROM" && r.Start == 0x0000 && r.End == 0x7fff);
+		Assert.Contains(regions, r => r.Name == "RAM" && r.Start == 0xc800 && r.End == 0xcbff);
+		Assert.Contains(regions, r => r.Name == "VIA 6522 Registers" && r.Start == 0xd000 && r.End == 0xd7ff);
+		Assert.Contains(regions, r => r.Name == "System ROM" && r.Start == 0xe000 && r.End == 0xffff);
+	}
+
+	[Fact]
+	public void GetDefaultSymbolEntries_Vectrex_HasKeyRegisters() {
+		var entries = PlatformDefaults.GetDefaultSymbolEntries(PansyLoader.PLATFORM_VECTREX);
+
+		Assert.Equal(15, entries.Count);
+
+		// VIA 6522
+		Assert.True(entries.ContainsKey(0xd000), "Vectrex: Missing VIA_PORTB at $d000");
+		Assert.Equal("VIA_PORTB", entries[0xd000].Name);
+		Assert.True(entries.ContainsKey(0xd001), "Vectrex: Missing VIA_PORTA at $d001");
+		Assert.True(entries.ContainsKey(0xd004), "Vectrex: Missing VIA_T1CL at $d004");
+		Assert.True(entries.ContainsKey(0xd00d), "Vectrex: Missing VIA_IFR at $d00d");
+		Assert.True(entries.ContainsKey(0xd00e), "Vectrex: Missing VIA_IER at $d00e");
+
+		// Vectors (6809 style)
+		Assert.True(entries.ContainsKey(0xfff6), "Vectrex: Missing SWI_VECTOR at $fff6");
+		Assert.Equal(SymbolType.InterruptVector, entries[0xfff6].Type);
+		Assert.True(entries.ContainsKey(0xfff8), "Vectrex: Missing IRQ_VECTOR at $fff8");
+		Assert.True(entries.ContainsKey(0xfffa), "Vectrex: Missing FIRQ_VECTOR at $fffa");
+		Assert.True(entries.ContainsKey(0xfffc), "Vectrex: Missing NMI_VECTOR at $fffc");
+		Assert.True(entries.ContainsKey(0xfffe), "Vectrex: Missing RESET_VECTOR at $fffe");
+	}
+
+	[Fact]
+	public void VectrexRegions_HaveCorrectTypes() {
+		var regions = PlatformDefaults.GetDefaultRegions(PansyLoader.PLATFORM_VECTREX);
+
+		var cartRom = regions.First(r => r.Name == "Cart ROM");
+		Assert.Equal((byte)MemoryRegionType.ROM, cartRom.Type);
+
+		var ram = regions.First(r => r.Name == "RAM");
+		Assert.Equal((byte)MemoryRegionType.RAM, ram.Type);
+
+		var via = regions.First(r => r.Name == "VIA 6522 Registers");
+		Assert.Equal((byte)MemoryRegionType.IO, via.Type);
+
+		var sysRom = regions.First(r => r.Name == "System ROM");
+		Assert.Equal((byte)MemoryRegionType.ROM, sysRom.Type);
+	}
+
+	// ========================================================================
+	// Virtual Boy Platform Tests
+	// ========================================================================
+
+	[Fact]
+	public void GetDefaultRegions_VirtualBoy_ReturnsExpectedRegions() {
+		var regions = PlatformDefaults.GetDefaultRegions(PansyLoader.PLATFORM_VIRTUALBOY);
+
+		Assert.NotNull(regions);
+		Assert.Equal(5, regions.Length);
+		Assert.Contains(regions, r => r.Name == "VRAM" && r.Start == 0x00000000 && r.End == 0x00ffffff);
+		Assert.Contains(regions, r => r.Name == "Hardware Registers" && r.Start == 0x02000000 && r.End == 0x0200ffff);
+		Assert.Contains(regions, r => r.Name == "Work RAM" && r.Start == 0x05000000 && r.End == 0x0500ffff);
+		Assert.Contains(regions, r => r.Name == "Cart RAM" && r.Start == 0x06000000 && r.End == 0x06003fff);
+		Assert.Contains(regions, r => r.Name == "ROM" && r.Start == 0x07000000 && r.End == 0x07ffffff);
+	}
+
+	[Fact]
+	public void GetDefaultSymbolEntries_VirtualBoy_HasKeyRegisters() {
+		var entries = PlatformDefaults.GetDefaultSymbolEntries(PansyLoader.PLATFORM_VIRTUALBOY);
+
+		Assert.Equal(10, entries.Count);
+
+		Assert.True(entries.ContainsKey(0x02000000), "VB: Missing CCR at $02000000");
+		Assert.Equal("CCR", entries[0x02000000].Name);
+		Assert.True(entries.ContainsKey(0x02000010), "VB: Missing INTPND at $02000010");
+		Assert.True(entries.ContainsKey(0x02000014), "VB: Missing INTENB at $02000014");
+		Assert.True(entries.ContainsKey(0x02000020), "VB: Missing DPSTTS at $02000020");
+		Assert.True(entries.ContainsKey(0x02000024), "VB: Missing DPCTRL at $02000024");
+		Assert.True(entries.ContainsKey(0x02000028), "VB: Missing BRTA at $02000028");
+
+		// Reset vector
+		Assert.True(entries.ContainsKey(0xfffffff0), "VB: Missing RESET_VECTOR at $fffffff0");
+		Assert.Equal(SymbolType.InterruptVector, entries[0xfffffff0].Type);
+	}
+
+	[Fact]
+	public void VirtualBoyRegions_HaveCorrectTypes() {
+		var regions = PlatformDefaults.GetDefaultRegions(PansyLoader.PLATFORM_VIRTUALBOY);
+
+		var vram = regions.First(r => r.Name == "VRAM");
+		Assert.Equal((byte)MemoryRegionType.VRAM, vram.Type);
+
+		var hwRegs = regions.First(r => r.Name == "Hardware Registers");
+		Assert.Equal((byte)MemoryRegionType.IO, hwRegs.Type);
+
+		var workRam = regions.First(r => r.Name == "Work RAM");
+		Assert.Equal((byte)MemoryRegionType.WRAM, workRam.Type);
+
+		var cartRam = regions.First(r => r.Name == "Cart RAM");
+		Assert.Equal((byte)MemoryRegionType.SRAM, cartRam.Type);
+
+		var rom = regions.First(r => r.Name == "ROM");
+		Assert.Equal((byte)MemoryRegionType.ROM, rom.Type);
 	}
 }

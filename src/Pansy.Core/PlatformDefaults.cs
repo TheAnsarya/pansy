@@ -27,6 +27,12 @@ public static class PlatformDefaults {
 			PansyLoader.PLATFORM_LYNX => GetLynxDefaultRegions(),
 			PansyLoader.PLATFORM_ATARI_2600 => GetAtari2600DefaultRegions(),
 			PansyLoader.PLATFORM_CHANNEL_F => GetChannelFDefaultRegions(),
+			PansyLoader.PLATFORM_GAMEGEAR => GetGameGearDefaultRegions(),
+			PansyLoader.PLATFORM_NEOGEO => GetNeoGeoDefaultRegions(),
+			PansyLoader.PLATFORM_C64 => GetC64DefaultRegions(),
+			PansyLoader.PLATFORM_ATARI_7800 => GetAtari7800DefaultRegions(),
+			PansyLoader.PLATFORM_VECTREX => GetVectrexDefaultRegions(),
+			PansyLoader.PLATFORM_VIRTUALBOY => GetVirtualBoyDefaultRegions(),
 			_ => []
 		};
 	}
@@ -134,6 +140,12 @@ public static class PlatformDefaults {
 			PansyLoader.PLATFORM_CHANNEL_F => GetChannelFDefaultSymbolEntries(),
 			PansyLoader.PLATFORM_SPC700 => GetSpc700DefaultSymbolEntries(),
 			PansyLoader.PLATFORM_GENESIS => GetGenesisDefaultSymbolEntries(),
+			PansyLoader.PLATFORM_GAMEGEAR => GetGameGearDefaultSymbolEntries(),
+			PansyLoader.PLATFORM_NEOGEO => GetNeoGeoDefaultSymbolEntries(),
+			PansyLoader.PLATFORM_C64 => GetC64DefaultSymbolEntries(),
+			PansyLoader.PLATFORM_ATARI_7800 => GetAtari7800DefaultSymbolEntries(),
+			PansyLoader.PLATFORM_VECTREX => GetVectrexDefaultSymbolEntries(),
+			PansyLoader.PLATFORM_VIRTUALBOY => GetVirtualBoyDefaultSymbolEntries(),
 			_ => []
 		};
 	}
@@ -1073,5 +1085,218 @@ public static class PlatformDefaults {
 		{ 0x000068, new("LEVEL4_VECTOR", "H-Blank Interrupt Vector", SymbolType.InterruptVector) },
 		{ 0x000070, new("LEVEL6_VECTOR", "V-Blank Interrupt Vector", SymbolType.InterruptVector) },
 	};
-}
 
+	// ========================================================================
+	// Game Gear (Z80-based, SMS-compatible)
+	// ========================================================================
+
+	/// <summary>
+	/// Gets default memory regions for Sega Game Gear.
+	/// </summary>
+	public static MemoryRegion[] GetGameGearDefaultRegions() => [
+		new MemoryRegion(0x0000, 0xbfff, (byte)MemoryRegionType.ROM, 0, "ROM"),
+		new MemoryRegion(0xc000, 0xdfff, (byte)MemoryRegionType.RAM, 0, "RAM"),
+	];
+
+	/// <summary>
+	/// Gets default symbols for Sega Game Gear I/O ports and vectors.
+	/// </summary>
+	public static Dictionary<uint, DefaultSymbol> GetGameGearDefaultSymbolEntries() => new() {
+		{ 0x0000, new("GG_START_PORT", "Start Button Port", SymbolType.Constant) },
+		{ 0x0038, new("IRQ_HANDLER", "IRQ Handler Address", SymbolType.InterruptVector) },
+		{ 0x0066, new("NMI_HANDLER", "NMI Handler Address", SymbolType.InterruptVector) },
+	};
+
+	// ========================================================================
+	// Neo Geo (Motorola 68000 + Zilog Z80)
+	// ========================================================================
+
+	/// <summary>
+	/// Gets default memory regions for SNK Neo Geo.
+	/// </summary>
+	public static MemoryRegion[] GetNeoGeoDefaultRegions() => [
+		new MemoryRegion(0x000000, 0x0fffff, (byte)MemoryRegionType.ROM, 0, "P-ROM (Program)"),
+		new MemoryRegion(0x100000, 0x10ffff, (byte)MemoryRegionType.WRAM, 0, "Work RAM"),
+		new MemoryRegion(0x200000, 0x2fffff, (byte)MemoryRegionType.ROM, 0, "P-ROM Bank"),
+		new MemoryRegion(0x300000, 0x31ffff, (byte)MemoryRegionType.IO, 0, "I/O Registers"),
+		new MemoryRegion(0x400000, 0x401fff, (byte)MemoryRegionType.RAM, 0, "Palette RAM"),
+	];
+
+	/// <summary>
+	/// Gets default symbols for Neo Geo hardware registers.
+	/// </summary>
+	public static Dictionary<uint, DefaultSymbol> GetNeoGeoDefaultSymbolEntries() => new() {
+		{ 0x300000, new("REG_P1CNT", "Player 1 Controls", SymbolType.Constant) },
+		{ 0x300001, new("REG_DIPSW", "DIP Switches", SymbolType.Constant) },
+		{ 0x320000, new("REG_SOUND", "Sound Command", SymbolType.Constant) },
+		{ 0x380000, new("REG_WATCHDOG", "Watchdog Timer", SymbolType.Constant) },
+		{ 0x3c0000, new("REG_VRAMADDR", "VRAM Address", SymbolType.Constant) },
+		{ 0x3c0002, new("REG_VRAMDATA", "VRAM Data", SymbolType.Constant) },
+		{ 0x3c0004, new("REG_VRAMMOD", "VRAM Modulo", SymbolType.Constant) },
+		{ 0x000000, new("SSP", "Initial Stack Pointer", SymbolType.InterruptVector) },
+		{ 0x000004, new("RESET_VECTOR", "Reset Vector", SymbolType.InterruptVector) },
+	};
+
+	// ========================================================================
+	// Commodore 64 (MOS 6510)
+	// ========================================================================
+
+	/// <summary>
+	/// Gets default memory regions for Commodore 64.
+	/// </summary>
+	public static MemoryRegion[] GetC64DefaultRegions() => [
+		new MemoryRegion(0x0000, 0x00ff, (byte)MemoryRegionType.RAM, 0, "Zero Page"),
+		new MemoryRegion(0x0100, 0x01ff, (byte)MemoryRegionType.RAM, 0, "Stack"),
+		new MemoryRegion(0x0200, 0x9fff, (byte)MemoryRegionType.RAM, 0, "BASIC/User RAM"),
+		new MemoryRegion(0xa000, 0xbfff, (byte)MemoryRegionType.ROM, 0, "BASIC ROM"),
+		new MemoryRegion(0xc000, 0xcfff, (byte)MemoryRegionType.RAM, 0, "Upper RAM"),
+		new MemoryRegion(0xd000, 0xd3ff, (byte)MemoryRegionType.IO, 0, "VIC-II Registers"),
+		new MemoryRegion(0xd400, 0xd7ff, (byte)MemoryRegionType.IO, 0, "SID Registers"),
+		new MemoryRegion(0xd800, 0xdbff, (byte)MemoryRegionType.RAM, 0, "Color RAM"),
+		new MemoryRegion(0xdc00, 0xdcff, (byte)MemoryRegionType.IO, 0, "CIA 1"),
+		new MemoryRegion(0xdd00, 0xddff, (byte)MemoryRegionType.IO, 0, "CIA 2"),
+		new MemoryRegion(0xe000, 0xffff, (byte)MemoryRegionType.ROM, 0, "Kernal ROM"),
+	];
+
+	/// <summary>
+	/// Gets default symbols for Commodore 64 hardware registers.
+	/// </summary>
+	public static Dictionary<uint, DefaultSymbol> GetC64DefaultSymbolEntries() => new() {
+		// VIC-II
+		{ 0xd000, new("VIC_SPR0X", "Sprite 0 X Position", SymbolType.Constant) },
+		{ 0xd001, new("VIC_SPR0Y", "Sprite 0 Y Position", SymbolType.Constant) },
+		{ 0xd011, new("VIC_SCROLY", "Screen Control Register 1", SymbolType.Constant) },
+		{ 0xd012, new("VIC_RASTER", "Raster Counter", SymbolType.Constant) },
+		{ 0xd016, new("VIC_SCROLX", "Screen Control Register 2", SymbolType.Constant) },
+		{ 0xd018, new("VIC_VMCSB", "Memory Pointers", SymbolType.Constant) },
+		{ 0xd019, new("VIC_IRR", "Interrupt Register", SymbolType.Constant) },
+		{ 0xd01a, new("VIC_IMR", "Interrupt Mask", SymbolType.Constant) },
+		{ 0xd020, new("VIC_EXTCOL", "Border Color", SymbolType.Constant) },
+		{ 0xd021, new("VIC_BGCOL0", "Background Color 0", SymbolType.Constant) },
+
+		// SID
+		{ 0xd400, new("SID_V1FREQLO", "Voice 1 Frequency Low", SymbolType.Constant) },
+		{ 0xd401, new("SID_V1FREQHI", "Voice 1 Frequency High", SymbolType.Constant) },
+		{ 0xd404, new("SID_V1CR", "Voice 1 Control Register", SymbolType.Constant) },
+		{ 0xd405, new("SID_V1AD", "Voice 1 Attack/Decay", SymbolType.Constant) },
+		{ 0xd406, new("SID_V1SR", "Voice 1 Sustain/Release", SymbolType.Constant) },
+		{ 0xd418, new("SID_SIGVOL", "Filter Mode / Main Volume", SymbolType.Constant) },
+
+		// CIA 1
+		{ 0xdc00, new("CIA1_PRA", "CIA 1 Port A Data", SymbolType.Constant) },
+		{ 0xdc01, new("CIA1_PRB", "CIA 1 Port B Data", SymbolType.Constant) },
+		{ 0xdc0d, new("CIA1_ICR", "CIA 1 Interrupt Control", SymbolType.Constant) },
+
+		// CIA 2
+		{ 0xdd00, new("CIA2_PRA", "CIA 2 Port A Data", SymbolType.Constant) },
+		{ 0xdd0d, new("CIA2_ICR", "CIA 2 Interrupt Control", SymbolType.Constant) },
+
+		// Vectors
+		{ 0xfffa, new("NMI_VECTOR", "NMI Vector", SymbolType.InterruptVector) },
+		{ 0xfffc, new("RESET_VECTOR", "Reset Vector", SymbolType.InterruptVector) },
+		{ 0xfffe, new("IRQ_VECTOR", "IRQ/BRK Vector", SymbolType.InterruptVector) },
+	};
+
+	// ========================================================================
+	// Atari 7800 ProSystem (Sally 6502 variant)
+	// ========================================================================
+
+	/// <summary>
+	/// Gets default memory regions for Atari 7800.
+	/// </summary>
+	public static MemoryRegion[] GetAtari7800DefaultRegions() => [
+		new MemoryRegion(0x0000, 0x001f, (byte)MemoryRegionType.IO, 0, "TIA Registers"),
+		new MemoryRegion(0x0020, 0x003f, (byte)MemoryRegionType.IO, 0, "MARIA Registers"),
+		new MemoryRegion(0x0040, 0x00ff, (byte)MemoryRegionType.RAM, 0, "Zero Page RAM"),
+		new MemoryRegion(0x0100, 0x01ff, (byte)MemoryRegionType.RAM, 0, "Stack"),
+		new MemoryRegion(0x1800, 0x27ff, (byte)MemoryRegionType.RAM, 0, "RAM"),
+		new MemoryRegion(0x4000, 0xffff, (byte)MemoryRegionType.ROM, 0, "ROM"),
+	];
+
+	/// <summary>
+	/// Gets default symbols for Atari 7800 hardware registers.
+	/// </summary>
+	public static Dictionary<uint, DefaultSymbol> GetAtari7800DefaultSymbolEntries() => new() {
+		// MARIA
+		{ 0x0020, new("BACKGRND", "Background Color", SymbolType.Constant) },
+		{ 0x0021, new("P0C1", "Palette 0 Color 1", SymbolType.Constant) },
+		{ 0x0024, new("WSYNC", "Wait For Sync", SymbolType.Constant) },
+		{ 0x002c, new("DPPH", "Display List Pointer High", SymbolType.Constant) },
+		{ 0x0030, new("DPPL", "Display List Pointer Low", SymbolType.Constant) },
+		{ 0x003c, new("CTRL", "MARIA Control", SymbolType.Constant) },
+
+		// Vectors
+		{ 0xfffa, new("NMI_VECTOR", "NMI Vector", SymbolType.InterruptVector) },
+		{ 0xfffc, new("RESET_VECTOR", "Reset Vector", SymbolType.InterruptVector) },
+		{ 0xfffe, new("IRQ_VECTOR", "IRQ/BRK Vector", SymbolType.InterruptVector) },
+	};
+
+	// ========================================================================
+	// GCE Vectrex (Motorola 6809)
+	// ========================================================================
+
+	/// <summary>
+	/// Gets default memory regions for Vectrex.
+	/// </summary>
+	public static MemoryRegion[] GetVectrexDefaultRegions() => [
+		new MemoryRegion(0x0000, 0x7fff, (byte)MemoryRegionType.ROM, 0, "Cart ROM"),
+		new MemoryRegion(0xc800, 0xcbff, (byte)MemoryRegionType.RAM, 0, "RAM"),
+		new MemoryRegion(0xd000, 0xd7ff, (byte)MemoryRegionType.IO, 0, "VIA 6522 Registers"),
+		new MemoryRegion(0xe000, 0xffff, (byte)MemoryRegionType.ROM, 0, "System ROM"),
+	];
+
+	/// <summary>
+	/// Gets default symbols for Vectrex hardware registers.
+	/// </summary>
+	public static Dictionary<uint, DefaultSymbol> GetVectrexDefaultSymbolEntries() => new() {
+		// VIA 6522
+		{ 0xd000, new("VIA_PORTB", "VIA Port B Data", SymbolType.Constant) },
+		{ 0xd001, new("VIA_PORTA", "VIA Port A Data", SymbolType.Constant) },
+		{ 0xd002, new("VIA_DDRB", "VIA Port B Data Direction", SymbolType.Constant) },
+		{ 0xd003, new("VIA_DDRA", "VIA Port A Data Direction", SymbolType.Constant) },
+		{ 0xd004, new("VIA_T1CL", "VIA Timer 1 Counter Low", SymbolType.Constant) },
+		{ 0xd005, new("VIA_T1CH", "VIA Timer 1 Counter High", SymbolType.Constant) },
+		{ 0xd00b, new("VIA_ACR", "VIA Auxiliary Control", SymbolType.Constant) },
+		{ 0xd00c, new("VIA_PCR", "VIA Peripheral Control", SymbolType.Constant) },
+		{ 0xd00d, new("VIA_IFR", "VIA Interrupt Flag Register", SymbolType.Constant) },
+		{ 0xd00e, new("VIA_IER", "VIA Interrupt Enable", SymbolType.Constant) },
+
+		// Vectors
+		{ 0xfff6, new("SWI_VECTOR", "SWI Vector", SymbolType.InterruptVector) },
+		{ 0xfff8, new("IRQ_VECTOR", "IRQ Vector", SymbolType.InterruptVector) },
+		{ 0xfffa, new("FIRQ_VECTOR", "FIRQ Vector", SymbolType.InterruptVector) },
+		{ 0xfffc, new("NMI_VECTOR", "NMI Vector", SymbolType.InterruptVector) },
+		{ 0xfffe, new("RESET_VECTOR", "Reset Vector", SymbolType.InterruptVector) },
+	};
+
+	// ========================================================================
+	// Nintendo Virtual Boy (NEC V810)
+	// ========================================================================
+
+	/// <summary>
+	/// Gets default memory regions for Nintendo Virtual Boy.
+	/// </summary>
+	public static MemoryRegion[] GetVirtualBoyDefaultRegions() => [
+		new MemoryRegion(0x00000000, 0x00ffffff, (byte)MemoryRegionType.VRAM, 0, "VRAM"),
+		new MemoryRegion(0x02000000, 0x0200ffff, (byte)MemoryRegionType.IO, 0, "Hardware Registers"),
+		new MemoryRegion(0x05000000, 0x0500ffff, (byte)MemoryRegionType.WRAM, 0, "Work RAM"),
+		new MemoryRegion(0x06000000, 0x06003fff, (byte)MemoryRegionType.SRAM, 0, "Cart RAM"),
+		new MemoryRegion(0x07000000, 0x07ffffff, (byte)MemoryRegionType.ROM, 0, "ROM"),
+	];
+
+	/// <summary>
+	/// Gets default symbols for Nintendo Virtual Boy hardware registers.
+	/// </summary>
+	public static Dictionary<uint, DefaultSymbol> GetVirtualBoyDefaultSymbolEntries() => new() {
+		{ 0x0200_0000, new("CCR", "Communication Control Register", SymbolType.Constant) },
+		{ 0x0200_0004, new("CCSR", "Communication Control/Status", SymbolType.Constant) },
+		{ 0x0200_0010, new("INTPND", "Interrupt Pending", SymbolType.Constant) },
+		{ 0x0200_0014, new("INTENB", "Interrupt Enable", SymbolType.Constant) },
+		{ 0x0200_0018, new("INTCLR", "Interrupt Clear", SymbolType.Constant) },
+		{ 0x0200_0020, new("DPSTTS", "Display Status", SymbolType.Constant) },
+		{ 0x0200_0024, new("DPCTRL", "Display Control", SymbolType.Constant) },
+		{ 0x0200_0028, new("BRTA", "Brightness A", SymbolType.Constant) },
+		{ 0x0200_002c, new("BRTB", "Brightness B", SymbolType.Constant) },
+		{ 0xfffffff0, new("RESET_VECTOR", "Reset Vector", SymbolType.InterruptVector) },
+	};
+}
