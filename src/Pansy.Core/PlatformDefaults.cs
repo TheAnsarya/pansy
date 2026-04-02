@@ -1031,25 +1031,37 @@ public static class PlatformDefaults {
 
 	/// <summary>
 	/// Gets default memory regions for Sega Master System.
+	/// Mapper control registers at $fffc-$ffff select ROM banks.
 	/// </summary>
 	public static MemoryRegion[] GetSmsDefaultRegions() => [
 		new MemoryRegion(0x0000, 0xbfff, (byte)MemoryRegionType.ROM, 0, "ROM"),
 		new MemoryRegion(0xc000, 0xdfff, (byte)MemoryRegionType.RAM, 0, "RAM"),
+		new MemoryRegion(0xe000, 0xfffb, (byte)MemoryRegionType.Mirror, 0, "RAM Mirror"),
+		new MemoryRegion(0xfffc, 0xffff, (byte)MemoryRegionType.IO, 0, "Mapper Control"),
 	];
 
 	/// <summary>
 	/// Gets default memory regions for PC Engine / TurboGrafx-16.
+	/// Uses 21-bit banked addressing. I/O mapped at bank $ff ($1fe000-$1fffff).
+	/// Symbol addresses use I/O page offsets (e.g., VDC at $0000 = $1fe000).
 	/// </summary>
 	public static MemoryRegion[] GetPceDefaultRegions() => [
-		new MemoryRegion(0x0000, 0x1fff, (byte)MemoryRegionType.RAM, 0, "RAM"),
-		new MemoryRegion(0x1fe000, 0x1fffff, (byte)MemoryRegionType.IO, 0, "Hardware Registers"),
+		new MemoryRegion(0x2000, 0x3fff, (byte)MemoryRegionType.WRAM, 0, "Work RAM"),
+		new MemoryRegion(0x1fe000, 0x1fe003, (byte)MemoryRegionType.IO, 0, "VDC Registers"),
+		new MemoryRegion(0x1fe400, 0x1fe405, (byte)MemoryRegionType.IO, 0, "VCE Registers"),
+		new MemoryRegion(0x1fe800, 0x1fe809, (byte)MemoryRegionType.IO, 0, "PSG Registers"),
+		new MemoryRegion(0x1fec00, 0x1fec01, (byte)MemoryRegionType.IO, 0, "Timer"),
+		new MemoryRegion(0x1ff000, 0x1ff000, (byte)MemoryRegionType.IO, 0, "Joypad"),
+		new MemoryRegion(0x1ff400, 0x1ff403, (byte)MemoryRegionType.IO, 0, "IRQ Control"),
 	];
 
 	/// <summary>
 	/// Gets default memory regions for WonderSwan.
+	/// I/O ports ($00-$ff) are port-mapped, not memory-mapped.
 	/// </summary>
 	public static MemoryRegion[] GetWsDefaultRegions() => [
 		new MemoryRegion(0x00000, 0x03fff, (byte)MemoryRegionType.RAM, 0, "RAM"),
+		new MemoryRegion(0x04000, 0x0ffff, (byte)MemoryRegionType.SRAM, 0, "Cartridge SRAM"),
 		new MemoryRegion(0x20000, 0xfffff, (byte)MemoryRegionType.ROM, 0, "ROM"),
 	];
 
@@ -1092,19 +1104,41 @@ public static class PlatformDefaults {
 
 	/// <summary>
 	/// Gets default memory regions for Sega Game Gear.
+	/// Uses SMS-compatible memory map with GG-specific I/O ports.
 	/// </summary>
 	public static MemoryRegion[] GetGameGearDefaultRegions() => [
 		new MemoryRegion(0x0000, 0xbfff, (byte)MemoryRegionType.ROM, 0, "ROM"),
 		new MemoryRegion(0xc000, 0xdfff, (byte)MemoryRegionType.RAM, 0, "RAM"),
+		new MemoryRegion(0xe000, 0xfffb, (byte)MemoryRegionType.Mirror, 0, "RAM Mirror"),
+		new MemoryRegion(0xfffc, 0xffff, (byte)MemoryRegionType.IO, 0, "Mapper Control"),
 	];
 
 	/// <summary>
 	/// Gets default symbols for Sega Game Gear I/O ports and vectors.
+	/// Inherits SMS VDP/PSG/Joypad ports and adds GG-specific serial/stereo.
 	/// </summary>
 	public static Dictionary<uint, DefaultSymbol> GetGameGearDefaultSymbolEntries() => new() {
+		// GG-specific ports
 		{ 0x0000, new("GG_START_PORT", "Start Button Port", SymbolType.Constant) },
+		{ 0x0001, new("GG_SERIAL_DIR", "Serial Direction", SymbolType.Constant) },
+		{ 0x0002, new("GG_SERIAL_STATUS", "Serial Status", SymbolType.Constant) },
+		{ 0x0003, new("GG_SERIAL_DATA", "Serial Data", SymbolType.Constant) },
+		{ 0x0005, new("GG_STEREO", "Stereo Sound Control", SymbolType.Constant) },
+		{ 0x0006, new("GG_SERIAL_CTRL", "Serial Control", SymbolType.Constant) },
+
+		// Z80 interrupt vectors
 		{ 0x0038, new("IRQ_HANDLER", "IRQ Handler Address", SymbolType.InterruptVector) },
 		{ 0x0066, new("NMI_HANDLER", "NMI Handler Address", SymbolType.InterruptVector) },
+
+		// SMS-compatible VDP/PSG/I/O ports
+		{ 0x003e, new("MEMORY_ENABLE", "Memory Enable", SymbolType.Constant) },
+		{ 0x003f, new("IO_PORT", "I/O Port Control", SymbolType.Constant) },
+		{ 0x007e, new("VDP_V_COUNTER", "VDP V Counter", SymbolType.Constant) },
+		{ 0x007f, new("PSG", "PSG Audio", SymbolType.Constant) },
+		{ 0x00be, new("VDP_DATA", "VDP Data Port", SymbolType.Constant) },
+		{ 0x00bf, new("VDP_CMD_STATUS", "VDP Command/Status", SymbolType.Constant) },
+		{ 0x00dc, new("JOY1", "Joypad 1", SymbolType.Constant) },
+		{ 0x00dd, new("JOY2", "Joypad 2", SymbolType.Constant) },
 	};
 
 	// ========================================================================

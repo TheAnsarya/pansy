@@ -424,22 +424,31 @@ public class PlatformDefaultsTests {
 		var regions = PlatformDefaults.GetDefaultRegions(PansyLoader.PLATFORM_GAMEGEAR);
 
 		Assert.NotNull(regions);
-		Assert.Equal(2, regions.Length);
+		Assert.Equal(4, regions.Length);
 		Assert.Contains(regions, r => r.Name == "ROM" && r.Start == 0x0000 && r.End == 0xbfff);
 		Assert.Contains(regions, r => r.Name == "RAM" && r.Start == 0xc000 && r.End == 0xdfff);
+		Assert.Contains(regions, r => r.Name == "RAM Mirror" && r.Start == 0xe000 && r.End == 0xfffb);
+		Assert.Contains(regions, r => r.Name == "Mapper Control" && r.Start == 0xfffc && r.End == 0xffff);
 	}
 
 	[Fact]
 	public void GetDefaultSymbolEntries_GameGear_HasKeyRegisters() {
 		var entries = PlatformDefaults.GetDefaultSymbolEntries(PansyLoader.PLATFORM_GAMEGEAR);
 
-		Assert.Equal(3, entries.Count);
+		Assert.Equal(16, entries.Count);
+		// GG-specific ports
 		Assert.True(entries.ContainsKey(0x0000), "GG: Missing GG_START_PORT at $0000");
 		Assert.Equal("GG_START_PORT", entries[0x0000].Name);
+		Assert.True(entries.ContainsKey(0x0005), "GG: Missing GG_STEREO at $0005");
+		Assert.True(entries.ContainsKey(0x0006), "GG: Missing GG_SERIAL_CTRL at $0006");
+		// Z80 vectors
 		Assert.True(entries.ContainsKey(0x0038), "GG: Missing IRQ_HANDLER at $0038");
 		Assert.Equal(SymbolType.InterruptVector, entries[0x0038].Type);
 		Assert.True(entries.ContainsKey(0x0066), "GG: Missing NMI_HANDLER at $0066");
 		Assert.Equal(SymbolType.InterruptVector, entries[0x0066].Type);
+		// SMS-compatible ports
+		Assert.True(entries.ContainsKey(0x00be), "GG: Missing VDP_DATA at $be");
+		Assert.True(entries.ContainsKey(0x00dc), "GG: Missing JOY1 at $dc");
 	}
 
 	[Fact]
@@ -451,6 +460,12 @@ public class PlatformDefaultsTests {
 
 		var ramRegion = regions.First(r => r.Name == "RAM");
 		Assert.Equal((byte)MemoryRegionType.RAM, ramRegion.Type);
+
+		var mirrorRegion = regions.First(r => r.Name == "RAM Mirror");
+		Assert.Equal((byte)MemoryRegionType.Mirror, mirrorRegion.Type);
+
+		var mapperRegion = regions.First(r => r.Name == "Mapper Control");
+		Assert.Equal((byte)MemoryRegionType.IO, mapperRegion.Type);
 	}
 
 	// ========================================================================
@@ -741,5 +756,147 @@ public class PlatformDefaultsTests {
 
 		var rom = regions.First(r => r.Name == "ROM");
 		Assert.Equal((byte)MemoryRegionType.ROM, rom.Type);
+	}
+
+	// ========================================================================
+	// GBA Region Tests
+	// ========================================================================
+
+	[Fact]
+	public void GetDefaultRegions_GBA_ReturnsExpectedRegions() {
+		var regions = PlatformDefaults.GetDefaultRegions(PansyLoader.PLATFORM_GBA);
+
+		Assert.NotNull(regions);
+		Assert.Equal(9, regions.Length);
+		Assert.Contains(regions, r => r.Name == "BIOS" && r.Start == 0x00000000 && r.End == 0x00003fff);
+		Assert.Contains(regions, r => r.Name == "EWRAM" && r.Start == 0x02000000);
+		Assert.Contains(regions, r => r.Name == "IWRAM" && r.Start == 0x03000000);
+		Assert.Contains(regions, r => r.Name == "I/O Registers" && r.Start == 0x04000000);
+		Assert.Contains(regions, r => r.Name == "VRAM" && r.Start == 0x06000000);
+		Assert.Contains(regions, r => r.Name == "ROM" && r.Start == 0x08000000);
+		Assert.Contains(regions, r => r.Name == "SRAM" && r.Start == 0x0e000000);
+	}
+
+	[Fact]
+	public void GbaRegions_HaveCorrectTypes() {
+		var regions = PlatformDefaults.GetDefaultRegions(PansyLoader.PLATFORM_GBA);
+
+		Assert.Equal((byte)MemoryRegionType.ROM, regions.First(r => r.Name == "BIOS").Type);
+		Assert.Equal((byte)MemoryRegionType.WRAM, regions.First(r => r.Name == "EWRAM").Type);
+		Assert.Equal((byte)MemoryRegionType.WRAM, regions.First(r => r.Name == "IWRAM").Type);
+		Assert.Equal((byte)MemoryRegionType.IO, regions.First(r => r.Name == "I/O Registers").Type);
+		Assert.Equal((byte)MemoryRegionType.RAM, regions.First(r => r.Name == "Palette RAM").Type);
+		Assert.Equal((byte)MemoryRegionType.VRAM, regions.First(r => r.Name == "VRAM").Type);
+		Assert.Equal((byte)MemoryRegionType.RAM, regions.First(r => r.Name == "OAM").Type);
+		Assert.Equal((byte)MemoryRegionType.ROM, regions.First(r => r.Name == "ROM").Type);
+		Assert.Equal((byte)MemoryRegionType.SRAM, regions.First(r => r.Name == "SRAM").Type);
+	}
+
+	// ========================================================================
+	// SMS Region Tests
+	// ========================================================================
+
+	[Fact]
+	public void GetDefaultRegions_SMS_ReturnsExpectedRegions() {
+		var regions = PlatformDefaults.GetDefaultRegions(PansyLoader.PLATFORM_SMS);
+
+		Assert.NotNull(regions);
+		Assert.Equal(4, regions.Length);
+		Assert.Contains(regions, r => r.Name == "ROM" && r.Start == 0x0000 && r.End == 0xbfff);
+		Assert.Contains(regions, r => r.Name == "RAM" && r.Start == 0xc000 && r.End == 0xdfff);
+		Assert.Contains(regions, r => r.Name == "RAM Mirror" && r.Start == 0xe000 && r.End == 0xfffb);
+		Assert.Contains(regions, r => r.Name == "Mapper Control" && r.Start == 0xfffc && r.End == 0xffff);
+	}
+
+	[Fact]
+	public void SmsRegions_HaveCorrectTypes() {
+		var regions = PlatformDefaults.GetDefaultRegions(PansyLoader.PLATFORM_SMS);
+
+		Assert.Equal((byte)MemoryRegionType.ROM, regions.First(r => r.Name == "ROM").Type);
+		Assert.Equal((byte)MemoryRegionType.RAM, regions.First(r => r.Name == "RAM").Type);
+		Assert.Equal((byte)MemoryRegionType.Mirror, regions.First(r => r.Name == "RAM Mirror").Type);
+		Assert.Equal((byte)MemoryRegionType.IO, regions.First(r => r.Name == "Mapper Control").Type);
+	}
+
+	// ========================================================================
+	// PCE Region Tests
+	// ========================================================================
+
+	[Fact]
+	public void GetDefaultRegions_PCE_ReturnsExpectedRegions() {
+		var regions = PlatformDefaults.GetDefaultRegions(PansyLoader.PLATFORM_PCE);
+
+		Assert.NotNull(regions);
+		Assert.Equal(7, regions.Length);
+		Assert.Contains(regions, r => r.Name == "Work RAM" && r.Start == 0x2000 && r.End == 0x3fff);
+		Assert.Contains(regions, r => r.Name == "VDC Registers" && r.Start == 0x1fe000);
+		Assert.Contains(regions, r => r.Name == "VCE Registers" && r.Start == 0x1fe400);
+		Assert.Contains(regions, r => r.Name == "PSG Registers" && r.Start == 0x1fe800);
+		Assert.Contains(regions, r => r.Name == "Timer" && r.Start == 0x1fec00);
+		Assert.Contains(regions, r => r.Name == "Joypad" && r.Start == 0x1ff000);
+		Assert.Contains(regions, r => r.Name == "IRQ Control" && r.Start == 0x1ff400);
+	}
+
+	[Fact]
+	public void PceRegions_HaveCorrectTypes() {
+		var regions = PlatformDefaults.GetDefaultRegions(PansyLoader.PLATFORM_PCE);
+
+		Assert.Equal((byte)MemoryRegionType.WRAM, regions.First(r => r.Name == "Work RAM").Type);
+		// All I/O sub-regions should be IO type
+		foreach (var region in regions.Where(r => r.Name != "Work RAM")) {
+			Assert.Equal((byte)MemoryRegionType.IO, region.Type);
+		}
+	}
+
+	// ========================================================================
+	// WonderSwan Region Tests
+	// ========================================================================
+
+	[Fact]
+	public void GetDefaultRegions_WS_ReturnsExpectedRegions() {
+		var regions = PlatformDefaults.GetDefaultRegions(PansyLoader.PLATFORM_WONDERSWAN);
+
+		Assert.NotNull(regions);
+		Assert.Equal(3, regions.Length);
+		Assert.Contains(regions, r => r.Name == "RAM" && r.Start == 0x00000 && r.End == 0x03fff);
+		Assert.Contains(regions, r => r.Name == "Cartridge SRAM" && r.Start == 0x04000 && r.End == 0x0ffff);
+		Assert.Contains(regions, r => r.Name == "ROM" && r.Start == 0x20000 && r.End == 0xfffff);
+	}
+
+	[Fact]
+	public void WsRegions_HaveCorrectTypes() {
+		var regions = PlatformDefaults.GetDefaultRegions(PansyLoader.PLATFORM_WONDERSWAN);
+
+		Assert.Equal((byte)MemoryRegionType.RAM, regions.First(r => r.Name == "RAM").Type);
+		Assert.Equal((byte)MemoryRegionType.SRAM, regions.First(r => r.Name == "Cartridge SRAM").Type);
+		Assert.Equal((byte)MemoryRegionType.ROM, regions.First(r => r.Name == "ROM").Type);
+	}
+
+	// ========================================================================
+	// Genesis Region Tests
+	// ========================================================================
+
+	[Fact]
+	public void GetDefaultRegions_Genesis_ReturnsExpectedRegions() {
+		var regions = PlatformDefaults.GetDefaultRegions(PansyLoader.PLATFORM_GENESIS);
+
+		Assert.NotNull(regions);
+		Assert.Equal(5, regions.Length);
+		Assert.Contains(regions, r => r.Name == "ROM" && r.Start == 0x000000 && r.End == 0x3fffff);
+		Assert.Contains(regions, r => r.Name == "Z80 Address Space" && r.Start == 0xa00000);
+		Assert.Contains(regions, r => r.Name == "I/O Registers" && r.Start == 0xa10000);
+		Assert.Contains(regions, r => r.Name == "VDP Registers" && r.Start == 0xc00000);
+		Assert.Contains(regions, r => r.Name == "Work RAM" && r.Start == 0xff0000);
+	}
+
+	[Fact]
+	public void GenesisRegions_HaveCorrectTypes() {
+		var regions = PlatformDefaults.GetDefaultRegions(PansyLoader.PLATFORM_GENESIS);
+
+		Assert.Equal((byte)MemoryRegionType.ROM, regions.First(r => r.Name == "ROM").Type);
+		Assert.Equal((byte)MemoryRegionType.RAM, regions.First(r => r.Name == "Z80 Address Space").Type);
+		Assert.Equal((byte)MemoryRegionType.IO, regions.First(r => r.Name == "I/O Registers").Type);
+		Assert.Equal((byte)MemoryRegionType.IO, regions.First(r => r.Name == "VDP Registers").Type);
+		Assert.Equal((byte)MemoryRegionType.WRAM, regions.First(r => r.Name == "Work RAM").Type);
 	}
 }
