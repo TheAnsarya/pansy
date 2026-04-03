@@ -251,7 +251,17 @@ For any non-trivial work:
 - `docs/` — User-facing documentation (FILE-FORMAT.md, CLI-REFERENCE.md, etc.)
 - All docs should be reachable from `README.md`
 
+### ⚠️ MANDATORY: Session Logs
+
+**Always create a session log at the end of every conversation that involves code changes, issue creation, or significant research.** This is non-negotiable.
+
+- File: `~docs/session-logs/YYYY-MM-DD-session-NN.md`
+- Increment `NN` if a log already exists for that date
+- Include: summary of work done, issues created/closed, commits made, files changed, and next steps
+- Commit the session log as part of the final commit
+
 ### Log Files
+
 - Session logs: `~docs/session-logs/YYYY-MM-DD-session-NN.md`
 - **NEVER edit** `~docs/pansy-manual-prompts-log.txt` (user-maintained)
 
