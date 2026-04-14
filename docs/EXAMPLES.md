@@ -487,4 +487,3 @@ foreach (var region in pansy.MemoryRegions.OrderBy(r => r.Start)) {
 
 - [CLI Reference](CLI-REFERENCE.md) - Detailed command documentation
 - [File Format](FILE-FORMAT.md) - Format specification
-- [API Reference](../src/Pansy.Core/README.md) - Library usage

@@ -686,5 +686,4 @@ Error: Invalid address: 0x8010
 ## See Also
 
 - [File Format Specification](FILE-FORMAT.md) - Complete format documentation
-- [Library API](../src/Pansy.Core/README.md) - Using Pansy in code
 - [GitHub Issues](https://github.com/TheAnsarya/pansy/issues) - Report bugs or request features
