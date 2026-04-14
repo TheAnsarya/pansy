@@ -1,7 +1,6 @@
 using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.IO.Compression;
-using System.Text;
 
 namespace Pansy.Core;
 

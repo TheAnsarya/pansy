@@ -3,7 +3,6 @@
 // 🌼 Pansy - Universal Disassembly Metadata Format
 // ============================================================================
 
-using System.Text;
 using System.Text.Json;
 
 namespace Pansy.Core;

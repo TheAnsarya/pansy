@@ -11,7 +11,7 @@
     <Authors>TheAnsarya</Authors>
     <PackageProjectUrl>https://github.com/TheAnsarya/pansy</PackageProjectUrl>
     <RepositoryUrl>https://github.com/TheAnsarya/pansy</RepositoryUrl>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageLicenseExpression>Unlicense</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>pansy;disassembly;metadata;retro;emulator;nes;snes;gameboy;gba</PackageTags>
     <Version>1.0.0</Version>
