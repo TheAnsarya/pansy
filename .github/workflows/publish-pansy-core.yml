@@ -70,9 +70,20 @@ jobs:
             /p:IncludeSymbols=true \
             /p:SymbolPackageFormat=snupkg
 
+      - name: Detect Trusted Publishing config
+        id: tp_config
+        env:
+          NUGET_USER: ${{ secrets.NUGET_USER }}
+        run: |
+          if [ -n "$NUGET_USER" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: NuGet login (OIDC trusted publishing)
         id: nuget_login
-        if: ${{ secrets.NUGET_USER != '' }}
+        if: ${{ steps.tp_config.outputs.enabled == 'true' }}
         uses: NuGet/login@v1
         with:
           user: ${{ secrets.NUGET_USER }}
