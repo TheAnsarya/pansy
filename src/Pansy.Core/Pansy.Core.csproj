@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <PackageId>Pansy.Core</PackageId>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -11,6 +12,8 @@
     <Authors>TheAnsarya</Authors>
     <PackageProjectUrl>https://github.com/TheAnsarya/pansy</PackageProjectUrl>
     <RepositoryUrl>https://github.com/TheAnsarya/pansy</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <PackageLicenseExpression>Unlicense</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>pansy;disassembly;metadata;retro;emulator;nes;snes;gameboy;gba</PackageTags>

@@ -1,22 +1,17 @@
 # 🌼 Pansy - CI/CD and Build Policy
 
-## No Automated CI/CD on GitHub
+## Hybrid Policy
 
-**Policy:** We do **NOT** enable automated CI/CD workflows on GitHub due to cost constraints.
+Pansy uses a hybrid policy:
 
-### Rationale
+- Keep most development workflows local-first (build/test/benchmark)
+- Allow focused GitHub automation for package publication only
 
-- GitHub Actions minutes are expensive at scale
-- Multiple repositories would compound costs
-- Manual builds are sufficient for our development pace
-- Local development and testing is preferred
+### Automation Scope
 
-### What This Means
-
-- **No `.github/workflows/` automation** - Do not create GitHub Actions files
-- **Manual builds only** - Build locally with `dotnet build`
-- **Manual testing** - Run `dotnet test` locally before committing
-- **Manual releases** - Package and publish manually when needed
+- `publish-pansy-core.yml` is approved for NuGet publication
+- Other workflows remain optional and local-first
+- Local validation remains mandatory before release publication
 
 ### Local Development Workflow
 
@@ -49,6 +44,12 @@ dotnet test tests/Pansy.Core.Tests/Pansy.Core.Tests.csproj
 #### Publishing
 
 ```bash
+# Pack Pansy.Core
+dotnet pack src/Pansy.Core/Pansy.Core.csproj -c Release -o artifacts/nupkg
+
+# Publish to NuGet.org (requires API key)
+dotnet nuget push artifacts/nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key <NUGET_API_KEY>
+
 # Publish CLI tool
 dotnet publish src/Pansy.Cli/Pansy.Cli.csproj -c Release -o publish/
 
@@ -56,15 +57,33 @@ dotnet publish src/Pansy.Cli/Pansy.Cli.csproj -c Release -o publish/
 dotnet publish src/Pansy.UI/Pansy.UI.csproj -c Release -o publish-ui/
 ```
 
-### When We Can Afford CI/CD
-In the future, when budget allows, we can add:
+## NuGet Publication
 
-- Automated builds on push
-- Automated testing
-- Release automation
-- Package publishing to NuGet
+### Required Secret
 
-Until then, **local is king**. 👑
+- `NUGET_API_KEY` - NuGet.org API key with permission to publish `Pansy.Core`
+
+### Recommended Publication Flow
+
+1. Update `src/Pansy.Core/Pansy.Core.csproj` `<Version>` when needed.
+2. Verify local quality gates:
+
+```bash
+dotnet build Pansy.sln -c Release
+dotnet test tests/Pansy.Core.Tests -c Release
+```
+
+3. Publish package:
+	- Run `Publish Pansy.Core NuGet Package` via workflow dispatch, or
+	- Publish a GitHub release tag like `v1.0.1` to trigger release-based publish.
+
+4. Verify package availability on NuGet.org.
+
+### Optional Future Expansion
+
+- Automated CI test/build pipelines for PR validation
+- Benchmark automation
+- Release-note generation
 
 ## Related Policies
 
