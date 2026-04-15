@@ -1,4 +1,4 @@
-# 🌼 Pansy - Universal Disassembly Metadata Format
+﻿# 🌼 Pansy - Universal Disassembly Metadata Format
 
 > **Pansy** - Program ANalysis SYstem format for comprehensive assembly metadata exchange
 
@@ -19,6 +19,7 @@
 - ✅ **Label Intelligence** - LabelMergeEngine, LabelDataCache, ILabelSuggester, auto-label generation from CDL + hardware registers
 - ✅ **70 Benchmarks** - Writer, loader, analyzer, merger, batch API, cross-ref query, graph export, and bookmark/data type performance tracking
 - ✅ **Batch APIs** - High-performance batch insert for symbols, comments, cross-references, and memory regions
+- ✅ **NuGet Publish Ready** - Trusted Publishing (OIDC) workflow with API key fallback for `Pansy.Core`
 - ✅ **Performance Optimized** - FrozenDictionary/FrozenSet for zero-allocation lookups, LINQ-free hot paths
 - ✅ **Typed Metadata** - SymbolEntry/CommentEntry records with type preservation
 - ✅ **Extended Flags** - DRAWN, READ, INDIRECT code/data map flags

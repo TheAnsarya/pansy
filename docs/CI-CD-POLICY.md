@@ -1,4 +1,4 @@
-# 🌼 Pansy - CI/CD and Build Policy
+﻿# 🌼 Pansy - CI/CD and Build Policy
 
 ## Hybrid Policy
 
@@ -61,7 +61,25 @@ dotnet publish src/Pansy.UI/Pansy.UI.csproj -c Release -o publish-ui/
 
 ### Required Secret
 
-- `NUGET_API_KEY` - NuGet.org API key with permission to publish `Pansy.Core`
+- `NUGET_USER` - nuget.org profile name for Trusted Publishing login
+- `NUGET_API_KEY` - optional fallback key for manual/API-key-based publishing
+
+### Trusted Publishing (Recommended)
+
+Use trusted publishing to avoid long-lived API keys.
+
+1. Sign in to nuget.org.
+2. Open user menu -> Trusted Publishing.
+3. Add a GitHub policy with:
+	- Repository owner: `TheAnsarya`
+	- Repository: `pansy`
+	- Workflow file: `publish-pansy-core.yml`
+	- Environment: leave blank unless workflow uses a GitHub environment
+4. In GitHub repo secrets, set:
+	- `NUGET_USER` = your nuget.org username/profile name (not email)
+5. Run the publish workflow.
+
+The workflow will request an OIDC token and exchange it for a short-lived NuGet API key.
 
 ### Recommended Publication Flow
 
@@ -74,10 +92,20 @@ dotnet test tests/Pansy.Core.Tests -c Release
 ```
 
 3. Publish package:
-	- Run `Publish Pansy.Core NuGet Package` via workflow dispatch, or
-	- Publish a GitHub release tag like `v1.0.1` to trigger release-based publish.
+	- Preferred: Trusted Publishing with `NUGET_USER` configured
+	- Fallback: API key with `NUGET_API_KEY` configured
+	- Trigger via workflow dispatch or publish a release tag like `v1.0.1`
 
 4. Verify package availability on NuGet.org.
+
+### Manual Recovery (If Publish Fails)
+
+- `403 invalid/expired/unauthorized API key`:
+	- Rotate `NUGET_API_KEY` on nuget.org and update GitHub secret, or switch to Trusted Publishing.
+- Trusted Publishing not available in UI:
+	- Continue with `NUGET_API_KEY` fallback until rollout reaches your account.
+- Package exists but not searchable yet:
+	- Wait for indexing/validation on nuget.org (usually minutes).
 
 ### Optional Future Expansion
 
