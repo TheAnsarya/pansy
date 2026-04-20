@@ -194,6 +194,7 @@ File.WriteAllBytes("merged.pansy", merged.Generate());
 ## 📖 Documentation
 
 - [File Format Specification](docs/FILE-FORMAT.md) - Complete format documentation with platform-specific details
+- [CPU State Metadata](docs/CPU-STATE.md) - Canonical semantics for section `0x0009`, including SNES M/X and GBA ARM/THUMB usage
 - [Channel F Metadata Conventions](docs/CHANNELF-CONVENTIONS.md) - Practical Channel F platform-id, region, symbol, and xref conventions
 - [CLI Reference](docs/CLI-REFERENCE.md) - Comprehensive command-line tool guide
 - [Examples](docs/EXAMPLES.md) - Workflow guides and use cases

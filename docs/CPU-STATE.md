@@ -1,0 +1,103 @@
+# CPU State Metadata
+
+## Overview
+
+The Pansy CPU-state section (`0x0009`) stores per-address execution state that affects instruction decoding but does not belong in the code/data map.
+
+This section exists for architectures where the active processor mode changes how bytes should be interpreted. Two current examples are:
+
+- SNES / 65816: accumulator and index register width depend on the `M` and `X` flags.
+- GBA / ARM7TDMI: opcode width and decoder selection depend on ARM versus THUMB mode.
+
+## Why This Is Separate From CODE_DATA_MAP
+
+The code/data map answers questions like:
+
+- Is this byte code or data?
+- Is this byte an opcode?
+- Was this byte read, drawn, or reached indirectly?
+
+CPU-state metadata answers a different question:
+
+- Under what processor state should code at this address be decoded?
+
+Do not overload code/data-map bits to store CPU-width or mode information. CPU-state entries are the canonical place for that metadata.
+
+## Section Layout
+
+Each CPU-state entry is 9 bytes:
+
+```text
+Address:    uint32
+Flags:      uint8
+DataBank:   uint8
+DirectPage: uint16
+CpuMode:    uint8
+```
+
+## Field Semantics
+
+### Address
+
+CPU address where the recorded state is known to apply. Consumers should treat this as a seed point for decoding at that address, then propagate state according to architecture rules while control flow continues.
+
+### Flags
+
+Current flag meanings are architecture-specific.
+
+For SNES / 65816:
+
+- Bit 0: `X` flag
+- Bit 1: `M` flag
+- Bits 2-7: reserved, write as zero
+
+For 65816 width tracking, the meaning is:
+
+- `X = 1` means index registers are 8-bit
+- `X = 0` means index registers are 16-bit
+- `M = 1` means accumulator is 8-bit
+- `M = 0` means accumulator is 16-bit
+
+These bits intentionally mirror the live CPU flags, so `1` means 8-bit for both register groups.
+
+### DataBank
+
+65816 data bank register snapshot. Write zero for architectures that do not use it.
+
+### DirectPage
+
+65816 direct-page register snapshot. Write zero for architectures that do not use it.
+
+### CpuMode
+
+Current standardized values:
+
+- `0`: `Native65816`
+- `1`: `Emulation6502`
+- `2`: `ARM`
+- `3`: `THUMB`
+
+## Producer Guidance
+
+- Emit CPU-state entries only when the state is known.
+- Prefer exact seed points over inferred blanket coverage.
+- Sort entries by address.
+- Keep reserved bits cleared.
+- Preserve code/data-map flags independently; do not merge CPU-state information into that section.
+
+## Consumer Guidance
+
+- Prefer CPU-state metadata over lossy fallback sources when both exist.
+- Use entries to seed decoding state at matching addresses.
+- Continue to propagate architecture state through decoded instructions and control flow.
+- Fall back to CDL or platform defaults only when no authoritative CPU-state entry exists.
+
+## Current Canonical Uses
+
+- Nexen exports SNES X/M and GBA ARM/THUMB state through CPU-state entries.
+- Peony uses Pansy CPU-state entries as the preferred SNES M/X source during 65816 decoding, with CDL retained as fallback.
+
+## Related Documentation
+
+- [File Format Specification](FILE-FORMAT.md)
+- [Examples](EXAMPLES.md)

@@ -342,6 +342,9 @@ Bookmark Entry:
 Per-address CPU state snapshots for architectures with mode-dependent instruction decoding.
 Essential for SNES (65816) where the M and X flags change instruction widths, and GBA where ARM/THUMB mode changes the instruction set.
 
+This section is separate from `CODE_DATA_MAP`. Do not store CPU-width or CPU-mode metadata by overloading code/data-map bits.
+See [CPU State Metadata](CPU-STATE.md) for canonical producer and consumer guidance.
+
 ```text
 CPU State Entry (9 bytes, repeating):
   Address:    uint32  — CPU address where this state applies
