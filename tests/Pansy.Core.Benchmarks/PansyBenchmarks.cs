@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // PansyBenchmarks.cs - Performance benchmarks for Pansy.Core
 // 🌼 Pansy - Universal Disassembly Metadata Format
 // ============================================================================
@@ -861,6 +861,134 @@ public class BookmarkDataTypeBenchmarks {
 		var fileIdx = writer.AddSourceFile("main.pasm");
 		for (uint i = 0; i < (uint)Count; i++) {
 			writer.AddSourceMapping(new SourceMapEntry(0x8000 + i, fileIdx, (ushort)(i + 1), 0));
+		}
+		return writer.Generate();
+	}
+}
+
+/// <summary>
+/// Benchmarks for CPU state section (0x0009) performance — canonical M/X tracking for SNES and ARM/THUMB for GBA.
+/// </summary>
+[MemoryDiagnoser]
+[SimpleJob(warmupCount: 3, iterationCount: 5)]
+public class CpuStateBenchmarks {
+	[Params(100, 1000, 5000)]
+	public int Count { get; set; }
+
+	[Benchmark(Description = "Write CPU state SNES")]
+	public byte[] WriteCpuStateSnes() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_SNES,
+			RomSize = 0x80000
+		};
+		for (uint i = 0; i < (uint)Count; i++) {
+			// Alternate M and X flags every 16 bytes
+			var flags = (byte)(((i / 16) % 3) switch {
+				0 => 0x00, // 16-bit A, 16-bit X
+				1 => 0x03, // 8-bit A, 8-bit X
+				_ => 0x01  // 16-bit A, 8-bit X
+			});
+			writer.AddCpuState(new CpuStateEntry(0x8000 + i, flags, 0x00, 0x0000, CpuMode.Native65816));
+		}
+		return writer.Generate();
+	}
+
+	[Benchmark(Description = "Write CPU state GBA")]
+	public byte[] WriteCpuStateGba() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_GBA,
+			RomSize = 0x2000000
+		};
+		for (uint i = 0; i < (uint)Count; i++) {
+			// Alternate ARM and THUMB mode every 4 bytes
+			var mode = ((i / 4) % 2 == 0) ? CpuMode.ARM : CpuMode.THUMB;
+			writer.AddCpuState(new CpuStateEntry(i, 0x00, 0x00, 0x0000, mode));
+		}
+		return writer.Generate();
+	}
+
+	[Benchmark(Description = "Write CPU state with other data")]
+	public byte[] WriteMixedCpuState() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_SNES,
+			RomSize = 0x80000
+		};
+		// Interleave CPU-state with symbols, comments, code/data map
+		for (uint i = 0; i < (uint)Count; i++) {
+			if (i % 2 == 0) {
+				writer.AddSymbol(0x8000 + i, $"Sym_{i:x4}");
+			}
+			if (i % 3 == 0) {
+				writer.AddComment(0x8000 + i, $"Comment {i}");
+			}
+			if (i % 5 == 0) {
+				writer.MarkAsCode(i);
+			}
+			if (i % 10 == 0) {
+				writer.AddCpuState(new CpuStateEntry(0x8000 + i, (byte)(i % 4), 0x00, 0x0000, CpuMode.Native65816));
+			}
+		}
+		return writer.Generate();
+	}
+
+	[Benchmark(Description = "Load CPU state SNES")]
+	public PansyLoader LoadCpuStateSnes() {
+		var data = WriteCpuStateSnes();
+		return new PansyLoader(data);
+	}
+
+	[Benchmark(Description = "Load CPU state GBA")]
+	public PansyLoader LoadCpuStateGba() {
+		var data = WriteCpuStateGba();
+		return new PansyLoader(data);
+	}
+
+	[Benchmark(Description = "Query CPU state x1000")]
+	public int QueryCpuState() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_SNES,
+			RomSize = 0x80000
+		};
+		for (uint i = 0; i < 1000; i++) {
+			writer.AddCpuState(new CpuStateEntry(0x8000 + i, (byte)(i % 4), 0x00, 0x0000, CpuMode.Native65816));
+		}
+		var loader = new PansyLoader(writer.Generate());
+
+		// Query random CPU states
+		int count = 0;
+		for (int i = 0; i < 1000; i++) {
+			var addr = 0x8000 + (i % 1000);
+			// Simulate accessing CPU-state for decode-width decisions
+			_ = loader.CpuStateEntries.FirstOrDefault(cs => cs.Address == addr);
+			count++;
+		}
+		return count;
+	}
+
+	[Benchmark(Description = "Roundtrip CPU state (write + load)")]
+	public int RoundtripCpuState() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_SNES,
+			RomSize = 0x80000
+		};
+		for (uint i = 0; i < (uint)Count; i++) {
+			writer.AddCpuState(new CpuStateEntry(0x8000 + i, (byte)(i % 4), 0x00, 0x0000, CpuMode.Native65816));
+		}
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+		return loader.CpuStateEntries.Count;
+	}
+
+	[Benchmark(Description = "CPU state + compression")]
+	public byte[] CpuStateCompressed() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_SNES,
+			RomSize = 0x80000,
+			EnableCompression = true
+		};
+		for (uint i = 0; i < (uint)Count; i++) {
+			writer.AddCpuState(new CpuStateEntry(0x8000 + i, (byte)(i % 4), 0x00, 0x0000, CpuMode.Native65816));
+			writer.AddSymbol(0x8000 + i, $"S_{i:x4}");
 		}
 		return writer.Generate();
 	}
