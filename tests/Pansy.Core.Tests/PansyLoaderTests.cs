@@ -1,4 +1,4 @@
-using Pansy.Core;
+﻿using Pansy.Core;
 using System.Text;
 using Xunit;
 
@@ -154,6 +154,33 @@ public class PansyLoaderTests {
 		Assert.Contains(loader.MemoryRegions, r => r.Name == "System RAM" && r.Start == 0x2800 && r.End == 0x2fff);
 		Assert.Contains(loader.MemoryRegions, r => r.Name == "Video RAM" && r.Start == 0x3000 && r.End == 0x37ff);
 		Assert.Contains(loader.MemoryRegions, r => r.Name == "I/O Registers" && r.Start == 0x3800 && r.End == 0x38ff);
+	}
+
+	[Fact]
+	public void Load_MultiTargetCrossRefs_RoundtripAndIndexes() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_SNES,
+			RomSize = 0x80000
+		};
+
+		writer.AddMultiTargetCrossReference(new MultiTargetCrossReference(0x1000, CrossRefType.Branch, [0x1010, 0x1020]));
+		writer.AddMultiTargetCrossReference(new MultiTargetCrossReference(0x2000, CrossRefType.Jmp, [0x3000]));
+
+		var loader = new PansyLoader(writer.Generate());
+
+		Assert.Equal(2, loader.MultiTargetCrossReferences.Count);
+
+		var from1000 = loader.GetMultiTargetCrossRefsFrom(0x1000);
+		Assert.Single(from1000);
+		Assert.Equal(CrossRefType.Branch, from1000[0].Type);
+		Assert.Equal(2, from1000[0].Targets.Count);
+		Assert.Contains((uint)0x1010, from1000[0].Targets);
+		Assert.Contains((uint)0x1020, from1000[0].Targets);
+
+		// Legacy flat edges remain available for backward compatibility.
+		Assert.Contains(loader.CrossReferences, x => x.From == 0x1000 && x.To == 0x1010 && x.Type == CrossRefType.Branch);
+		Assert.Contains(loader.CrossReferences, x => x.From == 0x1000 && x.To == 0x1020 && x.Type == CrossRefType.Branch);
+		Assert.Contains(loader.CrossReferences, x => x.From == 0x2000 && x.To == 0x3000 && x.Type == CrossRefType.Jmp);
 	}
 
 	[Fact]

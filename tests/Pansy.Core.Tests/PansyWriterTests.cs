@@ -1,4 +1,4 @@
-using Pansy.Core;
+﻿using Pansy.Core;
 using Xunit;
 
 namespace Pansy.Core.Tests;
@@ -126,6 +126,27 @@ public class PansyWriterTests {
 		var data = writer.Generate();
 
 		Assert.True(data.Length > 24, "File should contain cross-reference section data");
+	}
+
+	[Fact]
+	public void AddMultiTargetCrossReference_WritesGroupedAndLegacyEdges() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x8000
+		};
+
+		writer.AddMultiTargetCrossReference(new MultiTargetCrossReference(
+			From: 0x8010,
+			Type: CrossRefType.Branch,
+			Targets: [0x8020, 0x8030]));
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		Assert.Single(loader.MultiTargetCrossReferences);
+		Assert.Equal(2, loader.MultiTargetCrossReferences[0].Targets.Count);
+		Assert.Contains(loader.CrossReferences, x => x.From == 0x8010 && x.To == 0x8020 && x.Type == CrossRefType.Branch);
+		Assert.Contains(loader.CrossReferences, x => x.From == 0x8010 && x.To == 0x8030 && x.Type == CrossRefType.Branch);
 	}
 
 	[Fact]

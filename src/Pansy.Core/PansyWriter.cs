@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // PansyWriter.cs - Program ANalysis SYstem File Generation
 // 🌼 Pansy - Universal Disassembly Metadata Format
 // ============================================================================
@@ -24,6 +24,7 @@ public sealed class PansyWriter {
 	private readonly HashSet<uint> _indirectOffsets = [];
 	private readonly List<MemoryRegion> _memoryRegions = [];
 	private readonly List<CrossReference> _crossRefs = [];
+	private readonly List<MultiTargetCrossReference> _multiTargetCrossRefs = [];
 	private readonly List<Bookmark> _bookmarks = [];
 	private readonly List<DataTypeEntry> _dataTypes = [];
 	private readonly List<string> _sourceFiles = [];
@@ -149,6 +150,13 @@ public sealed class PansyWriter {
 		}
 	}
 
+	/// <summary>Adds multiple grouped one-source-many-target cross-references.</summary>
+	public void AddMultiTargetCrossReferences(IEnumerable<MultiTargetCrossReference> multiTargetCrossRefs) {
+		foreach (var xref in multiTargetCrossRefs) {
+			AddMultiTargetCrossReference(xref);
+		}
+	}
+
 	/// <summary>Adds multiple memory regions in batch.</summary>
 	public void AddMemoryRegions(IEnumerable<MemoryRegion> regions) {
 		foreach (var region in regions) {
@@ -204,6 +212,32 @@ public sealed class PansyWriter {
 	/// <summary>Adds a cross-reference.</summary>
 	public void AddCrossReference(CrossReference xref) {
 		_crossRefs.Add(xref);
+	}
+
+	/// <summary>
+	/// Adds an explicit one-source-many-target cross-reference group.
+	/// Also emits flattened per-target cross-references for backward compatibility.
+	/// </summary>
+	public void AddMultiTargetCrossReference(MultiTargetCrossReference xref) {
+		if (xref.Targets.Count == 0) {
+			return;
+		}
+
+		var orderedDistinctTargets = xref.Targets
+			.Distinct()
+			.OrderBy(t => t)
+			.ToArray();
+
+		if (orderedDistinctTargets.Length == 0) {
+			return;
+		}
+
+		_multiTargetCrossRefs.Add(new MultiTargetCrossReference(xref.From, xref.Type, orderedDistinctTargets));
+
+		// Always keep legacy edge representation present for older consumers.
+		foreach (var target in orderedDistinctTargets) {
+			_crossRefs.Add(new CrossReference(xref.From, target, xref.Type));
+		}
 	}
 
 	/// <summary>Adds a bookmark at the specified address.</summary>
@@ -277,6 +311,11 @@ public sealed class PansyWriter {
 		// Cross-references section
 		if (_crossRefs.Count > 0) {
 			sectionData.Add((0x0006u, BuildCrossReferencesSection()));
+		}
+
+		// Grouped one-source-many-target cross-references section
+		if (_multiTargetCrossRefs.Count > 0) {
+			sectionData.Add((0x000bu, BuildMultiTargetCrossReferencesSection()));
 		}
 
 		// Source map section
@@ -499,6 +538,28 @@ public sealed class PansyWriter {
 			writer.Write(xref.To); // To address (uint32)
 			writer.Write((byte)xref.Type); // Type (CrossRefType)
 		}
+		return ms.ToArray();
+	}
+
+	private byte[] BuildMultiTargetCrossReferencesSection() {
+		using var ms = new MemoryStream();
+		using var writer = new BinaryWriter(ms);
+
+		// No count - loader reads until EOF.
+		// Per record: From(4) + Type(1) + TargetCount(2) + Targets(TargetCount * 4)
+		foreach (var xref in _multiTargetCrossRefs.OrderBy(x => x.From).ThenBy(x => x.Type)) {
+			if (xref.Targets.Count == 0) {
+				continue;
+			}
+
+			writer.Write(xref.From);
+			writer.Write((byte)xref.Type);
+			writer.Write((ushort)xref.Targets.Count);
+			foreach (var target in xref.Targets) {
+				writer.Write(target);
+			}
+		}
+
 		return ms.ToArray();
 	}
 

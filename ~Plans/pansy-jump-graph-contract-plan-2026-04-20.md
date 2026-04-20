@@ -1,4 +1,4 @@
-# Pansy Jump Graph Contract Plan (2026-04-20)
+﻿# Pansy Jump Graph Contract Plan (2026-04-20)
 
 ## Context
 

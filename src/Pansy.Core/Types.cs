@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // Types.cs - Pansy Core Types
 // 🌼 Pansy - Universal Disassembly Metadata Format
 // ============================================================================
@@ -105,6 +105,11 @@ public record MemoryRegion(uint Start, uint End, byte Type, byte Bank, string Na
 /// Cross-reference entry.
 /// </summary>
 public record CrossReference(uint From, uint To, CrossRefType Type);
+
+/// <summary>
+/// Grouped cross-reference entry representing one source with multiple targets.
+/// </summary>
+public record MultiTargetCrossReference(uint From, CrossRefType Type, IReadOnlyList<uint> Targets);
 
 /// <summary>
 /// A user-placed bookmark for quick navigation during analysis.

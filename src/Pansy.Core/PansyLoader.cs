@@ -1,4 +1,4 @@
-using System.Buffers.Binary;
+﻿using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.IO.Compression;
 
@@ -32,6 +32,7 @@ public sealed class PansyLoader {
 	private FrozenDictionary<int, IReadOnlyList<CommentEntry>> _commentEntries = FrozenDictionary<int, IReadOnlyList<CommentEntry>>.Empty;
 	private readonly List<MemoryRegion> _memoryRegions = [];
 	private readonly List<CrossReference> _crossRefs = [];
+	private readonly List<MultiTargetCrossReference> _multiTargetCrossRefs = [];
 	private readonly List<Bookmark> _bookmarks = [];
 	private readonly List<DataTypeEntry> _dataTypes = [];
 	private readonly List<string> _sourceFiles = [];
@@ -44,6 +45,7 @@ public sealed class PansyLoader {
 	// Cross-reference indexes (built after parsing for efficient queries)
 	private FrozenDictionary<int, IReadOnlyList<CrossReference>> _xrefsTo = FrozenDictionary<int, IReadOnlyList<CrossReference>>.Empty;
 	private FrozenDictionary<int, IReadOnlyList<CrossReference>> _xrefsFrom = FrozenDictionary<int, IReadOnlyList<CrossReference>>.Empty;
+	private FrozenDictionary<int, IReadOnlyList<MultiTargetCrossReference>> _multiXrefsFrom = FrozenDictionary<int, IReadOnlyList<MultiTargetCrossReference>>.Empty;
 
 	// Cached backward-compat dictionaries (computed once, not per-access)
 	private IReadOnlyDictionary<int, string>? _symbolsCache;
@@ -141,6 +143,7 @@ public sealed class PansyLoader {
 	private const uint SECTION_METADATA = 0x0008;
 	private const uint SECTION_CPU_STATE = 0x0009;
 	private const uint SECTION_BOOKMARKS = 0x000a;
+	private const uint SECTION_MULTI_TARGET_CROSS_REFS = 0x000b;
 
 	// Byte flags
 	private const byte FLAG_CODE = 0x01;
@@ -233,6 +236,9 @@ public sealed class PansyLoader {
 
 	/// <summary>Gets cross-references.</summary>
 	public IReadOnlyList<CrossReference> CrossReferences => _crossRefs;
+
+	/// <summary>Gets grouped one-source-many-target cross-references.</summary>
+	public IReadOnlyList<MultiTargetCrossReference> MultiTargetCrossReferences => _multiTargetCrossRefs;
 
 	/// <summary>Gets bookmarks.</summary>
 	public IReadOnlyList<Bookmark> Bookmarks => _bookmarks;
@@ -477,6 +483,12 @@ public sealed class PansyLoader {
 		_xrefsFrom.GetValueOrDefault(address) ?? [];
 
 	/// <summary>
+	/// Gets grouped one-source-many-target cross-references originating FROM an address.
+	/// </summary>
+	public IReadOnlyList<MultiTargetCrossReference> GetMultiTargetCrossRefsFrom(int address) =>
+		_multiXrefsFrom.GetValueOrDefault(address) ?? [];
+
+	/// <summary>
 	/// Gets all cross-references of a specific type.
 	/// </summary>
 	public IEnumerable<CrossReference> GetCrossRefsByType(CrossRefType type) =>
@@ -626,6 +638,9 @@ public sealed class PansyLoader {
 			case SECTION_BOOKMARKS:
 				ParseBookmarks(data);
 				break;
+			case SECTION_MULTI_TARGET_CROSS_REFS:
+				ParseMultiTargetCrossRefs(data);
+				break;
 			case SECTION_DATA_TYPES:
 				ParseDataTypes(data);
 				break;
@@ -763,6 +778,39 @@ public sealed class PansyLoader {
 		}
 	}
 
+	private void ParseMultiTargetCrossRefs(byte[] data) {
+		int pos = 0;
+		int len = data.Length;
+		var span = data.AsSpan();
+
+		while (pos + 7 <= len) {
+			var from = BinaryPrimitives.ReadUInt32LittleEndian(span[pos..]);
+			var type = (CrossRefType)data[pos + 4];
+			var targetCount = BinaryPrimitives.ReadUInt16LittleEndian(span[(pos + 5)..]);
+			pos += 7;
+
+			if (targetCount == 0) {
+				continue;
+			}
+
+			int bytesNeeded = targetCount * 4;
+			if (pos + bytesNeeded > len) {
+				break;
+			}
+
+			var targets = new List<uint>(targetCount);
+			for (int i = 0; i < targetCount; i++) {
+				var target = BinaryPrimitives.ReadUInt32LittleEndian(span[pos..]);
+				pos += 4;
+				targets.Add(target);
+				// Keep legacy edge list complete for older query paths.
+				_crossRefs.Add(new CrossReference(from, target, type));
+			}
+
+			_multiTargetCrossRefs.Add(new MultiTargetCrossReference(from, type, targets));
+		}
+	}
+
 	private void ParseBookmarks(byte[] data) {
 		int pos = 0;
 		int len = data.Length;
@@ -883,10 +931,11 @@ public sealed class PansyLoader {
 	}
 
 	private void BuildCrossRefIndexes() {
-		if (_crossRefs.Count == 0) return;
+		if (_crossRefs.Count == 0 && _multiTargetCrossRefs.Count == 0) return;
 
 		var toIndex = new Dictionary<int, List<CrossReference>>();
 		var fromIndex = new Dictionary<int, List<CrossReference>>();
+		var multiFromIndex = new Dictionary<int, List<MultiTargetCrossReference>>();
 
 		foreach (var xref in _crossRefs) {
 			var toAddr = (int)xref.To;
@@ -904,11 +953,23 @@ public sealed class PansyLoader {
 			fromList.Add(xref);
 		}
 
+		foreach (var xref in _multiTargetCrossRefs) {
+			var fromAddr = (int)xref.From;
+			if (!multiFromIndex.TryGetValue(fromAddr, out var fromList)) {
+				fromList = [];
+				multiFromIndex[fromAddr] = fromList;
+			}
+			fromList.Add(xref);
+		}
+
 		_xrefsTo = toIndex.ToFrozenDictionary(
 			kvp => kvp.Key,
 			kvp => (IReadOnlyList<CrossReference>)kvp.Value.AsReadOnly());
 		_xrefsFrom = fromIndex.ToFrozenDictionary(
 			kvp => kvp.Key,
 			kvp => (IReadOnlyList<CrossReference>)kvp.Value.AsReadOnly());
+		_multiXrefsFrom = multiFromIndex.ToFrozenDictionary(
+			kvp => kvp.Key,
+			kvp => (IReadOnlyList<MultiTargetCrossReference>)kvp.Value.AsReadOnly());
 	}
 }
