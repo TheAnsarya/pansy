@@ -169,6 +169,7 @@ public class PansyLoaderTests {
 		var loader = new PansyLoader(writer.Generate());
 
 		Assert.Equal(2, loader.MultiTargetCrossReferences.Count);
+		Assert.Equal(3, loader.CrossReferences.Count);
 
 		var from1000 = loader.GetMultiTargetCrossRefsFrom(0x1000);
 		Assert.Single(from1000);
@@ -181,6 +182,7 @@ public class PansyLoaderTests {
 		Assert.Contains(loader.CrossReferences, x => x.From == 0x1000 && x.To == 0x1010 && x.Type == CrossRefType.Branch);
 		Assert.Contains(loader.CrossReferences, x => x.From == 0x1000 && x.To == 0x1020 && x.Type == CrossRefType.Branch);
 		Assert.Contains(loader.CrossReferences, x => x.From == 0x2000 && x.To == 0x3000 && x.Type == CrossRefType.Jmp);
+		Assert.Equal(2, loader.GetCrossRefsFrom(0x1000).Count);
 	}
 
 	[Fact]

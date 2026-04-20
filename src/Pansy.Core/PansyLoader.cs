@@ -32,6 +32,7 @@ public sealed class PansyLoader {
 	private FrozenDictionary<int, IReadOnlyList<CommentEntry>> _commentEntries = FrozenDictionary<int, IReadOnlyList<CommentEntry>>.Empty;
 	private readonly List<MemoryRegion> _memoryRegions = [];
 	private readonly List<CrossReference> _crossRefs = [];
+	private readonly HashSet<(uint From, uint To, CrossRefType Type)> _crossRefSet = [];
 	private readonly List<MultiTargetCrossReference> _multiTargetCrossRefs = [];
 	private readonly List<Bookmark> _bookmarks = [];
 	private readonly List<DataTypeEntry> _dataTypes = [];
@@ -774,7 +775,7 @@ public sealed class PansyLoader {
 			var type = (CrossRefType)data[pos + 8];
 			pos += 9;
 
-			_crossRefs.Add(new CrossReference(from, to, type));
+			AddCrossRefUnique(from, to, type);
 		}
 	}
 
@@ -804,10 +805,16 @@ public sealed class PansyLoader {
 				pos += 4;
 				targets.Add(target);
 				// Keep legacy edge list complete for older query paths.
-				_crossRefs.Add(new CrossReference(from, target, type));
+				AddCrossRefUnique(from, target, type);
 			}
 
 			_multiTargetCrossRefs.Add(new MultiTargetCrossReference(from, type, targets));
+		}
+	}
+
+	private void AddCrossRefUnique(uint from, uint to, CrossRefType type) {
+		if (_crossRefSet.Add((from, to, type))) {
+			_crossRefs.Add(new CrossReference(from, to, type));
 		}
 	}
 
