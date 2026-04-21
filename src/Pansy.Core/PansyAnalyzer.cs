@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // PansyAnalyzer.cs - ROM Coverage Analysis and Gap Detection
 // 🌼 Pansy - Universal Disassembly Metadata Format
 // ============================================================================
@@ -43,6 +43,72 @@ public sealed class AnalysisResult {
 
 	/// <summary>Cross-reference graph statistics.</summary>
 	public CrossRefGraphStats? GraphStats { get; init; }
+
+	/// <summary>Jump graph integrity diagnostics discovered during analysis.</summary>
+	public IReadOnlyList<JumpGraphDiagnostic> JumpGraphDiagnostics { get; init; } = [];
+}
+
+/// <summary>
+/// Severity level for jump graph diagnostics.
+/// </summary>
+public enum JumpGraphDiagnosticSeverity : byte {
+	/// <summary>Informational diagnostic with no required action.</summary>
+	Info,
+	/// <summary>Warning diagnostic indicating suspicious but non-fatal metadata.</summary>
+	Warning,
+	/// <summary>Error diagnostic indicating invalid or inconsistent jump graph metadata.</summary>
+	Error,
+}
+
+/// <summary>
+/// Diagnostic kind for jump graph validation.
+/// </summary>
+public enum JumpGraphDiagnosticKind : byte {
+	/// <summary>Jump target flagged in CDM but missing incoming control-flow edges.</summary>
+	OrphanJumpTarget,
+	/// <summary>Control-flow edge points to target lacking resolvable metadata.</summary>
+	UnresolvedXrefTarget,
+	/// <summary>Cross-reference type distribution suggests likely producer classification issue.</summary>
+	MalformedTypeDistribution,
+	/// <summary>Address exceeds plausible address space for target platform.</summary>
+	ImpossibleAddress,
+}
+
+/// <summary>
+/// Actionable diagnostic emitted by jump graph validation.
+/// </summary>
+public sealed class JumpGraphDiagnostic {
+	/// <summary>Diagnostic severity.</summary>
+	public required JumpGraphDiagnosticSeverity Severity { get; init; }
+
+	/// <summary>Diagnostic category.</summary>
+	public required JumpGraphDiagnosticKind Kind { get; init; }
+
+	/// <summary>Address associated with the diagnostic, if any.</summary>
+	public int? Address { get; init; }
+
+	/// <summary>Cross-reference type associated with the diagnostic, if any.</summary>
+	public CrossRefType? CrossRefType { get; init; }
+
+	/// <summary>Human-readable actionable diagnostic message.</summary>
+	public required string Message { get; init; }
+}
+
+/// <summary>
+/// Result of validating jump graph integrity.
+/// </summary>
+public sealed class JumpGraphValidationResult {
+	/// <summary>All diagnostics produced by validation.</summary>
+	public IReadOnlyList<JumpGraphDiagnostic> Diagnostics { get; init; } = [];
+
+	/// <summary>Number of error diagnostics.</summary>
+	public int ErrorCount => Diagnostics.Count(d => d.Severity == JumpGraphDiagnosticSeverity.Error);
+
+	/// <summary>Number of warning diagnostics.</summary>
+	public int WarningCount => Diagnostics.Count(d => d.Severity == JumpGraphDiagnosticSeverity.Warning);
+
+	/// <summary>True when no error-level diagnostics exist.</summary>
+	public bool IsValid => ErrorCount == 0;
 }
 
 /// <summary>
@@ -216,6 +282,7 @@ public static class PansyAnalyzer {
 
 		// Cross-reference graph stats
 		var graphStats = BuildCrossRefStats(loader);
+		var jumpGraphValidation = ValidateJumpGraph(loader, totalBytes);
 
 		// Pattern detection (Phase 2) — only on gaps
 		var patterns = detectPatterns
@@ -232,7 +299,119 @@ public static class PansyAnalyzer {
 			Patterns = patterns,
 			SymbolBoundaries = boundaries,
 			GraphStats = graphStats,
+			JumpGraphDiagnostics = jumpGraphValidation.Diagnostics,
 		};
+	}
+
+	/// <summary>
+	/// Validate jump graph integrity and return actionable diagnostics.
+	/// </summary>
+	/// <param name="loader">A loaded Pansy file with metadata.</param>
+	/// <param name="romSize">ROM size in bytes for offset-range checks.</param>
+	public static JumpGraphValidationResult ValidateJumpGraph(PansyLoader loader, int romSize) {
+		var diagnostics = new List<JumpGraphDiagnostic>();
+		var controlFlowXrefs = loader.CrossReferences
+			.Where(x => x.Type is CrossRefType.Jsr or CrossRefType.Jmp or CrossRefType.Branch)
+			.ToList();
+
+		var controlFlowTargets = controlFlowXrefs
+			.Select(x => (int)x.To)
+			.ToHashSet();
+
+		// Orphan jump targets: flagged in CDM but not targeted by any control-flow edge.
+		foreach (int jumpTarget in loader.JumpTargets.OrderBy(x => x)) {
+			if (!controlFlowTargets.Contains(jumpTarget)) {
+				diagnostics.Add(new JumpGraphDiagnostic {
+					Severity = JumpGraphDiagnosticSeverity.Warning,
+					Kind = JumpGraphDiagnosticKind.OrphanJumpTarget,
+					Address = jumpTarget,
+					Message = $"Jump target ${jumpTarget:x6} has no incoming control-flow xref. Add a JSR/JMP/Branch cross-reference or verify CDM JUMP_TARGET classification.",
+				});
+			}
+		}
+
+		// Unresolved xref targets: control-flow edges that point to unknown/unclassified bytes.
+		foreach (var xref in controlFlowXrefs) {
+			int to = (int)xref.To;
+			bool inRomRange = to >= 0 && to < romSize;
+			bool hasMetadata = inRomRange && (
+				loader.IsCode(to) ||
+				loader.IsData(to) ||
+				loader.IsJumpTarget(to) ||
+				loader.IsSubEntryPoint(to) ||
+				loader.GetSymbol(to) != null);
+
+			if (!hasMetadata) {
+				diagnostics.Add(new JumpGraphDiagnostic {
+					Severity = JumpGraphDiagnosticSeverity.Error,
+					Kind = JumpGraphDiagnosticKind.UnresolvedXrefTarget,
+					Address = to,
+					CrossRefType = xref.Type,
+					Message = $"{xref.Type} cross-reference target ${to:x6} is unresolved. Mark as code/data, add symbol metadata, or fix edge target.",
+				});
+			}
+		}
+
+		// Impossible addresses: outside platform max address width or negative offsets.
+		uint platformMax = GetMaxAddressForPlatform(loader.Platform);
+		foreach (var xref in loader.CrossReferences) {
+			ValidateAddress((int)xref.From, xref.Type, platformMax, diagnostics);
+			ValidateAddress((int)xref.To, xref.Type, platformMax, diagnostics);
+		}
+		foreach (int addr in loader.JumpTargets) {
+			ValidateAddress(addr, null, platformMax, diagnostics);
+		}
+		foreach (int addr in loader.SubEntryPoints) {
+			ValidateAddress(addr, null, platformMax, diagnostics);
+		}
+
+		// Malformed type distribution heuristics.
+		if (loader.CrossReferences.Count >= 10) {
+			var stats = loader.GetCrossRefStats();
+			int controlFlowCount = stats.JsrCount + stats.JmpCount + stats.BranchCount;
+			int memoryCount = stats.ReadCount + stats.WriteCount;
+
+			if (controlFlowCount == 0 && memoryCount > 0) {
+				diagnostics.Add(new JumpGraphDiagnostic {
+					Severity = JumpGraphDiagnosticSeverity.Warning,
+					Kind = JumpGraphDiagnosticKind.MalformedTypeDistribution,
+					Message = "Cross-reference graph contains only READ/WRITE edges and no control-flow edges. Verify xref type mapping for calls/jumps/branches.",
+				});
+			} else if (memoryCount * 100 >= stats.TotalXrefs * 95) {
+				diagnostics.Add(new JumpGraphDiagnostic {
+					Severity = JumpGraphDiagnosticSeverity.Warning,
+					Kind = JumpGraphDiagnosticKind.MalformedTypeDistribution,
+					Message = $"Cross-reference graph is {memoryCount * 100 / stats.TotalXrefs}% READ/WRITE edges ({memoryCount}/{stats.TotalXrefs}). Verify control-flow edge classification.",
+				});
+			}
+		}
+
+		return new JumpGraphValidationResult {
+			Diagnostics = diagnostics,
+		};
+	}
+
+	private static uint GetMaxAddressForPlatform(byte platform) => platform switch {
+		PansyLoader.PLATFORM_SNES => 0xffffff,
+		PansyLoader.PLATFORM_GBA => 0xffffffff,
+		PansyLoader.PLATFORM_GENESIS => 0xffffff,
+		_ => 0xffff,
+	};
+
+	private static void ValidateAddress(
+		int address,
+		CrossRefType? type,
+		uint platformMax,
+		List<JumpGraphDiagnostic> diagnostics) {
+		if (address < 0 || (uint)address > platformMax) {
+			diagnostics.Add(new JumpGraphDiagnostic {
+				Severity = JumpGraphDiagnosticSeverity.Error,
+				Kind = JumpGraphDiagnosticKind.ImpossibleAddress,
+				Address = address,
+				CrossRefType = type,
+				Message = $"Address 0x{address:x} is outside platform addressable range (max 0x{platformMax:x}).",
+			});
+		}
 	}
 
 	/// <summary>

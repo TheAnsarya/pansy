@@ -386,6 +386,82 @@ public class AnalyzerTests {
 	}
 
 	// ========================================================================
+	// Jump Graph Validation (#100)
+	// ========================================================================
+
+	[Fact]
+	public void ValidateJumpGraph_OrphanJumpTarget_ReportsDiagnostic() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x100,
+		};
+		writer.MarkAsJumpTarget(0x40);
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		var result = PansyAnalyzer.ValidateJumpGraph(loader, 0x100);
+
+		Assert.Contains(result.Diagnostics,
+			d => d.Kind == JumpGraphDiagnosticKind.OrphanJumpTarget && d.Address == 0x40);
+	}
+
+	[Fact]
+	public void ValidateJumpGraph_UnresolvedXrefTarget_ReportsError() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x100,
+		};
+		writer.AddCrossReference(new CrossReference(0x10, 0x80, CrossRefType.Jsr));
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		var result = PansyAnalyzer.ValidateJumpGraph(loader, 0x100);
+
+		Assert.Contains(result.Diagnostics,
+			d => d.Kind == JumpGraphDiagnosticKind.UnresolvedXrefTarget && d.Address == 0x80 && d.Severity == JumpGraphDiagnosticSeverity.Error);
+		Assert.False(result.IsValid);
+	}
+
+	[Fact]
+	public void ValidateJumpGraph_MalformedTypeDistribution_ReportsWarning() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x400,
+		};
+
+		for (uint i = 0; i < 12; i++) {
+			writer.AddCrossReference(new CrossReference(0x20 + i, 0x80 + i, CrossRefType.Read));
+		}
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		var result = PansyAnalyzer.ValidateJumpGraph(loader, 0x400);
+
+		Assert.Contains(result.Diagnostics,
+			d => d.Kind == JumpGraphDiagnosticKind.MalformedTypeDistribution && d.Severity == JumpGraphDiagnosticSeverity.Warning);
+	}
+
+	[Fact]
+	public void ValidateJumpGraph_ImpossibleAddress_ReportsError() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_NES,
+			RomSize = 0x200,
+		};
+		writer.AddCrossReference(new CrossReference(0x10, 0x1_0000, CrossRefType.Jmp));
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		var result = PansyAnalyzer.ValidateJumpGraph(loader, 0x200);
+
+		Assert.Contains(result.Diagnostics,
+			d => d.Kind == JumpGraphDiagnosticKind.ImpossibleAddress && d.Address == 0x1_0000 && d.Severity == JumpGraphDiagnosticSeverity.Error);
+	}
+
+	// ========================================================================
 	// Pattern Detection (Phase 2)
 	// ========================================================================
 

@@ -1471,5 +1471,51 @@ static int RunAnalyze(string[] args) {
 		}
 	}
 
+	if (result.JumpGraphDiagnostics.Count > 0) {
+		var errorCount = result.JumpGraphDiagnostics.Count(d => d.Severity == JumpGraphDiagnosticSeverity.Error);
+		var warningCount = result.JumpGraphDiagnostics.Count(d => d.Severity == JumpGraphDiagnosticSeverity.Warning);
+
+		var diagTitle = $"[bold cyan]Jump Graph Diagnostics ({result.JumpGraphDiagnostics.Count})[/]";
+		if (errorCount > 0) {
+			diagTitle = $"[bold red]Jump Graph Diagnostics ({result.JumpGraphDiagnostics.Count}, {errorCount} errors)[/]";
+		}
+
+		var diagTable = new Table()
+			.Border(TableBorder.Rounded)
+			.Title(diagTitle)
+			.AddColumn("Severity")
+			.AddColumn("Kind")
+			.AddColumn("Address")
+			.AddColumn("Message");
+
+		foreach (var diag in result.JumpGraphDiagnostics.Take(25)) {
+			var sev = diag.Severity switch {
+				JumpGraphDiagnosticSeverity.Error => "[red]Error[/]",
+				JumpGraphDiagnosticSeverity.Warning => "[yellow]Warning[/]",
+				_ => "[grey]Info[/]",
+			};
+
+			var addressText = diag.Address.HasValue ? $"${diag.Address.Value:x6}" : "-";
+			diagTable.AddRow(
+				sev,
+				diag.Kind.ToString(),
+				addressText,
+				Markup.Escape(diag.Message)
+			);
+		}
+
+		if (result.JumpGraphDiagnostics.Count > 25) {
+			diagTable.AddRow("[grey]...[/]", "", "", $"[grey]+{result.JumpGraphDiagnostics.Count - 25} more[/]");
+		}
+
+		AnsiConsole.Write(diagTable);
+		AnsiConsole.WriteLine();
+
+		if (warningCount > 0 || errorCount > 0) {
+			AnsiConsole.MarkupLine($"[yellow]Summary:[/] {warningCount} warning(s), {errorCount} error(s). Use xrefs/symbols/CDM fixes to resolve diagnostics.");
+			AnsiConsole.WriteLine();
+		}
+	}
+
 	return 0;
 }
