@@ -475,6 +475,87 @@ public class AnalyzerBenchmarks {
 }
 
 /// <summary>
+/// Benchmarks large CROSS_REFS ingestion/analysis scenarios (100k+ edges) with mixed CDM density.
+/// </summary>
+[MemoryDiagnoser]
+[SimpleJob(warmupCount: 3, iterationCount: 5)]
+public class LargeCrossRefBenchmarks {
+	private const int RomSize = 0x20_0000;
+	private const int DenseXrefCount = 120_000;
+	private const int VeryDenseXrefCount = 220_000;
+
+	private byte[] _denseUncompressed = null!;
+	private byte[] _denseCompressed = null!;
+	private byte[] _veryDenseUncompressed = null!;
+	private byte[] _rom = null!;
+
+	private PansyLoader _denseLoader = null!;
+	private PansyLoader _veryDenseLoader = null!;
+
+	[GlobalSetup]
+	public void Setup() {
+		_denseUncompressed = GenerateLargeXrefFile(DenseXrefCount, cdmStride: 16, compressed: false);
+		_denseCompressed = GenerateLargeXrefFile(DenseXrefCount, cdmStride: 16, compressed: true);
+		_veryDenseUncompressed = GenerateLargeXrefFile(VeryDenseXrefCount, cdmStride: 4, compressed: false);
+
+		_denseLoader = new PansyLoader(_denseUncompressed);
+		_veryDenseLoader = new PansyLoader(_veryDenseUncompressed);
+		_rom = new byte[RomSize];
+	}
+
+	private static byte[] GenerateLargeXrefFile(int xrefCount, int cdmStride, bool compressed) {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_SNES,
+			RomSize = RomSize,
+			EnableCompression = compressed,
+			ProjectName = "LargeXrefBench",
+			Author = "Benchmark",
+			ProjectVersion = "1.0",
+		};
+
+		for (uint i = 0; i < (uint)xrefCount; i++) {
+			uint from = (i * 3) % 0x1f_0000;
+			uint to = ((i * 7) + 0x2000) % 0x1f_0000;
+			writer.AddCrossReference(new CrossReference(
+				from,
+				to,
+				(CrossRefType)((i % 5) + 1)));
+
+			if ((i % cdmStride) == 0) {
+				writer.MarkAsCode(to);
+				writer.MarkAsJumpTarget(to);
+			}
+			if ((i % (cdmStride * 2)) == 0) {
+				writer.MarkAsSubroutine(to);
+			}
+		}
+
+		return writer.Generate();
+	}
+
+	[Benchmark(Description = "Load 120k xrefs (uncompressed)")]
+	public PansyLoader LoadDenseUncompressed() => new(_denseUncompressed);
+
+	[Benchmark(Description = "Load 120k xrefs (compressed)")]
+	public PansyLoader LoadDenseCompressed() => new(_denseCompressed);
+
+	[Benchmark(Description = "Analyze 120k xrefs (mixed CDM)")]
+	public AnalysisResult AnalyzeDenseGraph() {
+		return PansyAnalyzer.Analyze(_denseLoader, _rom, detectPatterns: false);
+	}
+
+	[Benchmark(Description = "ValidateJumpGraph 120k xrefs")]
+	public JumpGraphValidationResult ValidateDenseGraph() {
+		return PansyAnalyzer.ValidateJumpGraph(_denseLoader, RomSize);
+	}
+
+	[Benchmark(Description = "Analyze 220k xrefs (high density)")]
+	public AnalysisResult AnalyzeVeryDenseGraph() {
+		return PansyAnalyzer.Analyze(_veryDenseLoader, _rom, detectPatterns: false);
+	}
+}
+
+/// <summary>
 /// Benchmarks for PansyMerger — merging two Pansy files with parallel operations.
 /// </summary>
 [MemoryDiagnoser]
