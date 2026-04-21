@@ -1,4 +1,4 @@
-# 🌼 Pansy File Format Specification
+﻿# 🌼 Pansy File Format Specification
 
 > **Pansy** - Program ANalysis SYstem format for comprehensive assembly metadata exchange
 
@@ -256,6 +256,62 @@ CrossRef Entry:
   ToAddress: uint32
   Type: uint8 (jsr=1, jmp=2, branch=3, read=4, write=5)
 ```
+
+#### CDM vs CROSS_REFS Producer Contract
+
+`CODE_DATA_MAP` and `CROSS_REFS` encode different guarantees and should both be emitted when available.
+
+- `CODE_DATA_MAP` answers byte-local classification questions (`CODE`, `DATA`, `JUMP_TARGET`, `SUB_ENTRY`, `OPCODE`, etc.).
+- `CROSS_REFS` answers graph questions (`from -> to`) for control flow and memory access edges.
+- Producers should not treat one section as a lossless replacement for the other.
+
+Required producer behavior:
+
+1. Emit `CODE_DATA_MAP` flags for all known code/data bytes.
+2. Emit `CROSS_REFS` edges for all known resolved source-target relationships.
+3. For one-source-many-target control flow (jump tables, indirect dispatch), emit one `CrossRef Entry` per resolved target.
+4. Keep output deterministic by sorting edges by `(FromAddress, ToAddress, Type)` and deduplicating exact duplicates.
+5. Preserve backward compatibility by continuing to emit legacy `CROSS_REFS` entries even when richer grouped metadata is also available in tool-specific pipelines.
+
+Binary example (single-target branch):
+
+```text
+CrossRef Entry bytes:
+  FromAddress: 00 80 00 00    ($8000)
+  ToAddress:   20 80 00 00    ($8020)
+  Type:        03             (branch)
+```
+
+Binary example (one source, three jump-table targets):
+
+```text
+Entry A:
+  FromAddress: 00 90 00 00    ($9000)
+  ToAddress:   00 a0 00 00    ($a000)
+  Type:        02             (jmp)
+
+Entry B:
+  FromAddress: 00 90 00 00    ($9000)
+  ToAddress:   20 a0 00 00    ($a020)
+  Type:        02             (jmp)
+
+Entry C:
+  FromAddress: 00 90 00 00    ($9000)
+  ToAddress:   40 a0 00 00    ($a040)
+  Type:        02             (jmp)
+```
+
+Compatibility notes:
+
+- Nexen producers should continue exporting CDM flags and full per-target `CROSS_REFS` edges so legacy consumers remain correct.
+- Peony consumers should seed disassembly entry points primarily from control-flow `CROSS_REFS` (`jsr`, `jmp`, `branch`) while using CDM flags for byte classification and non-graph hints.
+- When sections disagree, treat `CROSS_REFS` as authoritative for explicit graph edges and `CODE_DATA_MAP` as authoritative for per-byte classification.
+
+Consumer fallback guidance:
+
+- If `CROSS_REFS` is missing, use `JUMP_TARGET` and `SUB_ENTRY` CDM flags as entry seeding hints.
+- If `CODE_DATA_MAP` is missing, do not infer byte-level `CODE`/`DATA` flags from edges alone.
+- If both are present, merge them without discarding information from either section.
 
 ### SOURCE_MAP (0x0007)
 
