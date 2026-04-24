@@ -257,6 +257,7 @@ static int RunStats(string[] args) {
 	summaryTable.AddRow("Comments", $"{pansy.Comments.Count:N0}");
 	summaryTable.AddRow("Memory Regions", $"{pansy.MemoryRegions.Count:N0}");
 	summaryTable.AddRow("Cross-References", $"{pansy.CrossReferences.Count:N0}");
+	summaryTable.AddRow("CPU State Entries", $"{pansy.CpuStateEntries.Count:N0}");
 
 	AnsiConsole.Write(summaryTable);
 	AnsiConsole.WriteLine();
@@ -431,6 +432,49 @@ static int RunStats(string[] args) {
 			metaTable.AddRow("Version", Markup.Escape(pansy.ProjectVersion));
 
 		AnsiConsole.Write(metaTable);
+	}
+
+	if (pansy.CpuStateEntries.Count > 0) {
+		var modeCounts = pansy.CpuStateEntries
+			.GroupBy(e => e.Mode)
+			.OrderByDescending(g => g.Count())
+			.ThenBy(g => (byte)g.Key)
+			.ToList();
+
+		var modeTable = new Table()
+			.Border(TableBorder.Rounded)
+			.Title("[bold cyan]CPU State Mode Breakdown[/]")
+			.AddColumn("Mode")
+			.AddColumn(new TableColumn("Count").RightAligned());
+
+		foreach (var group in modeCounts) {
+			modeTable.AddRow(PansyAnalyzer.GetCpuModeName(group.Key), $"{group.Count():N0}");
+		}
+
+		AnsiConsole.Write(modeTable);
+		AnsiConsole.WriteLine();
+
+		var cpuStateTable = new Table()
+			.Border(TableBorder.Rounded)
+			.Title("[bold cyan]CPU State Entries (first 20)[/]")
+			.AddColumn("Address")
+			.AddColumn("Mode")
+			.AddColumn("Interpretation");
+
+		foreach (var entry in pansy.CpuStateEntries.Take(20)) {
+			cpuStateTable.AddRow(
+				$"${entry.Address:x6}",
+				PansyAnalyzer.GetCpuModeName(entry.Mode),
+				Markup.Escape(PansyAnalyzer.DescribeCpuState(entry, pansy.Platform))
+			);
+		}
+
+		if (pansy.CpuStateEntries.Count > 20) {
+			cpuStateTable.AddRow("[grey]...[/]", "", $"[grey]+{pansy.CpuStateEntries.Count - 20} more[/]");
+		}
+
+		AnsiConsole.Write(cpuStateTable);
+		AnsiConsole.WriteLine();
 	}
 
 	return 0;
@@ -1396,6 +1440,43 @@ static int RunAnalyze(string[] args) {
 		}
 
 		AnsiConsole.Write(patternTable);
+		AnsiConsole.WriteLine();
+	}
+
+	if (loader.CpuStateEntries.Count > 0) {
+		var cpuStateModeTable = new Table()
+			.Border(TableBorder.Rounded)
+			.Title("[bold cyan]CPU State Modes[/]")
+			.AddColumn("Mode")
+			.AddColumn(new TableColumn("Count").RightAligned());
+
+		foreach (var modeGroup in loader.CpuStateEntries.GroupBy(e => e.Mode).OrderByDescending(g => g.Count()).ThenBy(g => (byte)g.Key)) {
+			cpuStateModeTable.AddRow(PansyAnalyzer.GetCpuModeName(modeGroup.Key), $"{modeGroup.Count():N0}");
+		}
+
+		AnsiConsole.Write(cpuStateModeTable);
+		AnsiConsole.WriteLine();
+
+		var cpuStateTable = new Table()
+			.Border(TableBorder.Rounded)
+			.Title("[bold cyan]CPU State Interpretation (first 15)[/]")
+			.AddColumn("Address")
+			.AddColumn("Mode")
+			.AddColumn("Interpretation");
+
+		foreach (var entry in loader.CpuStateEntries.Take(15)) {
+			cpuStateTable.AddRow(
+				$"${entry.Address:x6}",
+				PansyAnalyzer.GetCpuModeName(entry.Mode),
+				Markup.Escape(PansyAnalyzer.DescribeCpuState(entry, loader.Platform))
+			);
+		}
+
+		if (loader.CpuStateEntries.Count > 15) {
+			cpuStateTable.AddRow("[grey]...[/]", "", $"[grey]+{loader.CpuStateEntries.Count - 15} more[/]");
+		}
+
+		AnsiConsole.Write(cpuStateTable);
 		AnsiConsole.WriteLine();
 	}
 

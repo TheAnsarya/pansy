@@ -97,6 +97,11 @@ Reserved for future platform-specific expansion:
 - Continue to propagate architecture state through decoded instructions and control flow.
 - Fall back to CDL or platform defaults only when no authoritative CPU-state entry exists.
 
+Analyzer and CLI consumers should present mode-aware interpretations instead of raw flag bytes where possible.
+
+- `PansyAnalyzer.GetCpuModeName(...)` provides stable mode labels for reports.
+- `PansyAnalyzer.DescribeCpuState(...)` provides mode-specific flag decoding used by CLI summaries.
+
 ## Current Canonical Uses
 
 - Nexen exports SNES X/M and GBA ARM/THUMB state through CPU-state entries.
@@ -134,6 +139,8 @@ Proposed `Flags` bit layout when `CpuMode = Z80`:
 `DataBank` and `DirectPage` remain zero for Genesis unless a future extension explicitly assigns meaning.
 
 These values are documentation-level conventions only in this phase. They are intended to guide upcoming format and API implementation slices without changing current binary compatibility.
+
+Current analyzer/CLI interpretation behavior for Genesis uses the proposed layouts above when `CpuMode` is `M68000` or `Z80`.
 
 ## Related Documentation
 

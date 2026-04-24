@@ -720,6 +720,38 @@ public static class PansyAnalyzer {
 	}
 
 	/// <summary>
+	/// Returns a stable, human-readable CPU mode name for analysis output.
+	/// </summary>
+	public static string GetCpuModeName(CpuMode mode) => mode switch {
+		CpuMode.Native65816 => "65816 Native",
+		CpuMode.Emulation6502 => "65816 Emulation",
+		CpuMode.ARM => "ARM",
+		CpuMode.THUMB => "THUMB",
+		CpuMode.M68000 => "M68000",
+		CpuMode.Z80 => "Z80",
+		_ => $"Unknown ({(byte)mode})",
+	};
+
+	/// <summary>
+	/// Describes a CPU-state entry using mode-specific flag interpretation.
+	/// </summary>
+	public static string DescribeCpuState(CpuStateEntry entry, byte platform) {
+		_ = platform;
+
+		return entry.Mode switch {
+			CpuMode.Native65816 or CpuMode.Emulation6502 =>
+				$"mode={GetCpuModeName(entry.Mode)}, x={((entry.Flags & 0x01) != 0 ? "8" : "16")}, m={((entry.Flags & 0x02) != 0 ? "8" : "16")}, db=${entry.DataBank:x2}, dp=${entry.DirectPage:x4}",
+			CpuMode.ARM => "mode=ARM, width=32-bit",
+			CpuMode.THUMB => "mode=THUMB, width=16-bit",
+			CpuMode.M68000 =>
+				$"mode=M68000, s={(((entry.Flags >> 0) & 0x01) != 0 ? 1 : 0)}, t={(((entry.Flags >> 1) & 0x01) != 0 ? 1 : 0)}, ipl={(entry.Flags >> 2) & 0x07}",
+			CpuMode.Z80 =>
+				$"mode=Z80, iff1={(((entry.Flags >> 0) & 0x01) != 0 ? 1 : 0)}, iff2={(((entry.Flags >> 1) & 0x01) != 0 ? 1 : 0)}, im={(entry.Flags >> 2) & 0x03}",
+			_ => $"mode=Unknown ({(byte)entry.Mode}), flags=0x{entry.Flags:x2}, db=${entry.DataBank:x2}, dp=${entry.DirectPage:x4}",
+		};
+	}
+
+	/// <summary>
 	/// Get the native address size in bytes for a platform.
 	/// </summary>
 	public static int GetAddressSize(byte platform) => platform switch {

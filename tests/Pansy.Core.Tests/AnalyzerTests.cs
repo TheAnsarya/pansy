@@ -657,6 +657,54 @@ public class AnalyzerTests {
 		Assert.Equal(0x10000, result.Gaps[0].Length);
 	}
 
+	[Fact]
+	public void DescribeCpuState_GenesisM68000_InterpretsSupervisorTraceAndIplBits() {
+		var entry = new CpuStateEntry(0x000200, 0x17, 0x00, 0x0000, CpuMode.M68000);
+		var description = PansyAnalyzer.DescribeCpuState(entry, PansyLoader.PLATFORM_GENESIS);
+
+		Assert.Equal("mode=M68000, s=1, t=1, ipl=5", description);
+	}
+
+	[Fact]
+	public void DescribeCpuState_GenesisZ80_InterpretsInterruptModeBits() {
+		var entry = new CpuStateEntry(0x00a000, 0x0f, 0x00, 0x0000, CpuMode.Z80);
+		var description = PansyAnalyzer.DescribeCpuState(entry, PansyLoader.PLATFORM_GENESIS);
+
+		Assert.Equal("mode=Z80, iff1=1, iff2=1, im=3", description);
+	}
+
+	[Fact]
+	public void DescribeCpuState_Snes_InterpretsMXAndBankingState() {
+		var entry = new CpuStateEntry(0x008000, 0x03, 0x7e, 0x2100, CpuMode.Native65816);
+		var description = PansyAnalyzer.DescribeCpuState(entry, PansyLoader.PLATFORM_SNES);
+
+		Assert.Equal("mode=65816 Native, x=8, m=8, db=$7e, dp=$2100", description);
+	}
+
+	[Fact]
+	public void DescribeCpuState_ArmAndThumb_ReturnExpectedWidthDescriptions() {
+		var armDescription = PansyAnalyzer.DescribeCpuState(
+			new CpuStateEntry(0x08000000, 0x00, 0x00, 0x0000, CpuMode.ARM),
+			PansyLoader.PLATFORM_GBA);
+		var thumbDescription = PansyAnalyzer.DescribeCpuState(
+			new CpuStateEntry(0x08001000, 0x00, 0x00, 0x0000, CpuMode.THUMB),
+			PansyLoader.PLATFORM_GBA);
+
+		Assert.Equal("mode=ARM, width=32-bit", armDescription);
+		Assert.Equal("mode=THUMB, width=16-bit", thumbDescription);
+	}
+
+	[Theory]
+	[InlineData(CpuMode.Native65816, "65816 Native")]
+	[InlineData(CpuMode.Emulation6502, "65816 Emulation")]
+	[InlineData(CpuMode.ARM, "ARM")]
+	[InlineData(CpuMode.THUMB, "THUMB")]
+	[InlineData(CpuMode.M68000, "M68000")]
+	[InlineData(CpuMode.Z80, "Z80")]
+	public void GetCpuModeName_ReturnsStableLabels(CpuMode mode, string expected) {
+		Assert.Equal(expected, PansyAnalyzer.GetCpuModeName(mode));
+	}
+
 	// ========================================================================
 	// Phase 3: Platform-Specific Address Helpers (#41)
 	// ========================================================================
