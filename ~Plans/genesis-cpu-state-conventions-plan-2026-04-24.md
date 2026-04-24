@@ -1,4 +1,4 @@
-# Genesis CPU-State Conventions Plan (2026-04-24)
+﻿# Genesis CPU-State Conventions Plan (2026-04-24)
 
 ## Context
 

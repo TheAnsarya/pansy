@@ -206,6 +206,26 @@ public class RoundtripTests {
 	}
 
 	[Fact]
+	public void RoundTrip_CpuState_GenesisM68000AndZ80() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_GENESIS,
+			RomSize = 0x400000,
+		};
+
+		writer.AddCpuState(new CpuStateEntry(0x000200, 0x00, 0x00, 0x0000, CpuMode.M68000));
+		writer.AddCpuState(new CpuStateEntry(0x00a000, 0x01, 0x00, 0x0000, CpuMode.Z80));
+
+		var data = writer.Generate();
+		var loader = new PansyLoader(data);
+
+		Assert.Equal(2, loader.CpuStateEntries.Count);
+		Assert.Equal(CpuMode.M68000, loader.CpuStateEntries[0].Mode);
+		Assert.Equal(CpuMode.Z80, loader.CpuStateEntries[1].Mode);
+		Assert.Equal(0x000200u, loader.CpuStateEntries[0].Address);
+		Assert.Equal(0x00a000u, loader.CpuStateEntries[1].Address);
+	}
+
+	[Fact]
 	public void RoundTrip_CpuState_WithCompression() {
 		var writer = new PansyWriter {
 			Platform = PansyLoader.PLATFORM_SNES,

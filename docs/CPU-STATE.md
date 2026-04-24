@@ -1,4 +1,4 @@
-# CPU State Metadata
+﻿# CPU State Metadata
 
 ## Overview
 

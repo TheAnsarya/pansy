@@ -168,6 +168,10 @@ public enum CpuMode : byte {
 	ARM = 2,
 	/// <summary>THUMB mode (16-bit instructions).</summary>
 	THUMB = 3,
+	/// <summary>M68000 execution mode (Genesis main CPU context).</summary>
+	M68000 = 4,
+	/// <summary>Z80 execution mode (Genesis audio/control CPU context).</summary>
+	Z80 = 5,
 }
 
 /// <summary>
