@@ -77,6 +77,11 @@ Current standardized values:
 - `2`: `ARM`
 - `3`: `THUMB`
 
+Reserved for future platform-specific expansion:
+
+- `4`: `M68000` (proposed)
+- `5`: `Z80` (proposed)
+
 ## Producer Guidance
 
 - Emit CPU-state entries only when the state is known.
@@ -96,6 +101,39 @@ Current standardized values:
 
 - Nexen exports SNES X/M and GBA ARM/THUMB state through CPU-state entries.
 - Peony uses Pansy CPU-state entries as the preferred SNES M/X source during 65816 decoding, with CDL retained as fallback.
+
+## Genesis / Mega Drive (Proposed Conventions)
+
+Genesis has two interacting CPUs in the cartridge execution model:
+
+- Motorola 68000 main CPU
+- Z80 sound CPU
+
+To keep CPU-state metadata architecture-agnostic while still useful for Genesis analysis, use the following proposed conventions for future producer support.
+
+Proposed `CpuMode` values:
+
+- `4`: `M68000`
+- `5`: `Z80`
+
+Proposed `Flags` bit layout when `CpuMode = M68000`:
+
+- Bit 0: `S` (Supervisor state)
+- Bit 1: `T` (Trace enabled)
+- Bits 2-4: `IPL` (interrupt priority level, 0-7)
+- Bits 5-7: reserved (write zero)
+
+Proposed `Flags` bit layout when `CpuMode = Z80`:
+
+- Bit 0: `IFF1` (interrupt enable state)
+- Bit 1: `IFF2` (secondary interrupt enable state)
+- Bit 2: `IM` low bit (interrupt mode)
+- Bit 3: `IM` high bit (interrupt mode)
+- Bits 4-7: reserved (write zero)
+
+`DataBank` and `DirectPage` remain zero for Genesis unless a future extension explicitly assigns meaning.
+
+These values are documentation-level conventions only in this phase. They are intended to guide upcoming format and API implementation slices without changing current binary compatibility.
 
 ## Related Documentation
 

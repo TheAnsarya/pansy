@@ -205,6 +205,7 @@ File.WriteAllBytes("merged.pansy", merged.Generate());
 
 - [Development Docs](~docs/) - Integration summaries, session logs, and chat logs
 - [Planning](~Plans/) - Technical plans, roadmaps, and research documents
+- [Genesis CPU-State Conventions Plan (2026-04-24)](~Plans/genesis-cpu-state-conventions-plan-2026-04-24.md) - Genesis/Mega Drive CPU-state metadata proposal and follow-up implementation map
 
 ## 🔗 Integration
 

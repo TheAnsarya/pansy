@@ -410,6 +410,7 @@ CPU State Entry (9 bytes, repeating):
   DataBank:   uint8   — Data bank register (DBR, 65816-specific, 0 for other CPUs)
   DirectPage: uint16  — Direct page offset (65816-specific, 0 for other CPUs)
   CpuMode:    uint8   — 0 = Native65816, 1 = Emulation6502, 2 = ARM, 3 = THUMB
+                        4 = M68000 (proposed), 5 = Z80 (proposed)
 ```
 
 **Usage notes:**
@@ -417,6 +418,7 @@ CPU State Entry (9 bytes, repeating):
 - Only addresses where CPU state differs from the default need entries
 - SNES: M/X flags determine whether `lda`, `ldx`, etc. read 1 or 2 bytes of immediate data
 - GBA: ARM mode uses 32-bit instructions, THUMB uses 16-bit instructions
+- Genesis: planned conventions use CpuMode `4` (M68000) and `5` (Z80) with platform-specific flag semantics documented in `CPU-STATE.md`
 - Entries should be sorted by address for efficient lookup
 
 ## Compression
