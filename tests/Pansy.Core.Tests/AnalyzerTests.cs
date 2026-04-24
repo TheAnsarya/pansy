@@ -705,6 +705,35 @@ public class AnalyzerTests {
 		Assert.Equal(expected, PansyAnalyzer.GetCpuModeName(mode));
 	}
 
+	[Fact]
+	public void AnalyzeCpuStateTransitions_GenesisMixedMode_ComputesDeterministicCounts() {
+		var entries = new[] {
+			new CpuStateEntry(0x000200, 0x01, 0x00, 0x0000, CpuMode.M68000),
+			new CpuStateEntry(0x000220, 0x01, 0x00, 0x0000, CpuMode.M68000),
+			new CpuStateEntry(0x00a000, 0x03, 0x00, 0x0000, CpuMode.Z80),
+			new CpuStateEntry(0x00a020, 0x03, 0x00, 0x0000, CpuMode.Z80),
+			new CpuStateEntry(0x010000, 0x05, 0x00, 0x0000, CpuMode.M68000),
+		};
+
+		var metrics = PansyAnalyzer.AnalyzeCpuStateTransitions(entries);
+
+		Assert.Equal(5, metrics.TotalEntries);
+		Assert.Equal(2, metrics.TransitionCount);
+		Assert.Equal(0.5, metrics.TransitionRate, 6);
+		Assert.Equal(1, metrics.TransitionPairs[(CpuMode.M68000, CpuMode.Z80)]);
+		Assert.Equal(1, metrics.TransitionPairs[(CpuMode.Z80, CpuMode.M68000)]);
+	}
+
+	[Fact]
+	public void AnalyzeCpuStateTransitions_EmptyInput_ReturnsZeroMetrics() {
+		var metrics = PansyAnalyzer.AnalyzeCpuStateTransitions([]);
+
+		Assert.Equal(0, metrics.TotalEntries);
+		Assert.Equal(0, metrics.TransitionCount);
+		Assert.Equal(0.0, metrics.TransitionRate, 6);
+		Assert.Empty(metrics.TransitionPairs);
+	}
+
 	// ========================================================================
 	// Phase 3: Platform-Specific Address Helpers (#41)
 	// ========================================================================

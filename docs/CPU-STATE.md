@@ -162,6 +162,15 @@ Key comparison scenarios:
 
 When reporting results, include both timing and allocation deltas so mixed M68000/Z80 mode-switch density can be compared against SNES and GBA baselines.
 
+Transition analytics now available for CPU-state streams:
+
+- Total entries analyzed
+- Mode transition count
+- Transition rate: $\text{transitions} / \max(\text{entries}-1, 1)$
+- Transition-pair frequency map (for example `M68000 -> Z80`)
+
+These metrics are produced by `PansyAnalyzer.AnalyzeCpuStateTransitions(...)` and surfaced in CLI `stats`/`analyze` output.
+
 ## Related Documentation
 
 - [File Format Specification](FILE-FORMAT.md)

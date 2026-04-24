@@ -435,6 +435,8 @@ static int RunStats(string[] args) {
 	}
 
 	if (pansy.CpuStateEntries.Count > 0) {
+		var transitions = PansyAnalyzer.AnalyzeCpuStateTransitions(pansy.CpuStateEntries);
+
 		var modeCounts = pansy.CpuStateEntries
 			.GroupBy(e => e.Mode)
 			.OrderByDescending(g => g.Count())
@@ -452,6 +454,18 @@ static int RunStats(string[] args) {
 		}
 
 		AnsiConsole.Write(modeTable);
+		AnsiConsole.WriteLine();
+
+		var transitionTable = new Table()
+			.Border(TableBorder.Rounded)
+			.Title("[bold cyan]CPU State Transitions[/]")
+			.AddColumn("Metric")
+			.AddColumn(new TableColumn("Value").RightAligned());
+
+		transitionTable.AddRow("Entries", $"{transitions.TotalEntries:N0}");
+		transitionTable.AddRow("Transitions", $"{transitions.TransitionCount:N0}");
+		transitionTable.AddRow("Transition rate", $"{transitions.TransitionRate:P2}");
+		AnsiConsole.Write(transitionTable);
 		AnsiConsole.WriteLine();
 
 		var cpuStateTable = new Table()
@@ -1444,6 +1458,8 @@ static int RunAnalyze(string[] args) {
 	}
 
 	if (loader.CpuStateEntries.Count > 0) {
+		var transitions = PansyAnalyzer.AnalyzeCpuStateTransitions(loader.CpuStateEntries);
+
 		var cpuStateModeTable = new Table()
 			.Border(TableBorder.Rounded)
 			.Title("[bold cyan]CPU State Modes[/]")
@@ -1455,6 +1471,18 @@ static int RunAnalyze(string[] args) {
 		}
 
 		AnsiConsole.Write(cpuStateModeTable);
+		AnsiConsole.WriteLine();
+
+		var cpuStateTransitionTable = new Table()
+			.Border(TableBorder.Rounded)
+			.Title("[bold cyan]CPU State Transitions[/]")
+			.AddColumn("Metric")
+			.AddColumn(new TableColumn("Value").RightAligned());
+
+		cpuStateTransitionTable.AddRow("Entries", $"{transitions.TotalEntries:N0}");
+		cpuStateTransitionTable.AddRow("Transitions", $"{transitions.TransitionCount:N0}");
+		cpuStateTransitionTable.AddRow("Transition rate", $"{transitions.TransitionRate:P2}");
+		AnsiConsole.Write(cpuStateTransitionTable);
 		AnsiConsole.WriteLine();
 
 		var cpuStateTable = new Table()

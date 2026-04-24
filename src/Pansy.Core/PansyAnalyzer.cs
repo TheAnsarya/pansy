@@ -156,6 +156,15 @@ public enum PatternKind : byte {
 }
 
 /// <summary>
+/// Transition metrics for an ordered CPU-state stream.
+/// </summary>
+public readonly record struct CpuStateTransitionMetrics(
+	int TotalEntries,
+	int TransitionCount,
+	double TransitionRate,
+	IReadOnlyDictionary<(CpuMode From, CpuMode To), int> TransitionPairs);
+
+/// <summary>
 /// A region bounded by two consecutive symbols.
 /// </summary>
 public readonly record struct SymbolBoundary(
@@ -749,6 +758,36 @@ public static class PansyAnalyzer {
 				$"mode=Z80, iff1={(((entry.Flags >> 0) & 0x01) != 0 ? 1 : 0)}, iff2={(((entry.Flags >> 1) & 0x01) != 0 ? 1 : 0)}, im={(entry.Flags >> 2) & 0x03}",
 			_ => $"mode=Unknown ({(byte)entry.Mode}), flags=0x{entry.Flags:x2}, db=${entry.DataBank:x2}, dp=${entry.DirectPage:x4}",
 		};
+	}
+
+	/// <summary>
+	/// Computes mode-transition metrics for CPU-state entries ordered by address.
+	/// </summary>
+	public static CpuStateTransitionMetrics AnalyzeCpuStateTransitions(IReadOnlyList<CpuStateEntry> entries) {
+		if (entries is null || entries.Count == 0) {
+			return new CpuStateTransitionMetrics(0, 0, 0.0, new Dictionary<(CpuMode From, CpuMode To), int>());
+		}
+
+		var ordered = entries.OrderBy(e => e.Address).ToArray();
+		var transitionCount = 0;
+		var pairs = new Dictionary<(CpuMode From, CpuMode To), int>();
+
+		for (var i = 1; i < ordered.Length; i++) {
+			var from = ordered[i - 1].Mode;
+			var to = ordered[i].Mode;
+			if (from == to) {
+				continue;
+			}
+
+			transitionCount++;
+			var key = (from, to);
+			pairs.TryGetValue(key, out var current);
+			pairs[key] = current + 1;
+		}
+
+		var denominator = Math.Max(ordered.Length - 1, 1);
+		var transitionRate = (double)transitionCount / denominator;
+		return new CpuStateTransitionMetrics(ordered.Length, transitionCount, transitionRate, pairs);
 	}
 
 	/// <summary>
