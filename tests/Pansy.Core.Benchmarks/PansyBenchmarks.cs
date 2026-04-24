@@ -948,7 +948,8 @@ public class BookmarkDataTypeBenchmarks {
 }
 
 /// <summary>
-/// Benchmarks for CPU state section (0x0009) performance — canonical M/X tracking for SNES and ARM/THUMB for GBA.
+/// Benchmarks for CPU state section (0x0009) performance — canonical M/X tracking for SNES,
+/// ARM/THUMB for GBA, and mixed M68000/Z80 mode transitions for Genesis.
 /// </summary>
 [MemoryDiagnoser]
 [SimpleJob(warmupCount: 3, iterationCount: 5)]
@@ -988,6 +989,21 @@ public class CpuStateBenchmarks {
 		return writer.Generate();
 	}
 
+	[Benchmark(Description = "Write CPU state Genesis mixed-mode")]
+	public byte[] WriteCpuStateGenesisMixed() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_GENESIS,
+			RomSize = 0x400000
+		};
+
+		for (uint i = 0; i < (uint)Count; i++) {
+			var mode = ((i / 16) % 2 == 0) ? CpuMode.M68000 : CpuMode.Z80;
+			writer.AddCpuState(new CpuStateEntry(0x200 + i * 2, BuildGenesisFlags(i, mode), 0x00, 0x0000, mode));
+		}
+
+		return writer.Generate();
+	}
+
 	[Benchmark(Description = "Write CPU state with other data")]
 	public byte[] WriteMixedCpuState() {
 		var writer = new PansyWriter {
@@ -1024,6 +1040,12 @@ public class CpuStateBenchmarks {
 		return new PansyLoader(data);
 	}
 
+	[Benchmark(Description = "Load CPU state Genesis mixed-mode")]
+	public PansyLoader LoadCpuStateGenesisMixed() {
+		var data = WriteCpuStateGenesisMixed();
+		return new PansyLoader(data);
+	}
+
 	[Benchmark(Description = "Query CPU state x1000")]
 	public int QueryCpuState() {
 		var writer = new PansyWriter {
@@ -1043,6 +1065,33 @@ public class CpuStateBenchmarks {
 			_ = loader.CpuStateEntries.FirstOrDefault(cs => cs.Address == addr);
 			count++;
 		}
+		return count;
+	}
+
+	[Benchmark(Description = "Query CPU state Genesis mixed x1000")]
+	public int QueryCpuStateGenesisMixed() {
+		var writer = new PansyWriter {
+			Platform = PansyLoader.PLATFORM_GENESIS,
+			RomSize = 0x400000
+		};
+
+		for (uint i = 0; i < 1000; i++) {
+			var mode = ((i / 8) % 2 == 0) ? CpuMode.M68000 : CpuMode.Z80;
+			writer.AddCpuState(new CpuStateEntry(0x200 + i * 2, BuildGenesisFlags(i, mode), 0x00, 0x0000, mode));
+		}
+
+		var loader = new PansyLoader(writer.Generate());
+
+		int count = 0;
+		for (int i = 0; i < 1000; i++) {
+			var address = 0x200u + (uint)((i % 1000) * 2);
+			var entry = loader.CpuStateEntries.FirstOrDefault(cs => cs.Address == address);
+			if (entry.Address == address) {
+				_ = PansyAnalyzer.DescribeCpuState(entry, PansyLoader.PLATFORM_GENESIS);
+			}
+			count++;
+		}
+
 		return count;
 	}
 
@@ -1072,5 +1121,19 @@ public class CpuStateBenchmarks {
 			writer.AddSymbol(0x8000 + i, $"S_{i:x4}");
 		}
 		return writer.Generate();
+	}
+
+	private static byte BuildGenesisFlags(uint index, CpuMode mode) {
+		if (mode == CpuMode.M68000) {
+			var supervisor = (index & 0x01) == 0 ? 0x01 : 0x00;
+			var trace = (index & 0x20) != 0 ? 0x02 : 0x00;
+			var ipl = (byte)((index / 16) % 8);
+			return (byte)(supervisor | trace | (ipl << 2));
+		}
+
+		var iff1 = (index & 0x01) == 0 ? 0x01 : 0x00;
+		var iff2 = (index & 0x02) == 0 ? 0x02 : 0x00;
+		var im = (byte)((index / 32) % 3);
+		return (byte)(iff1 | iff2 | ((im & 0x01) << 2) | (((im >> 1) & 0x01) << 3));
 	}
 }

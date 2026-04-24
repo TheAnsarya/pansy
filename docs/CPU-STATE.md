@@ -142,6 +142,26 @@ These values are documentation-level conventions only in this phase. They are in
 
 Current analyzer/CLI interpretation behavior for Genesis uses the proposed layouts above when `CpuMode` is `M68000` or `Z80`.
 
+## Benchmark Guidance
+
+CPU_STATE benchmark coverage includes SNES, GBA, and Genesis mixed-mode scenarios in `CpuStateBenchmarks`.
+
+Run focused CPU_STATE benchmarks:
+
+```powershell
+dotnet run --project tests/Pansy.Core.Benchmarks -c Release -- --filter "*CpuStateBenchmarks*" --warmupCount 3 --iterationCount 5
+```
+
+Key comparison scenarios:
+
+- `Write CPU state SNES`
+- `Write CPU state GBA`
+- `Write CPU state Genesis mixed-mode`
+- `Load CPU state Genesis mixed-mode`
+- `Query CPU state Genesis mixed x1000`
+
+When reporting results, include both timing and allocation deltas so mixed M68000/Z80 mode-switch density can be compared against SNES and GBA baselines.
+
 ## Related Documentation
 
 - [File Format Specification](FILE-FORMAT.md)
