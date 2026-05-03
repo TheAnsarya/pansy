@@ -398,6 +398,10 @@ When facing a large task:
 11. **Always** tie commits to issues with `#<number>` references
 12. **Always** document plans before implementing
 
+## Session Wrap-Up Directive
+
+- Always end every Copilot session response with concise, actionable suggestions for what to work on next.
+
 ## Pansy File Format
 
 ### Header
